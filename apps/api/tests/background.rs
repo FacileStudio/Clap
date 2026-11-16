@@ -39,3 +39,17 @@ async fn the_boot_pass_clears_only_uploads_and_staged_bundles_a_day_old() {
     assert!(!uploads.join("old").exists() && !staging.join("old").exists());
     assert!(uploads.join("young").is_file(), "an upload another process is receiving is left alone");
 }
+
+#[tokio::test]
+async fn a_cancelled_runner_gives_the_lock_back_and_returns() {
+    let Some(pool) = common::pool("clap_background_stop").await else { return };
+    let app = common::app(pool.clone()).await;
+    let token = CancellationToken::new();
+    let runner = tokio::spawn(api::background::run(app.state.clone(), token.clone()));
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    token.cancel();
+    tokio::time::timeout(Duration::from_secs(10), runner).await.expect("the runner returned").unwrap();
+    let fresh = CancellationToken::new();
+    let next = tokio::time::timeout(Duration::from_secs(10), api::background::hold(&pool, &fresh)).await;
+    assert!(next.expect("the lock was given back").is_some());
+}
