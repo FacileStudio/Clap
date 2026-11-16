@@ -114,7 +114,8 @@ Kinds: `empty`, `unclosed_frontmatter`, `bad_frontmatter_line`, `unknown_key`, `
 ## Timeline edits
 
 The timeline is the model the crate `clap-timeline` reads from the source: scenes, and in each
-the clips, with their id, kind, start, duration, track and lines (`docs/timeline.md`).
+the clips, with their id, kind, start, duration, track, lines and stage attributes, and each
+scene's transition (`docs/timeline.md`).
 
 `GET /projects/{id}/timeline` answers `{rev, timeline}` for the source as it is saved.
 
@@ -123,7 +124,10 @@ the clips, with their id, kind, start, duration, track and lines (`docs/timeline
 `split_clip {clip, at}`, `delete_clip {clip}`,
 `add_clip {scene, kind, src?, start, duration, track, text?}`,
 `set_scene_duration {scene, duration}`, `reorder_scene {scene, to}`, `delete_scene {scene}`,
-`add_scene {at, duration, body}`. The ops apply in order to the source read at `rev`; the result
+`add_scene {at, duration, body}`,
+`update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?,
+exit_duration?}` (a `null` removes the attribute), `set_scene_transition {scene, transition,
+duration?}` (a `null` transition removes it). The ops apply in order to the source read at `rev`; the result
 is saved under the rev rule, as one revision, and the route answers
 `{source, rev, timeline, clips}`: the new source, its `rev`, its timeline, and the ids, as they
 are now, of the clips the ops named or added.

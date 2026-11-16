@@ -53,13 +53,27 @@ describe('invertOps', () => {
 		[{ op: 'set_scene_duration', scene: 1, duration: 9 }],
 		[{ op: 'reorder_scene', scene: 0, to: 1 }],
 		[{ op: 'add_scene', at: 1, duration: 2, body: '' }],
-		[{ op: 'move_clip', clip: 'a', start: 3 }, { op: 'move_clip', clip: 'a', start: 0 }, { op: 'reorder_scene', scene: 1, to: 0 }]
+		[{ op: 'move_clip', clip: 'a', start: 3 }, { op: 'move_clip', clip: 'a', start: 0 }, { op: 'reorder_scene', scene: 1, to: 0 }],
+		[{ op: 'update_clip', clip: 'a', x: 100, y: 50, w: 200, h: 100, rot: 15, fit: 'contain', opacity: 0.5 }],
+		[{ op: 'set_scene_transition', scene: 1, transition: 'dip', duration: 1 }]
 	];
 
 	it.each(exact)('undoes %j back to the same timeline', (...ops) => {
 		const inverse = invertOps(BASE, ops);
 		expect(inverse).not.toBeNull();
 		expect(shape(applyOps(applyOps(BASE, ops), inverse ?? []))).toEqual(shape(BASE));
+	});
+
+	it('undoes a stage edit with the values the clip had, null where it had none', () => {
+		const framed = applyOps(BASE, [{ op: 'update_clip', clip: 'a', x: 0, y: 0, w: 1280, h: 720, rot: 0, enter: 'fade' }]);
+		const edit: Op = { op: 'update_clip', clip: 'a', x: 40, opacity: 0.25, enter: null };
+		expect(invertOps(framed, [edit])).toEqual([{ op: 'update_clip', clip: 'a', x: 0, opacity: null, enter: 'fade' }]);
+		const moved = applyOps(framed, [edit]).scenes[0].clips[0];
+		expect([moved.frame?.x, moved.frame?.w, moved.opacity, moved.enter]).toEqual([40, 1280, 0.25, null]);
+		const cut = applyOps(BASE, [{ op: 'set_scene_transition', scene: 0, transition: 'fade', duration: 0.8 }]);
+		expect(invertOps(cut, [{ op: 'set_scene_transition', scene: 0, transition: null }])).toEqual([
+			{ op: 'set_scene_transition', scene: 0, transition: 'fade', duration: 0.8 }
+		]);
 	});
 
 	it('answers null for an edit that destroys text', () => {

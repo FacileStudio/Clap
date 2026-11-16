@@ -496,6 +496,7 @@ name = "clap-render"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
+ "clap-timeline",
  "command-fds",
  "facile-scene",
  "serde_json",
@@ -898,7 +899,7 @@ dependencies = [
 [[package]]
 name = "facile-scene"
 version = "0.1.0"
-source = "git+https://github.com/FacileStudio/Diapo?tag=v0.1.0#6494bba862c90c0119e68a5144d16a6c7f02f819"
+source = "git+https://github.com/FacileStudio/Diapo?tag=v0.2.0#709ad8c4ce61a3118dbfa6908e80788e4e51d9cb"
 dependencies = [
  "pulldown-cmark",
  "thiserror",

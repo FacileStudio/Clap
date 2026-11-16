@@ -1,5 +1,6 @@
 import type { Op, Timeline } from '$lib/types';
 import { applyOps } from './apply';
+import { undoTransition, undoUpdate } from './look';
 import { clipIds, findClip } from './model';
 
 /** Stands for the id of a clip an `add_clip` creates, until the server names it. */
@@ -24,6 +25,14 @@ const INVERTERS: Inverters = {
 	},
 	reorder_scene: (_, op) => [{ op: 'reorder_scene', scene: op.to, to: op.scene }],
 	add_scene: (_, op) => [{ op: 'delete_scene', scene: op.at }],
+	update_clip: (before, op) => {
+		const clip = findClip(before, op.clip)?.clip;
+		return clip ? [undoUpdate(clip, op)] : null;
+	},
+	set_scene_transition: (before, op) => {
+		const scene = before.scenes[op.scene];
+		return scene ? [undoTransition(scene, op.scene)] : null;
+	},
 	split_clip: () => null,
 	delete_clip: () => null,
 	delete_scene: () => null

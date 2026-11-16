@@ -15,10 +15,12 @@ use crate::media::Media;
 use crate::proc::run;
 use crate::tools::Tools;
 
-/// One extracted clip: the output frames it covers and the stills that fill them.
+/// One extracted clip: the output frames it covers and the stills that fill them. From the end
+/// of `frames` to `until` it holds its last still.
 struct Reel {
     index: usize,
     frames: Range<u64>,
+    until: u64,
     stills: Vec<String>,
 }
 
@@ -80,7 +82,7 @@ impl Cut<'_> {
         let name = media.path.file_name().unwrap_or_default().to_string_lossy().into_owned();
         let stills = stills(&dir)?;
         match done.ok && !stills.is_empty() {
-            true => Ok(Reel { index: media.index, frames, stills }),
+            true => Ok(Reel { index: media.index, until: frames.end, frames, stills }),
             false => Err(Error::Encode(format!("no frame could be read from {name}: {}", done.said))),
         }
     }
@@ -89,26 +91,33 @@ impl Cut<'_> {
 impl Stock {
     /// Extracts, for each video of `media`, the frames that the output frames `span` show, at the
     /// job's rate, into a directory under the bundle that the guard already allows.
-    pub(crate) fn extract(
+    pub(crate) fn extract<'m>(
         tools: &Tools,
         job: &Job,
-        plan: (&[Media], Range<u64>),
+        plan: (&'m [Media], Range<u64>),
         tick: &mut dyn FnMut() -> Result<(), Error>,
     ) -> Result<Stock, Error> {
         let (media, span) = plan;
         let fps = f64::from(job.fps);
         let frame = |seconds: f64| (seconds * fps - 1e-6).ceil().max(0.0) as u64;
-        let covered = |clip: &Media| frame(clip.at).max(span.start)..frame(clip.at + clip.duration).min(span.end);
-        let videos: Vec<(&Media, Range<u64>)> =
-            media.iter().filter(|clip| clip.video).map(|clip| (clip, covered(clip))).collect();
-        let videos: Vec<_> = videos.into_iter().filter(|(_, frames)| frames.end > frames.start).collect();
+        let covered = |clip: &'m Media| -> (&'m Media, Range<u64>, u64) {
+            let (first, end) = (frame(clip.at), frame(clip.at + clip.duration));
+            let start = first.max(span.start.min(end.saturating_sub(1)));
+            (clip, start..end.min(span.end), frame(clip.at + clip.duration + clip.hold).min(span.end))
+        };
+        let shown = |(_, frames, held): &(&Media, Range<u64>, u64)| frames.end > frames.start && *held > span.start;
+        let videos: Vec<_> = media.iter().filter(|clip| clip.video).map(covered).filter(shown).collect();
         if videos.is_empty() {
             return Ok(Stock { reels: Vec::new(), _dir: None });
         }
         let dir = tempfile::Builder::new().prefix(".clap-frames-").tempdir_in(job.dir.canonicalize()?)?;
         let cut = Cut { tools, job, root: dir.path() };
-        let reels: Result<Vec<Reel>, Error> =
-            videos.into_iter().map(|(clip, frames)| cut.reel(clip, frames, tick)).collect();
+        let reels: Result<Vec<Reel>, Error> = videos
+            .into_iter()
+            .map(|(clip, frames, held)| {
+                cut.reel(clip, frames, tick).map(|reel| Reel { until: held.max(reel.until), ..reel })
+            })
+            .collect();
         Ok(Stock { reels: reels?, _dir: Some(dir) })
     }
 
@@ -120,7 +129,7 @@ impl Stock {
     /// What the page must show at output frame `index`: each active video and its still. A file
     /// shorter than its clip holds its last frame.
     pub(crate) fn at(&self, index: u64) -> Vec<(usize, &str)> {
-        let active = self.reels.iter().filter(|reel| reel.frames.contains(&index));
+        let active = self.reels.iter().filter(|reel| (reel.frames.start..reel.until).contains(&index));
         active
             .map(|reel| {
                 (reel.index, reel.stills[((index - reel.frames.start) as usize).min(reel.stills.len() - 1)].as_str())

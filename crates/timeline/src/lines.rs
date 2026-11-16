@@ -2,7 +2,7 @@
 //! own private: a file is cut here exactly where the parser cuts it.
 
 /// The keys that belong to a scene; every other frontmatter key belongs to the project.
-const SCENE_KEYS: [&str; 4] = ["layout", "steps", "duration", "class"];
+const SCENE_KEYS: [&str; 6] = ["layout", "steps", "duration", "class", "transition", "transition_duration"];
 
 /// `line` without its line ending.
 pub(crate) fn text(line: &str) -> &str {
@@ -55,4 +55,11 @@ pub(crate) fn value(line: &str) -> std::ops::Range<usize> {
     let quoted = rest.starts_with('"') || rest.starts_with('\'');
     let end = if quoted { rest.len() } else { rest.find(" #").unwrap_or(rest.len()) };
     start..start + rest[..end].trim_end().len()
+}
+
+/// The value of a `key: value` line, unquoted, as `facile-scene` reads it.
+pub(crate) fn unquoted(line: &str) -> &str {
+    let raw = &text(line)[value(line)];
+    let quoted = |q: char| raw.len() >= 2 && raw.starts_with(q) && raw.ends_with(q);
+    if quoted('"') || quoted('\'') { &raw[1..raw.len() - 1] } else { raw }
 }

@@ -52,6 +52,51 @@ Five classes place a clip. Each is one class selector: any rule you write wins o
 `clap-title`, an `html` clip `clap-layer`. An `audio` clip draws nothing. To make a text clip a
 lower third or a caption, change its class.
 
+## Place a clip on the stage
+
+Five attributes give a clip its box, in pixels of the frame (`size`), from the top left corner:
+`data-x`, `data-y`, `data-w`, `data-h`, and `data-rot`, degrees clockwise around the box's
+centre. Write all five together. A clip that carries none keeps the box its classes give it.
+
+- `data-fit` says how a video or a picture fills its box: `cover` (crop, the default), `contain`
+  (letterbox) or `fill` (stretch).
+- `data-opacity` is from `0` to `1`.
+- The box wins over the clip's class and over your CSS for position and size, so move a clip
+  with its attributes, not with a stylesheet. Animate what is inside it with `scene.timeline`.
+
+`add_clip` writes the full frame on a video or a picture: `data-x="0" data-y="0"`, the stage
+width and height, `data-rot="0"` and `data-fit="cover"`. `update_clip` moves and resizes it.
+
+```html
+<img id="logo" src="assets/logo.png" alt="" data-start="1" data-duration="3" data-track-index="2"
+     data-x="1560" data-y="60" data-w="300" data-h="120" data-rot="0" data-fit="contain">
+```
+
+## Transitions
+
+A clip comes in with `data-enter` and goes out with `data-exit`: `fade`, `slide-left`,
+`slide-right`, `slide-up`, `slide-down`, `zoom-in`, `zoom-out`, `wipe-left`, `wipe-right`,
+`blur` or `pop`. Each lasts `data-enter-duration` or `data-exit-duration` seconds, 0.5 without
+it, and at most half the clip. A sound or a video with `fade` also fades its sound.
+
+A scene comes in with the frontmatter key `transition`: `fade` (a crossfade with the scene
+before), `dip` (through black: the scene before fades out, then this one fades in), `slide-left`
+and `slide-right` (this scene pushes the one before out), `wipe-left`, `wipe-right` or `zoom`.
+`transition_duration` sets its length in seconds, 0.6 without it. The scene before holds its
+last frame while the next one comes in, so no time is added.
+
+```md
+---
+layout: raw
+duration: 5
+transition: fade
+transition_duration: 0.8
+---
+```
+
+Every transition is a function of the time alone, eased in and out, so the preview and the
+render show the same frame at the same time. Do not add CSS transitions for these.
+
 ## Clips
 
 A clip is any element with `data-start`. It exists from `data-start` for `data-duration`
@@ -113,7 +158,10 @@ captures, so the frame at time `t` must depend on `t` alone.
    `split_clip {clip, at}`, `delete_clip {clip}`,
    `add_clip {scene, kind, src?, start, duration, track, text?}` with `kind` one of `video`,
    `audio`, `image`, `text`, `html`, `set_scene_duration {scene, duration}`,
-   `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`.
+   `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`,
+   `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?,
+   enter_duration?, exit_duration?}`, where a `null` removes the attribute, and
+   `set_scene_transition {scene, transition, duration?}`, where a `null` transition is a cut.
    It changes only the attribute values and the lines an operation concerns, and answers the
    new `rev` and the ids of the clips it changed. `split_clip` names the second half `<id>-b`.
 4. `clap_render` queues an MP4 of the saved project and `clap_render_status` follows it. A

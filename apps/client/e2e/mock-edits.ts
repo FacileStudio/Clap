@@ -4,8 +4,11 @@ import { restage } from './mock-scenes';
 
 type Of<K extends Op['op']> = Extract<Op, { op: K }>;
 
-function setAttr(tag: string, name: string, value: number | undefined): string {
+type Value = number | string | null | undefined;
+
+function setAttr(tag: string, name: string, value: Value): string {
 	if (value === undefined) return tag;
+	if (value === null) return tag.replace(new RegExp(`\\s${name}\\s*=\\s*"[^"]*"`), '');
 	const pattern = new RegExp(`(\\s${name}\\s*=\\s*")[^"]*(")`);
 	if (pattern.test(tag)) return tag.replace(pattern, `$1${value}$2`);
 	return tag.replace(/(\s*\/?>)$/, ` ${name}="${value}"$1`);
@@ -17,7 +20,7 @@ function clipOf(source: string, id: string): ClipSpan {
 	return found;
 }
 
-function retag(source: string, clip: ClipSpan, attrs: Record<string, number | undefined>): string {
+function retag(source: string, clip: ClipSpan, attrs: Record<string, Value>): string {
 	let tag = source.slice(clip.open[0], clip.open[1]);
 	for (const [name, value] of Object.entries(attrs)) tag = setAttr(tag, name, value);
 	return source.slice(0, clip.open[0]) + tag + source.slice(clip.open[1]);
@@ -56,6 +59,16 @@ const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
 		const clip = clipOf(source, op.clip);
 		return source.slice(0, clip.open[0]) + source.slice(clip.end).replace(/^\n/, '');
 	},
+	update_clip: (source, { op: _, clip, ...update }) =>
+		retag(source, clipOf(source, clip), Object.fromEntries(Object.entries(update).map(([key, value]) => [`data-${key.replace('_', '-')}`, value]))),
+	set_scene_transition: (source, op) =>
+		restage(source, (scenes) => {
+			const meta = scenes[op.scene].meta;
+			if (op.transition === null) delete meta.transition;
+			else meta.transition = op.transition;
+			if (op.transition === null || op.duration === null) delete meta.transition_duration;
+			else if (op.duration !== undefined) meta.transition_duration = String(op.duration);
+		}),
 	add_clip: (source, op) => restage(source, (scenes) => void scenes[op.scene].body.push(element(op), '')),
 	set_scene_duration: (source, op) => restage(source, (scenes) => void (scenes[op.scene].meta.duration = String(op.duration))),
 	reorder_scene: (source, op) => restage(source, (scenes) => void scenes.splice(op.to, 0, ...scenes.splice(op.scene, 1))),

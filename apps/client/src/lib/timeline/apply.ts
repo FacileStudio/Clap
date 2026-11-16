@@ -1,4 +1,5 @@
 import type { Clip, Op, Scene, Timeline } from '$lib/types';
+import { setTransition, updateClip } from './look';
 import { findClip, round } from './model';
 
 type Handlers = { [K in Op['op']]: (timeline: Timeline, op: Extract<Op, { op: K }>) => void };
@@ -45,7 +46,9 @@ const HANDLERS: Handlers = {
 	add_scene: (timeline, op) => {
 		const scene: Scene = { index: op.at, duration: op.duration, layout: 'raw', clips: [] };
 		timeline.scenes.splice(op.at, 0, scene);
-	}
+	},
+	update_clip: updateClip,
+	set_scene_transition: setTransition
 };
 
 /** `timeline` after `ops`, as the editor shows it before the server answers. The argument is left untouched. */

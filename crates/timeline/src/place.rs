@@ -36,8 +36,10 @@ fn name(sketch: &Sketch, kind: Kind) -> String {
     (1..).map(|n| format!("{word}-{n}")).find(|id| sketch.find(id).is_err()).unwrap_or_default()
 }
 
-fn markup(id: &str, op: &Op) -> Result<String, Error> {
+fn markup(id: &str, op: &Op, (width, height): (u32, u32)) -> Result<String, Error> {
     let Op::AddClip { kind, src, start, duration, track, text, .. } = op else { return Ok(String::new()) };
+    let frame =
+        format!("data-x=\"0\" data-y=\"0\" data-w=\"{width}\" data-h=\"{height}\" data-rot=\"0\" data-fit=\"cover\"");
     let timing = format!(
         "data-start=\"{}\" data-duration=\"{}\" data-track-index=\"{track}\"",
         seconds(*start),
@@ -50,9 +52,13 @@ fn markup(id: &str, op: &Op) -> Result<String, Error> {
     let text = text.as_deref().unwrap_or_default();
     let escaped = text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
     Ok(match kind {
-        Kind::Video => format!("<video class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" {timing}></video>", file()?),
+        Kind::Video => {
+            format!("<video class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" {timing} {frame}></video>", file()?)
+        }
         Kind::Audio => format!("<audio data-clip=\"{id}\" src=\"{}\" {timing}></audio>", file()?),
-        Kind::Image => format!("<img class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" alt=\"\" {timing}>", file()?),
+        Kind::Image => {
+            format!("<img class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" alt=\"\" {timing} {frame}>", file()?)
+        }
         Kind::Text => format!("<p class=\"clap-title\" data-clip=\"{id}\" {timing}>{escaped}</p>"),
         Kind::Html => format!("<div class=\"clap-layer\" data-clip=\"{id}\" {timing}>{text}</div>"),
     })
@@ -79,7 +85,8 @@ pub(crate) fn add(source: &str, sketch: &Sketch, op: &Op) -> Result<Vec<Patch>, 
     let stage = sketch.stage(*scene)?;
     let id = name(sketch, *kind);
     check(stage, &id, &Place { start: *start, duration: *duration, track: Some(*track) })?;
-    let element = markup(&id, op)?;
+    let size = sketch.project.config().size;
+    let element = markup(&id, op, (size.width, size.height))?;
     let eol = sketch.doc.eol;
     let after = stage.items.last().map(|item| (item.element.end, indent(source, item.element.tag.span.start)));
     let patch = match after.or_else(|| content_end(sketch, stage).map(|at| (at, ""))) {

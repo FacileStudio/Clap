@@ -8,7 +8,7 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
-facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.1.0" }
+facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.2.0" }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
 

@@ -15,11 +15,13 @@ invalid. The old source stays in the project's revisions.";
 const EDIT: &str = "Replaces one exact string in a project's source. Call it for a small change. old_string \
 must be in the source exactly once: zero or several matches are refused, so add surrounding text until it \
 names one place. It needs the rev clap_get_project answered.";
-const TIMELINE: &str = "Moves, trims, splits, deletes and adds clips, and sets, reorders, deletes and adds \
-scenes, by clip id and scene index (from 0). ops is a list applied in order, each tagged by op: move_clip {clip, \
+const TIMELINE: &str = "Moves, trims, splits, deletes, adds and places clips, and sets, reorders, deletes, adds \
+and transitions scenes, by clip id and scene index (from 0). ops is a list applied in order, each tagged by op: move_clip {clip, \
 start, track?}, trim_clip {clip, start?, duration?, media_in?}, split_clip {clip, at}, delete_clip {clip}, \
 add_clip {scene, kind, src?, start, duration, track, text?}, set_scene_duration {scene, duration}, \
-reorder_scene {scene, to}, delete_scene {scene}, add_scene {at, duration, body}. Times are seconds. A clip id \
+reorder_scene {scene, to}, delete_scene {scene}, add_scene {at, duration, body}, update_clip {clip, x?, y?, w?, \
+h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?, exit_duration?} (box in frame pixels, null removes \
+an attribute), set_scene_transition {scene, transition, duration?} (null transition is a cut). Times are seconds. A clip id \
 is the element's data-clip, else its id, else clip-<scene>-<n>: such a derived id shifts when a clip before it \
 is added or deleted, so read the project again before the next call. It needs the rev clap_get_project \
 answered; nothing is saved unless every op applies. It answers the new rev and the ids of the clips it changed.";

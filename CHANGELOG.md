@@ -11,9 +11,25 @@ All notable changes to Clap. Versions follow SemVer.
   long; while it uploads, the ghost stays with the file's first frame and the upload progress.
   The browser reads the length and the first frame itself, so a clip is placed before the
   server's probe ends, and the media bin can place a file while it is still being analysed.
+- Clips have a box on the stage: `data-x`, `data-y`, `data-w`, `data-h` and `data-rot` in frame
+  pixels, with `data-fit` (cover, contain, fill) and `data-opacity`. The timeline model answers
+  them as `frame`, `fit`, `opacity`, `volume`, `enter`, `exit` and their durations.
+- Transitions computed from the seek time alone, so the preview and the render agree frame for
+  frame: eleven clip presets for `data-enter` and `data-exit` (fade, slides, zooms, wipes, blur,
+  pop; 0.5 s by default, eased), and seven scene transitions in the frontmatter key `transition`
+  with `transition_duration` (a real crossfade with the scene before, a dip through black, push
+  slides, wipes and zoom; 0.6 s by default). A fading clip fades its sound too, in the render's
+  mix and in the preview.
+- Timeline ops `update_clip` (a JSON `null` removes an attribute) and `set_scene_transition`,
+  undoable from the editor and available to the MCP `clap_timeline_edit` tool.
+- After every seek the preview posts `clap:boxes`, the stage boxes of the clips shown, and draws
+  a dragged clip where a `clap:ghost` message says.
 
 ### Changed
 
+- `add_clip` writes an explicit full-frame box and `data-fit="cover"` on a video or an image.
+- `facile-scene` is pinned to Diapo v0.2.0. Clap sources are parsed with
+  `clap_timeline::parse`, which accepts the two transition keys the scene format does not know.
 - A raw scene is a black stage on which clips stack by track, through a stylesheet the preview,
   the frame and every render share (`clap_timeline::STAGE_CSS`). `add_clip` gives a video or an
   image a full-frame `clap-fill`, a text a centered `clap-title` that reads on video, and an

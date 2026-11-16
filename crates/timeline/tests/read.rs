@@ -35,8 +35,14 @@ fn the_json_is_what_the_client_draws() {
     let value = serde_json::to_value(read(LAUNCH).unwrap()).unwrap();
     let clip = &value["scenes"][0]["clips"][0];
     let expected = json!({"id": "shot", "kind": "video", "src": "assets/shot.mp4", "start": 0.0, "duration": 4.0,
-        "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12}});
+        "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12}, "frame": null, "fit": null,
+        "opacity": null, "volume": null, "enter": null, "exit": null, "enter_duration": null, "exit_duration": null});
     assert_eq!(clip, &expected);
+    assert_eq!(value["scenes"][1]["clips"][0]["volume"], json!(0.5));
+    assert_eq!(
+        (&value["scenes"][1]["transition"], &value["scenes"][1]["transition_duration"]),
+        (&json!(null), &json!(null))
+    );
     assert_eq!(value["scenes"][2]["lines"], json!({"first": 31, "last": 34}));
 }
 

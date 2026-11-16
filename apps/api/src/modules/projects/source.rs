@@ -12,7 +12,7 @@ pub fn checked(source: &str, max: usize) -> Result<scene::Project, ProjectError>
     if source.len() > max {
         return Err(Error::too_large(format!("the source is over the {max}-byte limit")).into());
     }
-    scene::parse(source).map_err(ProjectError::Invalid)
+    clap_timeline::parse(source).map_err(ProjectError::Invalid)
 }
 
 #[cfg(test)]
