@@ -14,6 +14,7 @@
 	import { reorderGesture, resizeGesture } from '$lib/timeline/scene-gesture';
 	import type { Clip, Scene } from '$lib/types';
 	import ClipBlock from './ClipBlock.svelte';
+	import TransitionChip from './TransitionChip.svelte';
 
 	let {
 		scene,
@@ -103,7 +104,7 @@
 >
 	<div class="absolute inset-y-0 right-px left-px overflow-hidden rounded-fc-md bg-fc-component">
 		<div
-			class="group/head flex touch-none items-center gap-2 bg-fc-surface px-2.5 text-fc-xs whitespace-nowrap text-fc-fg-muted select-none
+			class="group/head flex touch-none items-center gap-2 bg-fc-surface px-2.5 text-fc-xs {scene.index > 0 && !readonly ? 'pl-7' : ''} whitespace-nowrap text-fc-fg-muted select-none
 				focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-fc-ring
 				{locked ? '' : 'cursor-grab active:cursor-grabbing'}"
 			style="height: {HEAD}px"
@@ -154,6 +155,11 @@
 			{/each}
 		</div>
 	</div>
+	{#if !readonly && scene.index > 0}
+		<div class="absolute left-0 z-20 -translate-x-1/2" style="top: {(HEAD - 20) / 2}px">
+			<TransitionChip {scene} {locked} oncommit={(ops) => host.commit(ops)} />
+		</div>
+	{/if}
 	{#if !readonly}
 		<div
 			class="absolute inset-y-0 right-0 z-10 w-2 cursor-ew-resize touch-none rounded-fc-sm hover:bg-fc-fg/40

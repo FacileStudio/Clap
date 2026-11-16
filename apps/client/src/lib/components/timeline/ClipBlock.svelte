@@ -50,6 +50,9 @@
 			to: shortTime(clip.start + clip.duration)
 		})
 	);
+	const ramp = (preset: unknown, seconds: number | null | undefined) =>
+		preset ? Math.min(seconds ?? 0.5, clip.duration / 2) * zoom : 0;
+	const ramps = $derived({ enter: ramp(clip.enter, clip.enter_duration), exit: ramp(clip.exit, clip.exit_duration) });
 	const strip = $derived(poster ? `background-image: url('${poster.replace(/'/g, '%27')}')` : '');
 
 	function grab(event: PointerEvent, grip: Grip) {
@@ -84,6 +87,12 @@
 			<span class="absolute inset-0 bg-[length:auto_100%] bg-repeat-x opacity-60" style={strip} aria-hidden="true"></span>
 			<span class="absolute inset-0 bg-linear-to-r from-fc-bg/80 to-fc-bg/10" aria-hidden="true"></span>
 		{/if}
+		{#if ramps.enter > 0}
+			<span class="ramp absolute inset-y-0 left-0 bg-fc-fg/25" style="width: {ramps.enter}px" aria-hidden="true" data-testid="ramp-enter"></span>
+		{/if}
+		{#if ramps.exit > 0}
+			<span class="ramp out absolute inset-y-0 right-0 bg-fc-fg/25" style="width: {ramps.exit}px" aria-hidden="true" data-testid="ramp-exit"></span>
+		{/if}
 		<span class="relative flex min-w-0 items-center gap-1.5 px-2.5">
 			<Icon icon={KIND_ICON[clip.kind]} size={14} class="shrink-0" />
 			<span class="truncate font-medium">{label}</span>
@@ -105,6 +114,14 @@
 		left: calc(var(--x) + var(--dx, 0px));
 		width: calc(var(--w) + var(--dw, 0px));
 		height: 34px;
+	}
+
+	.ramp {
+		clip-path: polygon(0 0, 100% 0, 0 100%);
+	}
+
+	.ramp.out {
+		clip-path: polygon(0 0, 100% 0, 100% 100%);
 	}
 
 	.trim {

@@ -22,6 +22,15 @@ All notable changes to Clap. Versions follow SemVer.
   mix and in the preview.
 - Timeline ops `update_clip` (a JSON `null` removes an attribute) and `set_scene_transition`,
   undoable from the editor and available to the MCP `clap_timeline_edit` tool.
+- Clips are edited on the stage: click to select, drag to move, corner handles to resize (media
+  keeps its ratio, Shift frees it), a handle to rotate, arrows to nudge, with snapping guides on
+  the stage edges, centre, thirds and the other clips. Each gesture is one undoable edit.
+- Media dropped on the stage, from the bin or the desktop, lands at the playhead in a box centred
+  on the drop point, fitted whole.
+- A Clip tab sets a clip's box, rotation, fit, opacity, volume, start, length and its enter and
+  exit presets, with "Fill the stage" and "Centre" actions.
+- The timeline draws each clip's enter and exit ramps, and a chip at each scene boundary picks the
+  scene transition and its length.
 - After every seek the preview posts `clap:boxes`, the stage boxes of the clips shown, and draws
   a dragged clip where a `clap:ghost` message says.
 

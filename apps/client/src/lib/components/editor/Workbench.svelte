@@ -13,11 +13,14 @@
 	import { runCommand } from '$lib/timeline/commands';
 	import { claimed, commandOf } from '$lib/timeline/keys';
 	import { total } from '$lib/timeline/model';
+	import type { StageBoxes } from '$lib/project/stage';
+	import type { Point } from '$lib/stage/geometry';
 	import type { Project } from '$lib/types';
 	import BulleSidebar from '../BulleSidebar.svelte';
 	import ConflictBanner from '../ConflictBanner.svelte';
 	import ErrorList from '../ErrorList.svelte';
 	import Timeline from '../timeline/Timeline.svelte';
+	import ClipInspector from './ClipInspector.svelte';
 	import EditorHeader from './EditorHeader.svelte';
 	import MediaBin from './MediaBin.svelte';
 	import PreviewPane from './PreviewPane.svelte';
@@ -47,10 +50,12 @@
 	let shareOpen = $state(false);
 	let assistant = $state(DEFAULT_ASSISTANT.name);
 	let bulleOpen = $state(sidebarOpen(owner));
+	let boxes = $state<StageBoxes>({ t: 0, clips: [] });
 
 	const size = $derived(engine.spans);
 	const tabs = $derived([
 		{ id: 'media', label: t('editor.media') },
+		{ id: 'clip', label: t('editor.clip') },
 		{ id: 'source', label: t('editor.source') }
 	]);
 	const inserts = $derived(STARTERS.map((starter) => ({ label: t(starter.label), onselect: () => desk.insert(starter) })));
@@ -78,6 +83,8 @@
 		wide.addEventListener('change', onchange);
 		return () => wide.removeEventListener('change', onchange);
 	});
+
+	const onStage = (at: Point) => ({ time: transport.time, track: 0, at });
 
 	void askAssistant().then((found) => (assistant = found.name));
 
@@ -117,6 +124,9 @@
 				onremove={(asset) => void desk.removeAsset(asset).catch(failed)}
 			/>
 		</div>
+		<div class="min-h-0 flex-1 {tab === 'clip' ? '' : 'hidden'}">
+			<ClipInspector {engine} boxes={boxes.clips} readonly={compact} />
+		</div>
 		<div class="min-h-0 flex-1 flex-col {tab === 'source' ? 'flex' : 'hidden'}">
 			<div class="min-h-0 flex-1">
 				<SourceEditor
@@ -137,7 +147,19 @@
 
 {#snippet preview()}
 	<div class="size-full min-h-0 overflow-hidden rounded-fc-lg bg-fc-component">
-		<PreviewPane src={backend.frameUrl(desk.id, { stamp: saver.rev })} width={size.width} height={size.height} {transport} />
+		<PreviewPane
+			src={backend.frameUrl(desk.id, { stamp: saver.rev })}
+			width={size.width}
+			height={size.height}
+			{transport}
+			{engine}
+			assets={desk.assets}
+			measured={desk.uploads.measured}
+			readonly={compact}
+			bind:boxes
+			ondropasset={(asset, at) => desk.drop(asset, onStage(at))}
+			ondropfiles={(files, at) => desk.dropFiles(files, onStage(at))}
+		/>
 	</div>
 {/snippet}
 

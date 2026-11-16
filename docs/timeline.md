@@ -210,6 +210,19 @@ box during a drag; it lasts until the next `clap:ghost`, and one without a valid
 The client reads `clap:boxes` with `stageBoxes` (`apps/client/src/lib/project/stage.ts`), which
 treats the frame as untrusted.
 
+**Editing on the stage.** The editor draws the boxes over the preview
+(`components/editor/StageOverlay.svelte`, pure helpers in `apps/client/src/lib/stage/`). A drag
+moves, a corner resizes (a video or a picture keeps its ratio; Shift frees it, or keeps it for a
+text), the round handle turns (Shift steps by 15 degrees), and arrows nudge by 1 pixel, 10 with
+Shift, while the stage has the focus. Edges and centres snap to the stage edges, centre and
+thirds and to the other boxes; Alt holds the snap off. The gesture shows live through
+`clap:ghost` and ends as one `update_clip` with the whole box, so one undo puts it back; the ghost
+stays until the reloaded preview draws the new box. A file or a media bin item dropped on the
+stage is added at the playhead above what plays there, followed in the same edit by an
+`update_clip` naming the id `add_clip` will give it (`<kind>-<n>`, the first free one), with a box
+centred on the drop point at the media's ratio (its own size, at most half the stage) and
+`fit: contain`. The Clip tab edits the same values by number.
+
 ## The stage
 
 `STAGE_CSS` is the stylesheet `with_runtime` puts at the end of the document's head, so the

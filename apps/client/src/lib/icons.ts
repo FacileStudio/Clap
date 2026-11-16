@@ -22,6 +22,8 @@ registerIcons({
 	'clap:video': line('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 5v14M16 5v14M3 10h5M3 14h5M16 10h5M16 14h5"/>'),
 	'clap:audio': line('<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.500" cy="16" r="2.5"/>'),
 	'clap:share': line('<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>'),
+	'clap:centre': line('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>'),
+	'clap:transition': line('<rect x="3" y="6" width="9" height="12" rx="2"/><path d="M15 6h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4" stroke-dasharray="2 2"/>'),
 	'clap:image': line('<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.500" cy="9.500" r="1.500"/><path d="m4 17 5-5 4 4 3-3 4 4"/>')
 });
 
@@ -41,7 +43,9 @@ export const icons = {
 	video: 'clap:video',
 	audio: 'clap:audio',
 	image: 'clap:image',
-	share: 'clap:share'
+	share: 'clap:share',
+	centre: 'clap:centre',
+	transition: 'clap:transition'
 } as const;
 
 /** The icon of each clip kind. */

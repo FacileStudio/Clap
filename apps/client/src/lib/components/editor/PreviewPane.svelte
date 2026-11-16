@@ -2,23 +2,61 @@
 	import { Icon, IconButton, Slider } from '@facile/muse';
 	import { icons } from '$lib/icons';
 	import { t } from '$lib/i18n';
-	import type { StageState } from '$lib/project/stage';
+	import type { LocalMedia } from '$lib/project/local-media';
+	import type { StageBoxes, StageState } from '$lib/project/stage';
+	import type { Box, Point } from '$lib/stage/geometry';
+	import type { Engine } from '$lib/timeline/engine.svelte';
+	import type { Asset } from '$lib/types';
 	import { FPS, timecode } from '$lib/project/timecode';
 	import type { Transport } from '$lib/project/transport.svelte';
 	import SceneFrame from '../SceneFrame.svelte';
+	import StageOverlay from './StageOverlay.svelte';
 
 	let {
 		src,
 		width,
 		height,
-		transport
+		transport,
+		engine,
+		assets,
+		measured,
+		readonly = false,
+		boxes = $bindable({ t: 0, clips: [] }),
+		ondropasset,
+		ondropfiles
 	}: {
 		src: string;
 		/** The stage size in pixels. */
 		width: number;
 		height: number;
 		transport: Transport;
+		engine: Engine;
+		assets: Asset[];
+		measured: Record<string, LocalMedia>;
+		readonly?: boolean;
+		/** The clip boxes the preview drew last, in frame pixels. */
+		boxes?: StageBoxes;
+		ondropasset: (asset: Asset, at: Point) => void;
+		ondropfiles: (files: File[], at: Point) => void;
 	} = $props();
+
+	const LANDING_MS = 4000;
+	let ghost = $state<(Box & { id: string }) | null>(null);
+	let landing: ReturnType<typeof setTimeout> | null = null;
+
+	function landed(sent: boolean) {
+		if (landing) clearTimeout(landing);
+		landing = sent ? setTimeout(() => ((ghost = null), (landing = null)), LANDING_MS) : null;
+		if (!sent) ghost = null;
+	}
+
+	function drew(next: StageBoxes, from: string) {
+		boxes = next;
+		if (!landing || from !== src) return;
+		clearTimeout(landing);
+		landing = null;
+		ghost = null;
+	}
 
 	let actual = $state(false);
 	let safe = $state(false);
@@ -44,12 +82,34 @@
 		data-time={drawn.time.toFixed(3)}
 		data-scene={drawn.scene}
 	>
-		<div class="relative shrink-0 overflow-hidden rounded-fc-md shadow-sm" style={box}>
-			<SceneFrame {src} title={t('preview.title')} time={transport.time} playing={transport.playing} onstate={(state) => (drawn = state)} />
-			{#if safe}
-				<div class="pointer-events-none absolute inset-[5%] outline-1 outline-fc-warning outline-dashed" data-testid="safe"></div>
-				<div class="pointer-events-none absolute inset-[10%] outline-1 outline-fc-info outline-dashed"></div>
-			{/if}
+		<div class="relative shrink-0" style={box}>
+			<div class="absolute inset-0 overflow-hidden rounded-fc-md shadow-sm">
+				<SceneFrame
+					{src}
+					title={t('preview.title')}
+					time={transport.time}
+					playing={transport.playing}
+					{ghost}
+					onstate={(state) => (drawn = state)}
+					onboxes={drew}
+				/>
+				{#if safe}
+					<div class="pointer-events-none absolute inset-[5%] outline-1 outline-fc-warning outline-dashed" data-testid="safe"></div>
+					<div class="pointer-events-none absolute inset-[10%] outline-1 outline-fc-info outline-dashed"></div>
+				{/if}
+			</div>
+			<StageOverlay
+				boxes={transport.playing ? [] : boxes.clips}
+				stage={{ width, height }}
+				{engine}
+				{assets}
+				{measured}
+				{readonly}
+				onghost={(next) => (ghost = next)}
+				onlanded={landed}
+				{ondropasset}
+				{ondropfiles}
+			/>
 		</div>
 	</div>
 	<div class="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-2">

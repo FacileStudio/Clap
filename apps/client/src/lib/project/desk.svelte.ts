@@ -119,7 +119,7 @@ export class Desk {
 
 	/** Places `asset` at `target`, with the length the browser read when the server has not probed it yet. */
 	drop(asset: Asset, target: DropTarget): void {
-		this.drops.place(asset, target, this.uploads.measured[asset.name]?.duration ?? null);
+		this.drops.place(asset, target, this.uploads.measured[asset.name] ?? null);
 	}
 
 	/** Sends files dropped on the timeline; each is drawn as a ghost at `target` and placed once stored. */

@@ -12,6 +12,8 @@ const RUNTIME = `(() => {
   const chain = new Proxy({}, { get: () => () => chain });
   window.scene = { timeline: (build) => (build(chain), chain) };
   let scenes = [];
+  let ghost = null;
+  let shownAt = null;
   const tell = (type, detail) => parent !== window && parent.postMessage({ type, ...detail }, "*");
   const fit = () => {
     const el = document.querySelector(".stage");
@@ -31,6 +33,32 @@ const RUNTIME = `(() => {
       if (el.tagName === "VIDEO") el.currentTime = Math.max(0, local - from + (Number(el.dataset.in) || 0));
     }
     tell("scene:state", { time, step: scenes.indexOf(shown), scene: scenes.indexOf(shown) });
+    shownAt = { shown, time };
+    boxes();
+  };
+  const boxOf = (el) => {
+    if (ghost && ghost.id === el.dataset.clip) return ghost;
+    if (el.dataset.x === undefined) return null;
+    const n = (key) => Number(el.dataset[key]) || 0;
+    return { x: n("x"), y: n("y"), w: n("w"), h: n("h"), rot: n("rot") };
+  };
+  const boxes = () => {
+    if (!shownAt) return;
+    const stage = document.querySelector(".stage");
+    const scale = stage.getBoundingClientRect().width / stage.dataset.width;
+    const frame = stage.getBoundingClientRect();
+    const clips = [];
+    for (const el of shownAt.shown.el.querySelectorAll("[data-start]")) {
+      if (el.tagName === "AUDIO" || el.classList.contains("is-off")) continue;
+      const box = boxOf(el);
+      if (box) Object.assign(el.style, { position: "absolute", left: box.x + "px", top: box.y + "px", width: box.w + "px",
+        height: box.h + "px", transform: "rotate(" + box.rot + "deg)", opacity: el.dataset.opacity || "" });
+      const rect = el.getBoundingClientRect();
+      const laid = { x: (rect.left - frame.left) / scale, y: (rect.top - frame.top) / scale, w: rect.width / scale, h: rect.height / scale, rot: 0 };
+      const kind = el.tagName === "VIDEO" ? "video" : el.tagName === "IMG" ? "image" : el.children.length ? "html" : "text";
+      clips.push({ id: el.dataset.clip || el.id || "", kind, ...(box || laid) });
+    }
+    tell("clap:boxes", { t: shownAt.time, clips: clips.filter((clip) => clip.id) });
   };
   addEventListener("DOMContentLoaded", () => {
     let start = 0;
@@ -45,12 +73,19 @@ const RUNTIME = `(() => {
     tell("scene:ready", { duration: start, steps: 0, scenes: scenes.map(({ el, ...rest }) => rest) });
   });
   addEventListener("resize", fit);
-  addEventListener("message", (event) => event.data && event.data.type === "scene:seek" && seek(event.data.t));
+  addEventListener("message", (event) => {
+    const data = event.data || {};
+    if (data.type === "scene:seek") seek(data.t);
+    if (data.type !== "clap:ghost") return;
+    ghost = typeof data.id === "string" && data.w > 0 && data.h > 0 ? data : null;
+    boxes();
+  });
 })();`;
 
 /**
  * A stand-in for the scene compiler: the scenes of `source` as one seekable HTML document that speaks the
- * `scene:seek`, `scene:ready` and `scene:state` messages. It shows and hides clips; it runs no timeline.
+ * `scene:seek`, `scene:ready`, `scene:state`, `clap:boxes` and `clap:ghost` messages. It shows, hides and places
+ * clips; it runs no timeline and no transition.
  */
 function compileFrame(source: string, assetBase: string, only: number | null): string {
 	const plan = outline(source);
