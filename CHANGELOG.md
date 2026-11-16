@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-16
+
 ### Added
 
 - Files dragged from the desktop onto the timeline upload and land at the drop time and track.
@@ -44,6 +46,7 @@ All notable changes to Clap. Versions follow SemVer.
   host: the capture primes one frame before frame zero.
 - Rendered videos set their text in a sans-serif face again: the render image mapped `sans-serif`
   and `system-ui` to a monospace font.
+- Tabs match the button height and keep even padding, so the editor panel tabs line up (muse v0.32.0).
 
 ## [0.1.0] - 2026-11-16
 
