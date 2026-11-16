@@ -4,6 +4,21 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Changed
+
+- A raw scene is a black stage on which clips stack by track, through a stylesheet the preview,
+  the frame and every render share (`clap_timeline::STAGE_CSS`). `add_clip` gives a video or an
+  image a full-frame `clap-fill`, a text a centered `clap-title` that reads on video, and an
+  HTML clip a `clap-layer`. The guide documents the classes.
+- A new project starts with a welcome scene in the caller's language (French by default; English,
+  German or Spanish from `Accept-Language`, the `lang` field, or the CLI's locale) instead of a
+  bare "New project" heading.
+
+### Fixed
+
+- A render no longer fails now and then with "the first frame came back empty" on a loaded
+  host: the capture primes one frame before frame zero.
+
 ## [0.1.0] - 2026-11-16
 
 ### Added
@@ -49,13 +64,3 @@ All notable changes to Clap. Versions follow SemVer.
   `list`, `pull`, `push`, `open`. It mirrors Diapo's `diapo`. Reference: `docs/cli.md`.
 - `clap_timeline::CLAP_GUIDE` and `format_guide()`: Clap's section of the format guide, shared
   by the command line and the API.
-
-### Changed
-
-- A raw scene is a black stage on which clips stack by track, through a stylesheet the preview,
-  the frame and every render share (`clap_timeline::STAGE_CSS`). `add_clip` gives a video or an
-  image a full-frame `clap-fill`, a text a centered `clap-title` that reads on video, and an
-  HTML clip a `clap-layer`. The guide documents the classes.
-- A new project starts with a welcome scene in the caller's language (French by default; English,
-  German or Spanish from `Accept-Language`, the `lang` field, or the CLI's locale) instead of a
-  bare "New project" heading.
