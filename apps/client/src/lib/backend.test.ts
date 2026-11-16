@@ -71,6 +71,11 @@ describe('backend', () => {
 		await expect(backend.save('p', 's', 1)).rejects.toMatchObject({ status: 422, errors: [{ line: 4, message: 'unknown key' }] });
 	});
 
+	it('carries why a timeline edit was refused', async () => {
+		stub(Response.json({ error: { code: 'invalid_argument', message: 'overlap' }, timeline_error: 'overlap' }, { status: 422 }));
+		await expect(backend.edit('p', 1, [])).rejects.toMatchObject({ status: 422, reason: 'overlap' });
+	});
+
 	it('builds the frame, events and render addresses', () => {
 		expect(backend.frameUrl('p', { scene: 0, stamp: 3 })).toBe('/api/projects/p/frame?scene=0&v=3');
 		expect(backend.frameUrl('p')).toBe('/api/projects/p/frame');

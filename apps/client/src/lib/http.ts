@@ -41,14 +41,16 @@ export class ApiError extends Error {
 		readonly status: number,
 		readonly code: ErrorCode,
 		message: string,
-		readonly errors: SceneError[] = []
+		readonly errors: SceneError[] = [],
+		/** Why a timeline edit was refused, such as `overlap`; empty for any other failure. */
+		readonly reason = ''
 	) {
 		super(message);
 		this.name = 'ApiError';
 	}
 }
 
-type Envelope = { error?: { code?: string; message?: string; errors?: unknown }; errors?: unknown };
+type Envelope = { error?: { code?: string; message?: string; errors?: unknown }; errors?: unknown; timeline_error?: unknown };
 
 function sceneErrors(body: Envelope): SceneError[] {
 	const found = body.errors ?? body.error?.errors;
@@ -64,7 +66,7 @@ export async function toApiError(response: Response): Promise<ApiError> {
 	try {
 		const body = (await response.json()) as Envelope;
 		const code = (body.error?.code as ErrorCode | undefined) ?? fallback;
-		return new ApiError(response.status, code, body.error?.message ?? response.statusText, sceneErrors(body));
+		return new ApiError(response.status, code, body.error?.message ?? response.statusText, sceneErrors(body), String(body.timeline_error ?? ''));
 	} catch {
 		return new ApiError(response.status, fallback, response.statusText || `HTTP ${response.status}`);
 	}
