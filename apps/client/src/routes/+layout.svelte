@@ -10,10 +10,12 @@
 		Spinner,
 		Toaster,
 		Topbar,
+		icons,
 		provideLocale,
 		type UserMenuOptions
 	} from '@facile/muse';
 	import { backend } from '$lib/backend';
+	import { bindLocale, browserLocale, rememberLocale, t } from '$lib/i18n';
 	import { logoIcon } from '$lib/brand';
 	import Landing from '$lib/components/Landing.svelte';
 	import { rememberReturn, takeReturn } from '$lib/return';
@@ -26,7 +28,11 @@
 
 	const path = $derived(page.url.pathname);
 
-	provideLocale(() => 'fr');
+	const focused = $derived(path.startsWith('/projects/'));
+	const onSettings = $derived(path.startsWith('/settings'));
+
+	const i18n = provideLocale(browserLocale());
+	bindLocale(() => i18n.locale);
 	restoreTheme();
 
 	$effect(() => {
@@ -40,14 +46,19 @@
 		if (next && next !== `${page.url.pathname}${page.url.search}`) void goto(next, { replaceState: true });
 	});
 
-	const pages = $derived([{ label: 'Projets', href: '/', icon: logoIcon, active: path === '/' }]);
+	const pages = $derived([
+		{ label: t('projects.title'), href: '/', icon: logoIcon, active: path === '/' || focused },
+		{ label: t('trash.title'), href: '/trash', icon: icons.remove, active: path.startsWith('/trash') }
+	]);
 	const navUser = $derived({
-		name: session.user?.name || session.user?.email || 'Compte',
+		name: session.user?.name || session.user?.email || t('account'),
 		email: session.user?.email,
 		avatar: session.user?.avatar_url || undefined
 	});
 	const userMenu = $derived<UserMenuOptions>({
-		showLanguage: false,
+		settingsHref: '/settings',
+		locale: i18n.locale,
+		onLocaleChange: rememberLocale,
 		onThemeChange: saveTheme,
 		onSignOut: async () => {
 			await session.logout();
@@ -63,23 +74,38 @@
 {:else if !session.user && path === '/'}
 	<Landing />
 {:else if !session.user}
-	<AuthScreen appName="Clap" href={backend.loginUrl()} />
+	<AuthScreen appName="Clap" href={backend.loginUrl()} onLocaleChange={rememberLocale}>
+		{#snippet logo()}<Icon icon={logoIcon} size={40} />{/snippet}
+	</AuthScreen>
 {:else}
 	<div class="flex h-dvh w-full overflow-hidden bg-fc-page">
 		<div class="hidden h-full shrink-0 p-3 md:flex">
-			<SideBar icon={logoIcon} title="Clap" bind:collapsed {pages} user={navUser} {userMenu} class="h-full" />
+			<SideBar
+				icon={logoIcon}
+				title="Clap"
+				bind:collapsed
+				{pages}
+				user={navUser}
+				userHref="/settings"
+				userActive={onSettings}
+				{userMenu}
+				class="h-full"
+			/>
 		</div>
 
-		<main class="min-w-0 flex-1 overflow-auto overscroll-contain pb-28 md:pb-0">
-			<Topbar class="md:hidden">
-				<span class="flex flex-1 items-center gap-2 text-fc-md font-semibold text-fc-fg">
-					<Icon icon={logoIcon} size={20} />Clap
-				</span>
-			</Topbar>
-			{@render children()}
-		</main>
-
-		<MobileNav items={pages} user={navUser} {userMenu} />
+		{#if focused}
+			<main class="min-w-0 flex-1 overflow-hidden">{@render children()}</main>
+		{:else}
+			<main class="min-w-0 flex-1 overflow-auto overscroll-contain pb-28 md:pb-0">
+				<Topbar class="md:hidden">
+					<span class="flex flex-1 items-center gap-2 text-fc-md font-semibold text-fc-fg">
+						<Icon icon={logoIcon} size={20} />Clap
+					</span>
+				</Topbar>
+				{@render children()}
+			</main>
+			<MobileNav items={pages} user={navUser} profileHref="/settings" profileActive={onSettings} {userMenu} />
+		{/if}
 	</div>
 {/if}
 
