@@ -94,10 +94,10 @@ export const page = {
 		'Verschieben, kürzen oder teilen, dann beliebig oft rückgängig machen und wiederholen.'
 	],
 	'landing.with.line': [
-		'Bulle is here today. Diapo and Prisme are next.',
-		'Bulle est déjà là. Diapo et Prisme arrivent.',
-		'Bulle ya está aquí. Diapo y Prisme llegan después.',
-		'Bulle ist schon da. Diapo und Prisme folgen.'
+		'Bulle, Diapo and Prisme work with Clap today.',
+		'Bulle, Diapo et Prisme fonctionnent déjà avec Clap.',
+		'Bulle, Diapo y Prisme ya funcionan con Clap.',
+		'Bulle, Diapo und Prisme arbeiten schon mit Clap.'
 	],
 	'landing.with.bulle': [
 		'Ask for a title, a scene or a render from the side panel.',
@@ -106,16 +106,16 @@ export const page = {
 		'Fragen Sie in der Seitenleiste nach einem Titel, einer Szene oder einem Rendering.'
 	],
 	'landing.with.diapo': [
-		'Coming soon: your decks rendered as videos.',
-		'Bientôt : vos présentations rendues en vidéo.',
-		'Próximamente: sus presentaciones renderizadas en vídeo.',
-		'Demnächst: Ihre Präsentationen als Video gerendert.'
+		'Export a deck as a video, rendered by Clap.',
+		'Exportez une présentation en vidéo, rendue par Clap.',
+		'Exporte una presentación en vídeo, renderizada por Clap.',
+		'Exportieren Sie eine Präsentation als Video, von Clap gerendert.'
 	],
 	'landing.with.prisme': [
-		'Coming soon: a Clap link shows as a card in the chat.',
-		'Bientôt : un lien Clap s’affiche en carte dans la conversation.',
-		'Próximamente: un enlace de Clap se muestra como tarjeta en el chat.',
-		'Demnächst: Ein Clap-Link erscheint als Karte im Chat.'
+		'A shared Clap link plays right in the chat.',
+		'Un lien Clap partagé se lit directement dans la conversation.',
+		'Un enlace de Clap compartido se reproduce en el chat.',
+		'Ein geteilter Clap-Link spielt direkt im Chat.'
 	],
 	'landing.cta.title': [
 		'Edit your first video',

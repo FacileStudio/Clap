@@ -38,8 +38,8 @@
 
 	const apps = $derived<WorksWithApp[]>([
 		{ name: 'Bulle', icon: marks.bulle, line: t('landing.with.bulle'), href: 'https://bulle.facile.studio' },
-		{ name: 'Diapo', icon: marks.diapo, line: t('landing.with.diapo') },
-		{ name: 'Prisme', icon: marks.prisme, line: t('landing.with.prisme') }
+		{ name: 'Diapo', icon: marks.diapo, line: t('landing.with.diapo'), href: 'https://diapo.facile.studio' },
+		{ name: 'Prisme', icon: marks.prisme, line: t('landing.with.prisme'), href: 'https://prisme.facile.studio' }
 	]);
 
 	const rows = $derived<DeveloperRow[]>([
