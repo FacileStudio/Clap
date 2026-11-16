@@ -1,5 +1,6 @@
-import { backend } from '$lib/backend';
+import { ApiError, backend } from '$lib/backend';
 import { t } from '$lib/i18n';
+import type { AppKey } from '$lib/i18n/messages';
 import { dropOps } from '$lib/timeline/adds';
 import { Engine, type Refusal } from '$lib/timeline/engine.svelte';
 import { clipAtLine, spanOf } from '$lib/timeline/link';
@@ -136,7 +137,11 @@ export class Desk {
 	}
 }
 
+const REASONS: Record<string, AppKey> = { overlap: 'timeline.refused.overlap', out_of_bounds: 'timeline.refused.bounds' };
+
 function refusal(why: Refusal, error: unknown): string {
+	const reason = error instanceof ApiError ? REASONS[error.reason] : undefined;
+	if (reason) return t(reason);
 	const detail = why === 'failed' && error instanceof Error && error.message ? `: ${error.message}` : '';
 	return `${t(`timeline.${why}`)}${detail}`;
 }

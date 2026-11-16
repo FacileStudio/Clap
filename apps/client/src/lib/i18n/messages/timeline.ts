@@ -48,6 +48,18 @@ export const timeline = {
 		'No se aplicó el cambio',
 		'Die Änderung wurde nicht übernommen'
 	],
+	'timeline.refused.overlap': [
+		'Two clips cannot share a track at the same moment',
+		'Deux clips ne peuvent pas occuper la même piste au même moment',
+		'Dos clips no pueden ocupar la misma pista al mismo tiempo',
+		'Zwei Clips können nicht gleichzeitig auf derselben Spur liegen'
+	],
+	'timeline.refused.bounds': [
+		'The clip would leave its scene',
+		'Le clip sortirait de sa scène',
+		'El clip saldría de su escena',
+		'Der Clip würde seine Szene verlassen'
+	],
 	'timeline.stale': [
 		'The project changed elsewhere. It was reloaded.',
 		'Le projet a changé ailleurs. Il a été rechargé.',
