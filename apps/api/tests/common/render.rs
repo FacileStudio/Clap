@@ -53,5 +53,6 @@ pub fn heartbeat(data_dir: &Path, at: time::OffsetDateTime) {
 
 pub fn jobs(app: &App) -> usize {
     let entries = std::fs::read_dir(app.state.data_dir.join("renders")).unwrap();
-    entries.filter(|entry| entry.as_ref().unwrap().file_name() != ".worker").count()
+    let names = entries.map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned());
+    names.filter(|name| name != ".worker" && !name.starts_with(api::modules::assets::media::PREFIX)).count()
 }

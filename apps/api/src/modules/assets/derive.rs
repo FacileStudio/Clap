@@ -1,47 +1,15 @@
+//! The one decode left in the API: the poster of a finished render, cut with the same
+//! arguments the worker uses for an upload's poster.
+
 use std::ffi::OsString;
 use std::path::Path;
 use std::time::Duration;
 
 use super::tools::{self, Tools};
 
-/// How long `ffmpeg` gets to grab a poster frame.
-pub const POSTER_TIMEOUT: Duration = Duration::from_secs(60);
-
-const HEAD: [&str; 6] = ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file"];
-
-/// The `ffmpeg` arguments that read `input` under the decoder limits, after the input options
-/// `before`, then write `output` with the output options `after` on two threads.
-pub fn framed(before: &[&str], input: &Path, after: &[&str], output: &Path) -> Vec<OsString> {
-    let mut args = tools::argv(&HEAD);
-    args.extend(tools::argv(before));
-    args.extend(tools::argv(&tools::DECODE));
-    args.push("-i".into());
-    args.push(input.into());
-    args.extend(tools::argv(after));
-    args.extend(tools::argv(&["-threads", "2"]));
-    args.push(output.into());
-    args
-}
-
-/// The arguments that write one JPEG frame of `input`, taken at `at_ms`, at most 640 pixels wide.
-pub fn poster_args(input: &Path, at_ms: i64, output: &Path) -> Vec<OsString> {
-    let at = format!("{:.3}", at_ms.max(0) as f64 / 1000.0);
-    let after = ["-frames:v", "1", "-vf", "scale='min(640,iw)':-2", "-q:v", "5", "-f", "mjpeg"];
-    framed(&["-ss", &at], input, &after, output)
-}
-
-/// The arguments that write the proxy of `input`: H.264 and AAC in MP4, at most 720 pixels high,
-/// playable before it is fully loaded.
-pub fn proxy_args(input: &Path, output: &Path) -> Vec<OsString> {
-    let video = ["-map", "0:v:0", "-map", "0:a:0?", "-vf", "scale=-2:'2*trunc(min(720,ih)/2)'"];
-    let codecs = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"];
-    let sound = ["-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-f", "mp4"];
-    framed(&[], input, &[&video[..], &codecs[..], &sound[..]].concat(), output)
-}
-
 /// Runs `ffmpeg` with `args`, whose last element is the output, within `limit`, writing to a
 /// scratch file renamed onto `output` once whole.
-pub async fn written(tools: &Tools, args: Vec<OsString>, limit: Duration, output: &Path) -> Result<(), String> {
+async fn written(tools: &Tools, args: Vec<OsString>, limit: Duration, output: &Path) -> Result<(), String> {
     let scratch = output.with_extension("part");
     let mut args = args;
     args.pop();
@@ -66,36 +34,5 @@ pub async fn poster(tools: &Tools, input: &Path, at_ms: i64, output: &Path) -> R
     if tokio::fs::try_exists(output).await.unwrap_or(false) {
         return Ok(());
     }
-    written(tools, poster_args(input, at_ms, output), POSTER_TIMEOUT, output).await
-}
-
-/// Writes the proxy of `input` to `output` within `limit`, unless it is already there.
-pub async fn proxy(tools: &Tools, input: &Path, output: &Path, limit: Duration) -> Result<(), String> {
-    if tokio::fs::try_exists(output).await.unwrap_or(false) {
-        return Ok(());
-    }
-    written(tools, proxy_args(input, output), limit, output).await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn words(args: &[OsString]) -> Vec<String> {
-        args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect()
-    }
-
-    #[test]
-    fn ffmpeg_reads_nothing_but_the_input_and_takes_paths_as_whole_arguments() {
-        let poster = words(&poster_args(Path::new("/d/in put"), 1500, Path::new("/d/out.jpg")));
-        let head = ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file", "-ss", "1.500"];
-        assert_eq!(&poster[..8], head);
-        assert_eq!(&poster[8..13], ["-threads", "2", "-max_pixels", "8847360", "-i"], "decoder limits come first");
-        assert_eq!((poster[13].as_str(), poster.last().unwrap().as_str()), ("/d/in put", "/d/out.jpg"));
-        let proxy = words(&proxy_args(Path::new("/d/in"), Path::new("/d/out.mp4")));
-        assert!(proxy.contains(&"libx264".to_owned()) && proxy.contains(&"+faststart".to_owned()));
-        assert!(proxy.iter().any(|word| word.contains("min(720,ih)")));
-        assert!(proxy.windows(2).any(|pair| pair == ["-max_pixels", "8847360"]), "{proxy:?}");
-        assert_eq!(proxy.iter().filter(|word| *word == "-threads").count(), 2, "decoder and encoder: {proxy:?}");
-    }
+    written(tools, clap_media::poster_args(input, at_ms, output), clap_media::POSTER_TIMEOUT, output).await
 }

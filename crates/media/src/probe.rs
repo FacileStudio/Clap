@@ -1,13 +1,6 @@
-use std::ffi::OsString;
-use std::path::Path;
-use std::time::Duration;
+//! What `ffprobe -print_format json` says about a file, read without trusting it.
 
 use serde::Deserialize;
-
-use super::tools::{self, Tools};
-
-/// How long `ffprobe` gets for one file.
-pub const TIMEOUT: Duration = Duration::from_secs(30);
 
 /// What `ffprobe` says about one file.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -68,16 +61,6 @@ fn rate(raw: Option<&str>) -> Option<f64> {
     (above > 0.0 && below > 0.0).then(|| (above / below * 1000.0).round() / 1000.0)
 }
 
-/// The arguments that make `ffprobe` describe `path` as JSON, reading only local files.
-pub fn args(path: &Path) -> Vec<OsString> {
-    let mut args = tools::argv(&["-v", "error", "-protocol_whitelist", "file", "-print_format", "json"]);
-    args.extend(tools::argv(&["-show_format", "-show_streams"]));
-    args.extend(tools::argv(&tools::DECODE));
-    args.push("-i".into());
-    args.push(path.into());
-    args
-}
-
 /// Reads `ffprobe`'s JSON report.
 pub fn parse(json: &[u8]) -> Result<Probe, String> {
     let report: Report =
@@ -92,11 +75,6 @@ pub fn parse(json: &[u8]) -> Result<Probe, String> {
         has_audio: report.streams.iter().any(|s| s.codec_type == "audio"),
         has_video: picture.is_some(),
     })
-}
-
-/// Runs `ffprobe` on `path`, within [`TIMEOUT`].
-pub async fn probe(tools: &Tools, path: &Path) -> Result<Probe, String> {
-    parse(&tools::run(&tools.ffprobe, &args(path), TIMEOUT).await?)
 }
 
 #[cfg(test)]
@@ -122,14 +100,5 @@ mod tests {
         let probe = parse(cover.as_bytes()).unwrap();
         assert_eq!((probe.has_video, probe.width, probe.duration_ms), (false, None, Some(3500)));
         assert!(parse(b"not json").is_err());
-    }
-
-    #[test]
-    fn the_file_is_one_whole_argument_and_only_local_files_are_read() {
-        let args = args(Path::new("/data/assets/ab/a b;rm -rf"));
-        assert_eq!(args.last().unwrap(), "/data/assets/ab/a b;rm -rf");
-        assert!(args.windows(2).any(|pair| pair[0] == "-protocol_whitelist" && pair[1] == "file"));
-        let at = |word: &str| args.iter().position(|arg| arg == word).unwrap();
-        assert!(at("-max_pixels") < at("-i") && at("-threads") < at("-i"), "{args:?}");
     }
 }

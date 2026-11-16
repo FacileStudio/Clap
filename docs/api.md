@@ -217,26 +217,38 @@ An asset is a file of one project, named by the relative path the source writes:
   the proxy, the filmstrip and the waveform at `DATA_DIR/derived/<first two hex>/<sha256>.poster.jpg`,
   `.proxy.mp4`, `.strip.jpg` and `.peaks.json`. A
   daily sweep removes files no row names, after an hour of grace.
-- **Probe.** One background task per asset, one at a time across the process, runs `ffprobe`
-  (JSON output, 30 s limit), then for a video `ffmpeg` for a JPEG poster (60 s), then the
-  filmstrip of a video and the waveform of anything with sound (each with the proxy's time
-  limit), then for a video a 720p H.264 and AAC proxy. Both binaries get an argument vector, never a shell string,
-  read no standard input and open only local files (`-protocol_whitelist file`). The asset is
+- **Probe.** The API decodes no upload: the render worker does, in its sandbox (no network, its
+  own uid, the seccomp profile, 4 CPUs and 4 GiB). One background task per asset, one at a time
+  across the process, copies the file into a media job, `DATA_DIR/renders/media-<uuid>/` with
+  `bundle/input` and a `job.json` of `"kind": "media"` that asks for what the asset lacks
+  (`poster`, `strip`, `peaks`, `proxy`). The worker takes media jobs before renders and runs
+  `ffprobe` (JSON output, 30 s limit), then for a video `ffmpeg` for a JPEG poster (60 s), then
+  the filmstrip of a video and the waveform of anything with sound (each with the proxy's time
+  limit), then for a video a 720p H.264 and AAC proxy. Its `status.json` counts the steps
+  finished in `frame`, so the API stores each file as soon as its step is over. The argument
+  vectors, the limits and the strip plan live in `crates/media` (package `clap-media`), which
+  both sides build from. The API reads every file back as untrusted, through `jobfs`: no link,
+  one hard link, at most 64 KiB for `probe.json` and `peaks.json`, 2 MiB for `poster.jpg`,
+  4 MiB for `strip.jpg` and `ASSET_MAX_BYTES` for `proxy.mp4`; it re-checks `peaks.json` (1 to
+  1000 values from 0 to 1) and writes its own copy, then removes the job directory. The asset is
   `ready` once probed, and the proxy arrives later. A file that only looks like media is
-  `failed`, with the reason in `error`. A video with no picture stream becomes `audio`. At boot,
-  assets left `probing` start again, and so do `ready` ones missing a proxy, a filmstrip or a
-  waveform they should have.
+  `failed`, with the reason in `error`. A video with no picture stream becomes `audio`. While
+  no worker answers, a new asset stays `probing`; after ten minutes without a live heartbeat it
+  is `failed`. At boot, assets left `probing` start again, and so do `ready` ones missing a
+  proxy, a filmstrip or a waveform they should have; media job directories older than a day
+  are removed.
 - **Limits on the decoders.** Every `ffprobe` and `ffmpeg` gets `-threads 2` and
   `-max_pixels 8847360` (no picture over DCI 4K) before its input, the proxy encode
-  `-threads 2`. A proxy has a minute plus four times the video's length, at most 15 minutes. One
-  media job runs at a time, render posters included. `clap-api` itself is capped at 2 CPUs, 3 GiB
-  and 512 PIDs in `docker-compose.yml`. These decoders still run in `clap-api`: moving them into
-  the sandboxed worker is the next step (`PLAN.md`, "Next").
+  `-threads 2`, an argument vector, never a shell string, no standard input and only local
+  files (`-protocol_whitelist file`). A proxy has a minute plus four times the video's length,
+  at most 15 minutes. The one decode left in `clap-api` is the poster of a finished render,
+  cut from the worker's `out.mp4` with the same arguments.
 - **Serving.** `ServeFile` answers `Range` with `206`. Every asset response carries
   `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'` and
   `X-Content-Type-Options: nosniff`: an SVG opened on its own runs no script.
 
-The binaries are `CLAP_FFMPEG` and `CLAP_FFPROBE`, or `ffmpeg` and `ffprobe` on `PATH`.
+The worker finds `CLAP_FFMPEG` and `CLAP_FFPROBE`, or `ffmpeg` and `ffprobe` on `PATH`; the API
+reads only `CLAP_FFMPEG`, for render posters.
 
 ## The sandboxed frame
 
@@ -522,7 +534,7 @@ call next. `download_url` is a link the person opens in their browser, signed in
 | `SOURCE_MAX_BYTES` | `524288` | The largest project source |
 | `ASSET_MAX_BYTES` | `2147483648` | The largest upload |
 | `SPACE_ASSETS_MAX_BYTES` | `21474836480` | The assets of one space together |
-| `CLAP_FFMPEG`, `CLAP_FFPROBE` | `ffmpeg`, `ffprobe` on `PATH` | The media binaries |
+| `CLAP_FFMPEG` | `ffmpeg` on `PATH` | The binary that cuts the poster of a finished render |
 | `RENDER_MAX_WIDTH`, `RENDER_MAX_HEIGHT` | `1920`, `1080` | The long and the short side of a render |
 | `RENDER_MAX_FPS` | `30` | The highest frame rate |
 | `RENDER_MAX_SECONDS` | `600` | The longest render |

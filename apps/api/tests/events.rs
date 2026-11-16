@@ -80,6 +80,7 @@ async fn a_stream_is_refused_to_strangers_and_ends_when_access_is_lost() {
 async fn an_open_stream_hears_each_asset_arrive_settle_and_go() {
     let Some(pool) = common::pool("clap_events_assets").await else { return };
     let app = common::app(pool).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let ada = app.person("ada").await;
     let id = fixture::id(&fixture::project(&app, &ada, None, SOURCE).await);
     let mut stream = open(&app, &ada, &id).await.into_body();

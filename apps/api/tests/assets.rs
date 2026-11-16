@@ -12,6 +12,7 @@ use serde_json::json;
 async fn an_upload_is_typed_by_its_bytes_named_listed_and_served() {
     let Some(pool) = common::pool("clap_assets_upload").await else { return };
     let app = common::app(pool).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let roles = fixture::roles(&app).await;
     let id = fixture::id(&fixture::project(&app, &roles.member, Some(&roles.space), SOURCE).await);
     let stored = png(&app, &roles.member, &id, "assets/chart.png").await;
@@ -117,6 +118,7 @@ async fn an_asset_and_the_assets_of_a_space_are_capped() {
 async fn the_sweep_removes_only_old_files_no_row_names() {
     let Some(pool) = common::pool("clap_assets_sweep").await else { return };
     let app = common::app(pool).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let ada = app.person("ada").await;
     let id = fixture::id(&fixture::project(&app, &ada, None, SOURCE).await);
     let kept = png(&app, &ada, &id, "kept.png").await.json()["sha256"].as_str().unwrap().to_owned();

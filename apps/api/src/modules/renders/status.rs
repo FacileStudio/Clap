@@ -48,10 +48,11 @@ pub fn output(data_dir: &Path, id: Uuid) -> PathBuf {
 /// The largest `out.mp4` the API keeps: 8 GiB.
 pub const OUTPUT_MAX_BYTES: u64 = 8 << 30;
 
-/// The status of the job `id`, or `None` while the worker has written none, or none the
-/// protocol knows. The file is read through [`jobfs::regular`]: never a link, never past 64 KiB.
-pub async fn status(data_dir: &Path, id: Uuid) -> Option<Status> {
-    let (data_dir, relative) = (data_dir.to_owned(), format!("{id}/status.json"));
+/// The status of the job `job` (a render id, or the name of a media job), or `None` while the
+/// worker has written none, or none the protocol knows. The file is read through
+/// [`jobfs::regular`]: never a link, never past 64 KiB.
+pub async fn status(data_dir: &Path, job: impl std::fmt::Display) -> Option<Status> {
+    let (data_dir, relative) = (data_dir.to_owned(), format!("{job}/status.json"));
     let bytes =
         tokio::task::spawn_blocking(move || jobfs::read(&data_dir, &relative, STATUS_MAX_BYTES)).await.ok()??;
     let status: Status = serde_json::from_slice(&bytes).ok()?;

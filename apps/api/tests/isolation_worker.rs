@@ -1,5 +1,6 @@
 //! A compromised worker controls every path under `DATA_DIR/renders`. These plant the links,
-//! hard links and FIFOs it could, and check the API neither writes nor reads through them.
+//! hard links, FIFOs and oversized files it could, in render jobs and media jobs, and check the
+//! API neither writes nor reads through them.
 
 mod common;
 
@@ -98,4 +99,46 @@ async fn a_kept_render_swapped_for_a_link_is_never_served() {
         assert_eq!(answer.status, 500, "{path}");
         assert!(!answer.text().contains("SECRET"), "{path}");
     }
+}
+
+#[tokio::test]
+async fn a_probe_behind_a_link_is_refused_and_the_upload_fails() {
+    let Some(pool) = common::pool("clap_isolation_probe").await else { return };
+    let app = common::app(pool).await;
+    let ada = app.person("ada").await;
+    let id = project(&app, &ada, None).await;
+    let file = common::upload::File { name: Some("clip.mp4"), file_name: "clip.mp4", bytes: common::media::FAKE_MP4 };
+    assert_eq!(common::upload::upload(&app, &ada, &id, file).await.status, 201);
+    let job = common::media::job(&app, common::media::FAKE_MP4).await;
+    let fake = app.state.data_dir.join("report.json");
+    std::fs::write(&fake, common::media::REPORT).unwrap();
+    symlink(&fake, job.join("probe.json")).unwrap();
+    common::media::finish(&job);
+    let asset = common::media::settled(&app, &ada, &id, "clip.mp4", false).await;
+    assert_eq!((asset["state"].clone(), asset["width"].clone()), (json!("failed"), Value::Null), "{asset}");
+    assert!(asset["error"].as_str().unwrap().contains("no usable probe"), "{asset}");
+    common::media::closed(&job).await;
+}
+
+#[tokio::test]
+async fn an_oversized_proxy_and_a_hard_linked_poster_are_left_behind() {
+    let Some(pool) = common::pool("clap_isolation_proxy").await else { return };
+    let app = common::app_with(pool, &[("ASSET_MAX_BYTES", "4096")]).await;
+    let ada = app.person("ada").await;
+    let id = project(&app, &ada, None).await;
+    let file = common::upload::File { name: Some("clip.mp4"), file_name: "clip.mp4", bytes: common::media::FAKE_MP4 };
+    assert_eq!(common::upload::upload(&app, &ada, &id, file).await.status, 201);
+    let job = common::media::job(&app, common::media::FAKE_MP4).await;
+    std::fs::write(job.join("probe.json"), common::media::REPORT).unwrap();
+    std::fs::write(job.join("poster.jpg"), [0xff, 0xd8, 0xff]).unwrap();
+    std::fs::hard_link(job.join("poster.jpg"), job.join("other")).unwrap();
+    std::fs::File::create(job.join("proxy.mp4")).unwrap().set_len(4097).unwrap();
+    common::media::finish(&job);
+    common::media::closed(&job).await;
+    let asset = common::media::settled(&app, &ada, &id, "clip.mp4", false).await;
+    assert_eq!((asset["state"].clone(), asset["width"].clone()), (json!("ready"), json!(320)), "{asset}");
+    assert!(asset["proxy_url"].is_null() && asset["poster_url"].is_null(), "{asset}");
+    let sha = asset["sha256"].as_str().unwrap();
+    assert!(!app.state.data_dir.join(api::modules::assets::files::proxy(sha)).exists());
+    assert!(!app.state.data_dir.join(api::modules::assets::files::poster(sha)).exists());
 }

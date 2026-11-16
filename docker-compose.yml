@@ -92,7 +92,6 @@ services:
       UPLOADS_PER_USER: ${UPLOADS_PER_USER:-2}
       RENDER_BUNDLE_MAX_BYTES: ${RENDER_BUNDLE_MAX_BYTES:-1073741824}
       CLAP_FFMPEG: ${CLAP_FFMPEG:-}
-      CLAP_FFPROBE: ${CLAP_FFPROBE:-}
       PUBLIC_URL: ${PUBLIC_URL:-}
       EMBED_ANCESTORS: ${EMBED_ANCESTORS:-https://prisme.facile.studio}
     healthcheck:

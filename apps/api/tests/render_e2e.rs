@@ -32,8 +32,8 @@ async fn the_api_and_the_worker_render_one_second_to_an_mp4_the_api_serves() {
     assert_eq!(file.headers["content-type"], "video/mp4");
     let saved = app.state.data_dir.join("served.mp4");
     std::fs::write(&saved, &file.bytes).unwrap();
-    let tools = api::modules::assets::tools::Tools::from_vars(&tronc::env::Vars::process());
-    let probe = api::modules::assets::probe::probe(&tools, &saved).await.unwrap();
+    let report = std::process::Command::new("ffprobe").args(clap_media::probe_args(&saved)).output().unwrap();
+    let probe = clap_media::parse(&report.stdout).unwrap();
     assert_eq!((probe.width, probe.height), (Some(320), Some(180)), "{probe:?}");
     assert!(probe.duration_ms.is_some_and(|ms| (900..=1100).contains(&ms)), "{probe:?}");
     common::media::poster(&app, done["id"].as_str().unwrap()).await;

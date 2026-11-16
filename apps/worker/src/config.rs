@@ -3,6 +3,8 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::spec::Kind;
+
 /// The caps the worker enforces on every job, whatever the job file asks.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Limits {
@@ -28,6 +30,9 @@ pub(crate) struct Config {
     pub renders: PathBuf,
     /// `CLAP_RENDER_POLL_MS`: the pause between two looks at an empty queue, 1000 by default.
     pub poll: Duration,
+    /// `CLAP_WORKER_JOBS`: `media` or `render` takes only that kind of job, for a test stack
+    /// that plays the other part itself; unset, every job.
+    pub only: Option<Kind>,
     pub limits: Limits,
 }
 
@@ -64,6 +69,11 @@ impl Config {
         Config {
             renders: renders.map_or_else(|| PathBuf::from("/data/renders"), PathBuf::from),
             poll: Duration::from_millis(number("CLAP_RENDER_POLL_MS", 1000)),
+            only: match std::env::var("CLAP_WORKER_JOBS").as_deref().map(str::trim) {
+                Ok("media") => Some(Kind::Media),
+                Ok("render") => Some(Kind::Render),
+                _ => None,
+            },
             limits,
         }
     }

@@ -124,6 +124,7 @@ dependencies = [
  "async-trait",
  "axum",
  "base64 0.23.1",
+ "clap-media",
  "clap-render",
  "clap-timeline",
  "facile-scene",
@@ -489,6 +490,14 @@ dependencies = [
  "tempfile",
  "tiny_http",
  "ureq",
+]
+
+[[package]]
+name = "clap-media"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3872,6 +3881,7 @@ dependencies = [
 name = "worker"
 version = "0.0.0"
 dependencies = [
+ "clap-media",
  "clap-render",
  "rustix",
  "serde",

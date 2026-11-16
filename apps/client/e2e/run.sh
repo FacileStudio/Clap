@@ -30,7 +30,7 @@ elif [ ! -d "$root/apps/api/src/modules/projects" ] || ! reachable; then
   echo "e2e: no project API in this tree or no Postgres, running against the in-memory MOCK API (run: mise run db-up)" >&2
   export E2E_STACK=mock
 else
-  (cd "$root" && cargo build --locked -p api --bin api --example e2e_seed)
+  (cd "$root" && cargo build --locked -p api --bin api --example e2e_seed && cargo build --locked -p worker)
 fi
 
 [ -n "${E2E_SKIP_BUILD:-}" ] || bun run build

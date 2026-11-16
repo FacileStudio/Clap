@@ -4,9 +4,6 @@
 use std::ffi::OsString;
 use std::path::Path;
 
-use super::derive;
-use super::tools::{self, Tools};
-
 /// The most frames a strip holds.
 pub const MAX_TILES: i64 = 60;
 
@@ -19,7 +16,9 @@ pub const HEIGHT: u32 = 90;
 /// How a strip cuts a video: how many frames, and the milliseconds between two.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Plan {
+    /// How many frames.
     pub tiles: i64,
+    /// The milliseconds between two frames.
     pub step_ms: i64,
 }
 
@@ -40,25 +39,10 @@ pub fn plan(duration_ms: Option<i64>) -> Option<Plan> {
 }
 
 /// The arguments that write the strip of `input` cut by `plan` to `output`.
-pub fn args(input: &Path, plan: Plan, output: &Path) -> Vec<OsString> {
+pub fn strip_args(input: &Path, plan: Plan, output: &Path) -> Vec<OsString> {
     let filter = format!("fps=1000/{},scale=-2:{HEIGHT},setsar=1,tile={}x1", plan.step_ms, plan.tiles);
     let after = ["-map", "0:v:0", "-an", "-vf", &filter, "-frames:v", "1", "-q:v", "6", "-f", "mjpeg"];
-    derive::framed(&[], input, &after, output)
-}
-
-/// Writes the strip of `input` to `output` within the proxy's time limit, unless it is already
-/// there. The file appears whole or not at all.
-pub async fn strip(
-    tools: &Tools,
-    input: &Path,
-    plan: Plan,
-    duration_ms: Option<i64>,
-    output: &Path,
-) -> Result<(), String> {
-    if tokio::fs::try_exists(output).await.unwrap_or(false) {
-        return Ok(());
-    }
-    derive::written(tools, args(input, plan, output), tools::proxy_limit(duration_ms), output).await
+    crate::framed(&[], input, &after, output)
 }
 
 #[cfg(test)]
@@ -76,10 +60,11 @@ mod tests {
         assert_eq!(plan(Some(120_000)), Some(Plan { tiles: 60, step_ms: 2000 }));
         assert_eq!(plan(Some(3_600_000)), Some(Plan { tiles: 60, step_ms: 60_000 }));
         assert_eq!(plan(Some(3_600_001)), Some(Plan { tiles: 60, step_ms: 60_001 }));
-        let words: Vec<String> = args(Path::new("/d/in put"), Plan { tiles: 4, step_ms: 2000 }, Path::new("/d/o.jpg"))
-            .iter()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect();
+        let words: Vec<String> =
+            strip_args(Path::new("/d/in put"), Plan { tiles: 4, step_ms: 2000 }, Path::new("/d/o.jpg"))
+                .iter()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect();
         assert!(words.windows(2).any(|pair| pair == ["-max_pixels", "8847360"]), "{words:?}");
         assert!(words.contains(&"fps=1000/2000,scale=-2:90,setsar=1,tile=4x1".to_owned()), "{words:?}");
         assert_eq!(

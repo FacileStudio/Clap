@@ -66,3 +66,12 @@ pub async fn settled(app: &App, who: &Person, render: &Value) -> Value {
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
 }
+
+/// A worker over `app`'s renders directory, alive, for the tests whose uploads need their media
+/// job run. `None`, with the banner, when the worker binary, Chrome or ffmpeg is missing.
+pub async fn media(app: &App) -> Option<Worker> {
+    let (binary, chrome) = ready()?;
+    let worker = start(&binary, &chrome, &app.state.data_dir.join("renders"));
+    alive(app).await;
+    Some(worker)
+}

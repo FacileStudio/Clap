@@ -2,7 +2,7 @@
 
 A video editor for the Facile suite whose project is one text file, at `clap.facile.studio`.
 Cargo workspace: the Rust API in `apps/api`, the render worker in `apps/worker`, the renderer
-in `crates/render`, the timeline model in `crates/timeline`, the SvelteKit client in
+in `crates/render`, the media commands in `crates/media`, the timeline model in `crates/timeline`, the SvelteKit client in
 `apps/client`. One image, two services. `PLAN.md` holds the plan and the steps left.
 
 ## Stack
@@ -17,7 +17,11 @@ in `crates/render`, the timeline model in `crates/timeline`, the SvelteKit clien
   clips over `facile-scene` (from `FacileStudio/Diapo` by tag), and edit ops written back as
   minimal text patches. Read `docs/timeline.md` before changing it
 - **Worker** (`apps/worker`, binary `worker`): the isolated render service. No network, no
-  database, one shared directory
+  database, one shared directory. It also decodes every upload (media jobs); the API never runs
+  `ffprobe` on an upload
+- **Media** (`crates/media`, package `clap-media`): the `ffprobe`/`ffmpeg` argument vectors,
+  limits, strip plan, waveform folding and media job file names, shared by the API and the
+  worker so they cannot drift
 - **CLI** (`apps/cli`, package `clap-cli`, binary `clap`): the sibling of Diapo's `diapo`, same
   config, sign-in, output and sync rules. Every HTTP call is in `src/api`. Read `docs/cli.md`
   and the suite CLI standard before changing it
