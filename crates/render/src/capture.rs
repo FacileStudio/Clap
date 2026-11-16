@@ -44,12 +44,17 @@ pub(crate) fn film(browser: &mut Browser, job: &Job, tools: &Tools, progress: On
     Ok(Film { hashes, videos: stock.len() as u32, audio_tracks: tracks.len() as u32 })
 }
 
+fn decode(data: &str) -> Result<Vec<u8>, Error> {
+    STANDARD.decode(data).map_err(|error| Error::Chrome(format!("bad frame data: {error}")))
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 /// The capture loop: seek, hand each video its still, shoot, encode. A frame the compositor
-/// reports unchanged repeats the one before.
+/// reports unchanged repeats the one before; a primed frame drawn before the loop stands in
+/// for the one before the first.
 fn frames(
     page: &mut Page,
     (fps, indexes): (f64, Range<u64>),
@@ -59,12 +64,15 @@ fn frames(
 ) -> Result<Vec<String>, Error> {
     let total = (indexes.end - indexes.start) as u32;
     let mut hashes = Vec::with_capacity(total as usize);
-    let mut frame = Vec::new();
+    let mut frame = match page.shot(None)? {
+        Some(data) => decode(&data)?,
+        None => Vec::new(),
+    };
     for index in indexes {
         page.seek(index as f64 / fps)?;
         page.show(&stock.at(index))?;
-        if let Some(data) = page.shot(index)? {
-            frame = STANDARD.decode(data).map_err(|error| Error::Chrome(format!("bad frame data: {error}")))?;
+        if let Some(data) = page.shot(Some(index))? {
+            frame = decode(&data)?;
         }
         if frame.is_empty() {
             return Err(Error::Chrome("the first frame came back empty".to_owned()));

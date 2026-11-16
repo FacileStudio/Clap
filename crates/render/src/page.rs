@@ -15,13 +15,17 @@ const READY: &str = "document.readyState === 'complete' && document.fonts.status
     && !!window.__scene && typeof window.__scene.seek === 'function' && window.__scene.duration > 0";
 /// Resolves once two animation frames have run, so the seek has been painted.
 const PAINTED: &str = "new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(true))))";
+/// Invalidates the paint of the whole document without changing a pixel, so the next
+/// `beginFrame` has damage and answers a picture.
+const REPAINT: &str = "document.documentElement.style.outlineColor = \
+    document.documentElement.style.outlineColor === 'transparent' ? 'rgba(0, 0, 0, 0)' : 'transparent'";
 /// How long a page gets to become ready.
 const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// The pause between two readiness checks, and the frame time one warm-up frame advances.
 const WARMUP_STEP: Duration = Duration::from_millis(33);
 /// The frame time of the first warm-up frame, in milliseconds.
 const WARMUP_START: f64 = 1_000.0;
-/// The frame time of frame zero, past any warm-up so time never runs backwards.
+/// The frame time of the frame before frame zero, past any warm-up so time never runs backwards.
 const CAPTURE_START: f64 = 100_000.0;
 
 /// A page attached over CDP.
@@ -111,16 +115,20 @@ impl<'a> Page<'a> {
         self.eval(&format!("window.__scene.seek({seconds:?})")).map(|_| ())
     }
 
-    /// The PNG of frame `index`, base64. `None` when the compositor saw nothing change since
-    /// the frame before.
-    pub(crate) fn shot(&mut self, index: u64) -> Result<Option<String>, Error> {
+    /// The PNG of frame `index`, base64, or with `None` the frame before the first one, drawn
+    /// after a repaint is forced so the compositor has a picture to give. `None` when the
+    /// compositor saw nothing change since the frame before.
+    pub(crate) fn shot(&mut self, index: Option<u64>) -> Result<Option<String>, Error> {
         let picture = json!({"format": "png", "optimizeForSpeed": true});
         if self.capture == Capture::Screenshot {
             self.eval(PAINTED)?;
             let answer = self.call("Page.captureScreenshot", picture)?;
             return text(&answer["data"], "screenshot").map(Some);
         }
-        let ticks = CAPTURE_START + index as f64 * self.interval;
+        if index.is_none() {
+            self.eval(REPAINT)?;
+        }
+        let ticks = CAPTURE_START + index.map_or(0.0, |index| (index + 1) as f64 * self.interval);
         let frame = json!({"frameTimeTicks": ticks, "interval": self.interval, "screenshot": picture});
         let answer = self.call("HeadlessExperimental.beginFrame", frame)?;
         Ok(answer["screenshotData"].as_str().map(str::to_owned))

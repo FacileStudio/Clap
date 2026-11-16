@@ -99,7 +99,10 @@ frame time 100000 ms, past any warm-up (the load deadline is 20 s), so time neve
 backwards and the frame times of the capture do not depend on how long loading took.
 
 `beginFrame` may return no picture when nothing changed since the previous frame. The loop
-then repeats the previous frame.
+then repeats the previous frame. Before frame zero the renderer draws one primed frame, after a
+style change that invalidates the paint and changes no pixel, so frame zero always has a frame to
+repeat: under load the compositor sometimes reported no change on the very first frame, and the
+render failed with "the first frame came back empty".
 
 **Screenshot (macOS, Windows).** No deterministic flags. After each seek the renderer waits
 for two `requestAnimationFrame` callbacks, then calls `Page.captureScreenshot`. This path is
