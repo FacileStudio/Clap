@@ -8,6 +8,7 @@ pub mod name;
 pub mod probe;
 pub mod quota;
 mod router;
+pub mod seal;
 mod serve;
 pub mod service;
 pub mod sniff;

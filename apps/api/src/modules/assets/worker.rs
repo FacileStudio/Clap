@@ -125,6 +125,13 @@ pub fn spawn(state: AppState, job: Job) {
 /// Starts again, at boot, every asset a previous process left `probing` or without its proxy.
 pub async fn resume(state: &AppState) {
     files::clear_incoming(&state.data_dir).await;
+    let data_dir = state.data_dir.to_path_buf();
+    match tokio::task::spawn_blocking(move || super::seal::seal(&data_dir)).await {
+        Ok(Ok(0)) => {}
+        Ok(Ok(sealed)) => tracing::info!(sealed, "assets: made stored files read-only"),
+        Ok(Err(error)) => tracing::error!(%error, "assets: could not make stored files read-only"),
+        Err(error) => tracing::error!(%error, "assets: the read-only pass did not finish"),
+    }
     let left = sqlx::query_as::<_, Job>(
         "SELECT project_id, name, sha256 FROM assets \
          WHERE state = 'probing' OR (state = 'ready' AND kind = 'video' AND proxy IS NULL) ORDER BY created_at",

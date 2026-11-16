@@ -1,4 +1,5 @@
 use std::io;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -27,20 +28,24 @@ pub fn incoming(data_dir: &Path) -> PathBuf {
     data_dir.join("uploads")
 }
 
-/// Moves the finished upload at `temporary` under its digest. An identical file is already
+/// Moves the finished upload at `temporary` under its digest, read-only ([`SEALED`]). An identical file is already
 /// there: the upload is dropped and only the modification time is refreshed, so the sweep cannot
 /// take the file while its new row commits. A rename never shows a reader half a file.
 pub async fn adopt(data_dir: &Path, temporary: &Path, sha256: &str) -> io::Result<()> {
     let target = path(data_dir, sha256);
     if tokio::fs::try_exists(&target).await? {
         tokio::fs::remove_file(temporary).await?;
-        let touch = move || std::fs::File::options().append(true).open(target)?.set_modified(SystemTime::now());
+        let touch = move || std::fs::File::open(target)?.set_modified(SystemTime::now());
         return tokio::task::spawn_blocking(touch).await.map_err(io::Error::other)?;
     }
     let dir = target.parent().ok_or_else(|| io::Error::other("asset path has no parent"))?;
     tokio::fs::create_dir_all(dir).await?;
+    tokio::fs::set_permissions(temporary, std::fs::Permissions::from_mode(SEALED)).await?;
     tokio::fs::rename(temporary, &target).await
 }
+
+/// The mode of a stored blob: nobody writes it again, whoever holds a descriptor or a link.
+pub const SEALED: u32 = 0o444;
 
 /// Removes every upload a previous process left unfinished.
 pub async fn clear_incoming(data_dir: &Path) {
