@@ -1,6 +1,7 @@
 # Clap: deployment
 
-How Clap ships: one image, one container, one Traefik router, one hostname, one replica.
+How Clap ships: one image, an API container and a render container, one Traefik router, one
+hostname, one replica of each.
 Nothing is deployed yet; this page describes what the repository builds.
 
 ## Topology
@@ -9,6 +10,8 @@ Nothing is deployed yet; this page describes what the repository builds.
 clap.facile.studio ──▶ Traefik (web → websecure) ──▶ clap-api:4000 ──▶ clap-db:5432
                                                               │
                                                      volume clap_data at /data
+                                                              │ subpath renders
+                                                     clap-render (no network)
 ```
 
 `/api/*` is the API, `/docs` the API reference, everything else the client. There is no
@@ -20,8 +23,8 @@ clap.facile.studio ──▶ Traefik (web → websecure) ──▶ clap-api:4000
 docker build -t clap .
 ```
 
-The root `Dockerfile` builds the client with bun and the API with `cargo build --release
---locked -p api`. The version comes from `apps/client/package.json` through
+The root `Dockerfile` builds the client with bun, and the API and the render worker with
+`cargo build --release --locked -p api -p worker`. The version comes from `apps/client/package.json` through
 `scripts/version.sh`, and the build fails when it cannot be read.
 
 Unlike Docs, the runtime image is not distroless: rendering needs `chrome-headless-shell`,
@@ -37,7 +40,8 @@ Unlike Docs, the runtime image is not distroless: rendering needs `chrome-headle
 - the API running as uid 65532, as in the other suite images
 
 The `/data` volume is created by a root container, so `docker-compose.yml` runs a one-shot
-`clap-data-owner` service (busybox) that hands `/data` to 65532 before `clap-api` starts.
+`clap-data-owner` service (busybox) that creates `/data/renders` and hands `/data` to 65532
+before `clap-api` and `clap-render` start.
 
 ## Bumping Chrome
 
@@ -49,14 +53,13 @@ The `/data` volume is created by a root container, so `docker-compose.yml` runs 
 4. Run `CLAP_CHROME=<the new binary> cargo test -p clap-render`. A new Chrome can change
    pixels: renders made before and after the bump may differ.
 
-## Chrome's sandbox in a container
+## The render service
 
-`clap-render` keeps Chrome's sandbox on unless `CLAP_CHROME_SANDBOX=off`. Docker's default
-seccomp profile refuses the user namespaces that sandbox needs, so in the container Chrome
-exits with `No usable sandbox!` (observed on the built image) and starts only with the sandbox
-off or with a seccomp profile that allows them. The image sets
-neither. This is an open decision for the release wave: rendering untrusted HTML without the
-sandbox leaves the container as the only boundary.
+`clap-render` is a second service built from the same image, started with the `worker` binary.
+It has no network, a read-only root, Chrome's sandbox on, and one mount: the `renders`
+subdirectory of the `clap_data` volume at `/data/renders`. `clap-api` mounts the whole volume at
+`/data`, so the API reads and writes the same jobs at `/data/renders`. The contract between the
+two, the seccomp profile and the limits are in [Rendering](rendering.md#the-render-worker).
 
 ## Migrations
 
