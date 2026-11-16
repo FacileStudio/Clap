@@ -28,7 +28,9 @@ mise run dev
 ```
 
 The API listens on `:4000` with `DATA_DIR=.local/data` and no Registre: the sign-in routes
-answer `oidc_enabled: false`. From `apps/client`, `bun run dev` serves the client and proxies
+answer `oidc_enabled: false`. Uploads need `ffmpeg` and `ffprobe` on `PATH` (or `CLAP_FFMPEG`
+and `CLAP_FFPROBE`); without them an asset ends `failed`. Renders stay `queued` until a render
+worker reads `DATA_DIR/renders`. The routes are in [api.md](api.md). From `apps/client`, `bun run dev` serves the client and proxies
 `/api` to the API.
 
 ## Tests
@@ -40,13 +42,18 @@ cargo test --workspace --locked
 
 | Where | Covers |
 |---|---|
-| `apps/api/src/**` unit tests | The environment rules, the CSP, and `0001_porte.sql` equal to `porte::pg::SCHEMA` |
-| `apps/api/tests/shell.rs` | The real router on Postgres: probes, `/version`, the session routes, the API reference drift check |
+| `apps/api/src/**` unit tests | The environment rules and caps, the CSP, name and content checks, the `ffprobe` and `ffmpeg` arguments, the render spec, the frame tokens |
+| `apps/api/tests/shell.rs` | Probes, `/version`, the session routes, the API reference drift check, the migrations equal to porte's and tronc's schemas |
+| `apps/api/tests/projects.rs`, `authorization.rs`, `directory.rs` | The `rev` rule (`409`), invalid sources (`422`), every route against every role, cross-space `404`, Registre snapshots and erasure |
+| `apps/api/tests/assets.rs`, `media.rs`, `frame.rs`, `events.rs` | Streamed uploads, names, caps, a real clip probed with a poster and a proxy (needs `ffmpeg`), `Range`, the frame's headers and signed links, the SSE streams |
+| `apps/api/tests/render_jobs.rs`, `renders.rs` | The job directory and `job.json`, status mirroring from a hand-written `status.json`, cancel, the sweep |
+| `apps/api/tests/mcp.rs`, `mcp_tools.rs` | tronc's MCP conformance kit, the eleven tools, scope gates, the delete confirmation |
 | `crates/render/src/**` unit tests | The URL guard, the frame grid, the Chrome flags, the ffmpeg arguments |
 | `crates/render/tests/render.rs` | Real renders of `fixtures/title`: frame count, size, identical runs, the network block, cancel |
 
 Without `TEST_DATABASE_URL` the database tests print a skip banner and pass. Without Chrome,
-ffmpeg or ffprobe the render tests do the same. Read the output.
+ffmpeg or ffprobe the render tests do the same, and so does `apps/api/tests/media.rs` without
+ffmpeg. Read the output.
 
 The render tests find their binaries through `CLAP_CHROME`, `CLAP_FFMPEG` and `CLAP_FFPROBE`,
 then `PATH`, then, for Chrome, the newest `chromium_headless_shell-*` build in Playwright's

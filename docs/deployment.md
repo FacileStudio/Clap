@@ -65,6 +65,16 @@ two, the seccomp profile and the limits are in [Rendering](rendering.md#the-rend
 
 Migrations run at boot, behind sqlx's lock. `0001_porte.sql` is porte's schema verbatim.
 
+## Data
+
+Everything the API stores outside Postgres is under `/data`, the `clap_data` volume:
+`assets/` (uploads, by content), `derived/` (posters and proxies), `uploads/` (uploads in
+flight, emptied at boot), `renders/` (one directory per render job) and `outputs/` (finished
+MP4s). The render worker needs `/data/renders` and nothing else: mount that path of the volume
+into it. `clap-data-owner` creates it. The job files are described in [api.md](api.md).
+
+`MCP_RESOURCE` (the public URL of `/mcp`) with `MCP_STATE_KEY` turns the MCP server on.
+
 ## Health
 
 `/health` and `/ready` (also under `/api`). The compose healthcheck re-execs the binary:
