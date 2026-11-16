@@ -77,16 +77,8 @@ pub fn state(config: &Config, pool: PgPool, kits: &Kits) -> AppState {
     }
 }
 
-fn spawn_media(state: &AppState, token: &CancellationToken) {
-    let resumed = state.clone();
-    tokio::spawn(async move { crate::modules::assets::worker::resume(&resumed).await });
-    tokio::spawn(crate::modules::assets::sweep::run(state.clone(), token.clone()));
-    tokio::spawn(crate::modules::renders::mirror::run(state.clone(), token.clone()));
-    tokio::spawn(crate::modules::projects::purge::run(state.clone(), token.clone()));
-}
-
 fn spawn_loops(kits: &Kits, state: &AppState, token: &CancellationToken) {
-    spawn_media(state, token);
+    tokio::spawn(crate::background::run(state.clone(), token.clone()));
     if let Some(syncer) = kits.syncer.clone() {
         let token = token.clone();
         tokio::spawn(async move { syncer.run(token).await });
