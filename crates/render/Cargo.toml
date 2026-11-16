@@ -1,0 +1,17 @@
+[package]
+name = "clap-render"
+description = "Renders a seekable HTML scene to an H.264 MP4 with chrome-headless-shell and ffmpeg"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64 = "0.23.1"
+command-fds = "0.3.3"
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+url = "2.5.8"
