@@ -40,10 +40,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates ffmpeg tini \
-       fonts-liberation fonts-noto-color-emoji libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \
+       fonts-dejavu-core fonts-liberation fonts-noto-color-emoji libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 \
        libdbus-1-3 libexpat1 libgbm1 libglib2.0-0 libnspr4 libnss3 libudev1 libx11-6 libxcb1 libxcomposite1 \
        libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 \
     && rm -rf /var/lib/apt/lists/*
+COPY deploy/fonts.conf /etc/fonts/conf.d/59-generic-families.conf
+RUN fc-cache -f \
+    && [ "$(fc-match -f '%{family[0]}' sans-serif)" = "Liberation Sans" ] \
+    && [ "$(fc-match -f '%{family[0]}' system-ui)" = "Liberation Sans" ] \
+    && [ "$(fc-match -f '%{family[0]}' serif)" = "Liberation Serif" ] \
+    && [ "$(fc-match -f '%{family[0]}' monospace)" = "Liberation Mono" ]
 COPY --from=chrome /opt/chrome-headless-shell-linux64 /opt/chrome-headless-shell
 COPY --from=api-build /repo/target/release/api /api
 COPY --from=api-build /repo/target/release/worker /worker
