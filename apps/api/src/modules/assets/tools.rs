@@ -52,6 +52,21 @@ pub async fn run(program: &Path, args: &[OsString], limit: Duration) -> Result<V
     }
 }
 
+/// The input options of every `ffprobe` and `ffmpeg` run on an upload: two decoding threads, and
+/// no picture over DCI 4K (4096x2160 pixels), so a hostile file cannot make a decoder allocate
+/// without bound.
+pub const DECODE: [&str; 4] = ["-threads", "2", "-max_pixels", "8847360"];
+
+/// The longest `ffmpeg` gets to encode a proxy, whatever the length of the video.
+pub const PROXY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// How long `ffmpeg` gets to encode the proxy of a video of `duration_ms`: a minute, plus four
+/// times the length of the video, at most [`PROXY_TIMEOUT`].
+pub fn proxy_limit(duration_ms: Option<i64>) -> Duration {
+    let length = Duration::from_millis(duration_ms.unwrap_or(0).max(0) as u64);
+    (Duration::from_secs(60) + length * 4).min(PROXY_TIMEOUT)
+}
+
 /// `words` as an argument vector, each word one whole element.
 pub fn argv(words: &[&str]) -> Vec<OsString> {
     words.iter().map(OsString::from).collect()
@@ -68,5 +83,7 @@ mod tests {
         let missing = run(Path::new("/nonexistent/ffprobe"), &[], Duration::from_secs(1)).await.unwrap_err();
         assert!(missing.contains("ffprobe could not start"), "{missing}");
         assert_eq!(run(Path::new("printf"), &argv(&["a b"]), Duration::from_secs(5)).await.unwrap(), b"a b");
+        assert_eq!(proxy_limit(Some(30_000)), Duration::from_secs(180));
+        assert_eq!((proxy_limit(None), proxy_limit(Some(3_600_000))), (Duration::from_secs(60), PROXY_TIMEOUT));
     }
 }

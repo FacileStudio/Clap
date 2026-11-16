@@ -71,7 +71,9 @@ fn rate(raw: Option<&str>) -> Option<f64> {
 /// The arguments that make `ffprobe` describe `path` as JSON, reading only local files.
 pub fn args(path: &Path) -> Vec<OsString> {
     let mut args = tools::argv(&["-v", "error", "-protocol_whitelist", "file", "-print_format", "json"]);
-    args.extend(tools::argv(&["-show_format", "-show_streams", "-i"]));
+    args.extend(tools::argv(&["-show_format", "-show_streams"]));
+    args.extend(tools::argv(&tools::DECODE));
+    args.push("-i".into());
     args.push(path.into());
     args
 }
@@ -127,5 +129,7 @@ mod tests {
         let args = args(Path::new("/data/assets/ab/a b;rm -rf"));
         assert_eq!(args.last().unwrap(), "/data/assets/ab/a b;rm -rf");
         assert!(args.windows(2).any(|pair| pair[0] == "-protocol_whitelist" && pair[1] == "file"));
+        let at = |word: &str| args.iter().position(|arg| arg == word).unwrap();
+        assert!(at("-max_pixels") < at("-i") && at("-threads") < at("-i"), "{args:?}");
     }
 }

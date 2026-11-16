@@ -7,17 +7,16 @@ use super::tools::{self, Tools};
 /// How long `ffmpeg` gets to grab a poster frame.
 pub const POSTER_TIMEOUT: Duration = Duration::from_secs(60);
 
-/// How long `ffmpeg` gets to encode a proxy.
-pub const PROXY_TIMEOUT: Duration = Duration::from_secs(60 * 60);
-
 const HEAD: [&str; 6] = ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file"];
 
 fn framed(before: &[&str], input: &Path, after: &[&str], output: &Path) -> Vec<OsString> {
     let mut args = tools::argv(&HEAD);
     args.extend(tools::argv(before));
+    args.extend(tools::argv(&tools::DECODE));
     args.push("-i".into());
     args.push(input.into());
     args.extend(tools::argv(after));
+    args.extend(tools::argv(&["-threads", "2"]));
     args.push(output.into());
     args
 }
@@ -66,12 +65,12 @@ pub async fn poster(tools: &Tools, input: &Path, at_ms: i64, output: &Path) -> R
     written(tools, poster_args(input, at_ms, output), POSTER_TIMEOUT, output).await
 }
 
-/// Writes the proxy of `input` to `output`, unless it is already there.
-pub async fn proxy(tools: &Tools, input: &Path, output: &Path) -> Result<(), String> {
+/// Writes the proxy of `input` to `output` within `limit`, unless it is already there.
+pub async fn proxy(tools: &Tools, input: &Path, output: &Path, limit: Duration) -> Result<(), String> {
     if tokio::fs::try_exists(output).await.unwrap_or(false) {
         return Ok(());
     }
-    written(tools, proxy_args(input, output), PROXY_TIMEOUT, output).await
+    written(tools, proxy_args(input, output), limit, output).await
 }
 
 #[cfg(test)]
@@ -85,13 +84,14 @@ mod tests {
     #[test]
     fn ffmpeg_reads_nothing_but_the_input_and_takes_paths_as_whole_arguments() {
         let poster = words(&poster_args(Path::new("/d/in put"), 1500, Path::new("/d/out.jpg")));
-        assert_eq!(
-            &poster[..9],
-            ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file", "-ss", "1.500", "-i"]
-        );
-        assert_eq!((poster[9].as_str(), poster.last().unwrap().as_str()), ("/d/in put", "/d/out.jpg"));
+        let head = ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file", "-ss", "1.500"];
+        assert_eq!(&poster[..8], head);
+        assert_eq!(&poster[8..13], ["-threads", "2", "-max_pixels", "8847360", "-i"], "decoder limits come first");
+        assert_eq!((poster[13].as_str(), poster.last().unwrap().as_str()), ("/d/in put", "/d/out.jpg"));
         let proxy = words(&proxy_args(Path::new("/d/in"), Path::new("/d/out.mp4")));
         assert!(proxy.contains(&"libx264".to_owned()) && proxy.contains(&"+faststart".to_owned()));
         assert!(proxy.iter().any(|word| word.contains("min(720,ih)")));
+        assert!(proxy.windows(2).any(|pair| pair == ["-max_pixels", "8847360"]), "{proxy:?}");
+        assert_eq!(proxy.iter().filter(|word| *word == "-threads").count(), 2, "decoder and encoder: {proxy:?}");
     }
 }
