@@ -1,94 +1,67 @@
-/** The suite error codes, from tronc's `statusByCode`. */
-export type ErrorCode =
-	| 'invalid_argument'
-	| 'unauthenticated'
-	| 'permission_denied'
-	| 'not_found'
-	| 'already_exists'
-	| 'failed_precondition'
-	| 'resource_exhausted'
-	| 'rate_limited'
-	| 'method_not_allowed'
-	| 'unavailable'
-	| 'internal'
-	| 'network';
+import { API, request, send } from './http';
+import type {
+	Asset,
+	AssistantProfile,
+	Op,
+	PendingAction,
+	Project,
+	ProjectSummary,
+	Render,
+	RenderRequest,
+	SessionUser,
+	Timeline
+} from './types';
+import { uploadAsset } from './upload';
 
-const CODES: Record<number, ErrorCode> = {
-	400: 'invalid_argument',
-	401: 'unauthenticated',
-	403: 'permission_denied',
-	404: 'not_found',
-	405: 'method_not_allowed',
-	409: 'already_exists',
-	412: 'failed_precondition',
-	413: 'resource_exhausted',
-	429: 'rate_limited',
-	503: 'unavailable'
-};
+export { API, ApiError, request, toApiError, type ErrorCode } from './http';
 
-const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
+const project = (id: string, rest = '') => `/projects/${encodeURIComponent(id)}${rest}`;
+const render = (id: string, rest = '') => `/renders/${encodeURIComponent(id)}${rest}`;
 
-/** The API base. Same origin: the Vite proxy in development, the Rust binary in production. */
-export const API = '/api';
+const action = (id: string, verb: string) => `/mcp/pending/${encodeURIComponent(id)}/${verb}`;
 
-/** The signed-in person, as `GET /api/auth/session` answers it. */
-export interface SessionUser {
-	email: string;
-	name?: string;
-	avatar_url?: string;
-}
+/** Which compiled document a frame shows: the whole project, or one scene (from 0). A new `stamp` loads it again. */
+export type FrameQuery = { scene?: number; stamp?: string | number };
 
-/** A failed API call, carrying the suite envelope `{"error":{"code","message"}}`. */
-export class ApiError extends Error {
-	constructor(
-		readonly status: number,
-		readonly code: ErrorCode,
-		message: string
-	) {
-		super(message);
-		this.name = 'ApiError';
-	}
-}
-
-/** Reads the suite error envelope of a failed response into an `ApiError`. */
-export async function toApiError(response: Response): Promise<ApiError> {
-	const fallback = CODES[response.status] ?? 'internal';
-	try {
-		const body = (await response.json()) as {
-			error?: { code?: string; message?: string };
-		};
-		const code = (body.error?.code as ErrorCode | undefined) ?? fallback;
-		return new ApiError(response.status, code, body.error?.message ?? response.statusText);
-	} catch {
-		return new ApiError(response.status, fallback, response.statusText || `HTTP ${response.status}`);
-	}
-}
-
-/** Calls the API: cookies included, the CSRF header on every mutation, the error envelope thrown typed. */
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-	const method = (init.method ?? 'GET').toUpperCase();
-	const headers = new Headers(init.headers);
-	if (typeof init.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-	if (!SAFE.has(method)) headers.set('X-Facile-CSRF', '1');
-	let response: Response;
-	try {
-		response = await fetch(`${API}${path}`, {
-			credentials: 'include',
-			...init,
-			method,
-			headers
-		});
-	} catch {
-		throw new ApiError(0, 'network', 'Network error');
-	}
-	if (!response.ok) throw await toApiError(response);
-	if (response.status === 204) return undefined as T;
-	return (await response.json()) as T;
+function frameUrl(id: string, query: FrameQuery = {}): string {
+	const params = new URLSearchParams();
+	if (query.scene !== undefined) params.set('scene', String(query.scene));
+	if (query.stamp !== undefined) params.set('v', String(query.stamp));
+	const text = params.toString();
+	return `${API}${project(id, '/frame')}${text ? `?${text}` : ''}`;
 }
 
 /** Every call the client makes, one method per route. */
 export const backend = {
-	session: () => request<{ user: SessionUser | null }>('/auth/session'),
+	session: () => request<{ user: SessionUser | null; bulle_url?: string }>('/auth/session'),
 	loginUrl: () => `${API}/auth/oidc`,
-	logout: () => request<unknown>('/auth/logout', { method: 'POST' })
+	logout: () => request<unknown>('/auth/logout', send('POST')),
+	projects: () => request<ProjectSummary[]>('/projects'),
+	trashed: () => request<ProjectSummary[]>('/projects?trashed=true'),
+	create: (title: string) => request<Project>('/projects', send('POST', { title })),
+	project: (id: string) => request<Project>(project(id)),
+	save: (id: string, source: string, rev: number) =>
+		request<{ rev: number }>(project(id, '/source'), send('PUT', { source, rev })),
+	rename: (id: string, title: string) => request<ProjectSummary>(project(id), send('PATCH', { title })),
+	trash: (id: string, trashed: boolean) => request<ProjectSummary>(project(id), send('PATCH', { trashed })),
+	destroy: (id: string) => request<void>(project(id), send('DELETE')),
+	edit: (id: string, rev: number, ops: Op[]) =>
+		request<{ source: string; rev: number }>(project(id, '/edits'), send('POST', { rev, ops })),
+	timeline: (id: string) => request<Timeline>(project(id, '/timeline')),
+	eventsUrl: (id: string) => `${API}${project(id, '/events')}`,
+	frameUrl,
+	assets: (id: string) => request<{ assets: Asset[] }>(project(id, '/assets')).then((found) => found.assets),
+	upload: (id: string, file: File, onprogress: (fraction: number) => void) =>
+		uploadAsset(`${API}${project(id, '/assets')}`, file, onprogress),
+	removeAsset: (id: string, name: string) =>
+		request<void>(project(id, `/assets/${encodeURI(name)}`), send('DELETE')),
+	renders: (id: string) => request<{ renders: Render[] }>(project(id, '/renders')).then((found) => found.renders),
+	startRender: (id: string, body: RenderRequest) => request<Render>(project(id, '/renders'), send('POST', body)),
+	render: (id: string) => request<Render>(render(id)),
+	cancelRender: (id: string) => request<Render | undefined>(render(id), send('DELETE')),
+	renderEventsUrl: (id: string) => `${API}${render(id, '/events')}`,
+	assistant: () => request<AssistantProfile>('/assistant'),
+	actions: () => request<{ actions: PendingAction[]; truncated?: boolean }>('/mcp/pending'),
+	confirmAction: (id: string) => request<unknown>(action(id, 'confirm'), send('POST')),
+	dismissAction: (id: string) => request<unknown>(action(id, 'dismiss'), send('POST'))
 };
