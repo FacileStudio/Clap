@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { Caret, Stage, Terminal, Tile, type Act } from '@facile/mise-en-scene';
-	import { Badge } from '@facile/muse';
 	import { t } from '$lib/landing/i18n';
 
 	type Line = { kind: 'cmd' | 'ok'; text: string };
@@ -38,7 +37,6 @@
 </script>
 
 <Tile class="cli" title={t('tile.cli.title')} body={t('tile.cli.body')}>
-	{#snippet badge()}<Badge tone="neutral" class="shrink-0 whitespace-nowrap">{t('downloads.soon')}</Badge>{/snippet}
 	<Stage width={310} height={240} {script} {reset} poster={() => (lines = [...story])}>
 		{#snippet children()}
 			<Terminal style="top:24px;left:20px;right:20px;bottom:16px">

@@ -160,10 +160,10 @@ export const page = {
 		'Verbinden Sie einen MCP-Client mit clap.facile.studio/mcp und melden Sie sich mit Facile an. Kostenlos für jedes Konto.'
 	],
 	'landing.dev.cli': [
-		'Coming soon: the clap command creates, previews and renders a project from your terminal.',
-		'Bientôt : la commande clap crée, prévisualise et rend un projet depuis votre terminal.',
-		'Próximamente: el comando clap crea, previsualiza y renderiza un proyecto desde su terminal.',
-		'Demnächst: Der Befehl clap erstellt, zeigt und rendert ein Projekt in Ihrem Terminal.'
+		'The clap command creates, previews and renders a project from your terminal.',
+		'La commande clap crée, prévisualise et rend un projet depuis votre terminal.',
+		'El comando clap crea, previsualiza y renderiza un proyecto desde su terminal.',
+		'Der Befehl clap erstellt, zeigt und rendert ein Projekt in Ihrem Terminal.'
 	],
 	'landing.dev.source': [
 		'The code is on GitHub, under the AGPL-3.0 licence.',
@@ -173,13 +173,10 @@ export const page = {
 	],
 	'downloads.title': ['The clap command · Clap', 'La commande clap · Clap', 'El comando clap · Clap', 'Der Befehl clap · Clap'],
 	'downloads.heading': ['The clap command', 'La commande clap', 'El comando clap', 'Der Befehl clap'],
-	'downloads.soon': ['Coming soon', 'Bientôt', 'Próximamente', 'Demnächst'],
 	'downloads.line': [
-		'The clap command is not published yet. It will create, preview and render a project from your terminal. Until then, everything happens in your browser.',
-		'La commande clap n’est pas encore publiée. Elle créera, prévisualisera et rendra un projet depuis votre terminal. En attendant, tout se passe dans votre navigateur.',
-		'El comando clap aún no está publicado. Creará, previsualizará y renderizará un proyecto desde su terminal. Mientras tanto, todo ocurre en su navegador.',
-		'Der Befehl clap ist noch nicht veröffentlicht. Er wird ein Projekt in Ihrem Terminal erstellen, anzeigen und rendern. Bis dahin läuft alles im Browser.'
-	],
-	'downloads.source': ['Follow the code on GitHub', 'Suivre le code sur GitHub', 'Seguir el código en GitHub', 'Code auf GitHub verfolgen'],
-	'downloads.back': ['Open Clap', 'Ouvrir Clap', 'Abrir Clap', 'Clap öffnen']
+		'Create, preview and render a project from your terminal, and keep it in sync with clap.facile.studio. Rendering on your machine needs chrome-headless-shell and ffmpeg.',
+		'Créez, prévisualisez et rendez un projet depuis votre terminal, synchronisé avec clap.facile.studio. Le rendu sur votre machine demande chrome-headless-shell et ffmpeg.',
+		'Cree, previsualice y renderice un proyecto desde su terminal, sincronizado con clap.facile.studio. Renderizar en su equipo requiere chrome-headless-shell y ffmpeg.',
+		'Erstellen, zeigen und rendern Sie ein Projekt in Ihrem Terminal, synchron mit clap.facile.studio. Lokales Rendern braucht chrome-headless-shell und ffmpeg.'
+	]
 } satisfies Record<string, Row>;
