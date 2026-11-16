@@ -101,7 +101,8 @@ async fn a_link_in_place_of_the_finished_file_fails_the_render() {
     report(&app, &linked, json!({"state": "done", "frame": 60, "frames": 60}));
     let refused = mirrored(&app, &ada, &linked).await;
     assert_eq!((refused["state"].clone(), refused["download_url"].clone()), (json!("failed"), Value::Null));
-    assert!(!app.state.data_dir.join("outputs").exists());
+    let outputs = std::fs::read_dir(app.state.data_dir.join("outputs")).map_or(0, |entries| entries.count());
+    assert_eq!(outputs, 0, "nothing is kept through the link");
 }
 
 #[tokio::test]
