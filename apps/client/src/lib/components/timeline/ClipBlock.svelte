@@ -61,7 +61,7 @@
 
 <div
 	use:register={clip.id}
-	class="clip group absolute flex touch-none items-center overflow-hidden rounded-fc-md text-fc-xs text-fc-fg select-none
+	class="clip group absolute flex touch-none items-center rounded-fc-md text-fc-xs text-fc-fg select-none
 		focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-fc-ring {TONE[clip.kind]}
 		{selected ? 'outline-2 outline-offset-[-2px] outline-fc-fg' : ''} {readonly ? '' : 'cursor-grab active:cursor-grabbing'}"
 	style="--x: {clip.start * zoom}px; --w: {Math.max(clip.duration * zoom, 6)}px; --y: {row * ROW}px"
@@ -79,27 +79,23 @@
 	onpointerdown={(event) => grab(event, 'move')}
 	{onkeydown}
 >
-	{#if poster}
-		<span class="absolute inset-0 bg-[length:auto_100%] bg-repeat-x opacity-60" style={strip} aria-hidden="true"></span>
-		<span class="absolute inset-0 bg-linear-to-r from-fc-bg/80 to-fc-bg/10" aria-hidden="true"></span>
-	{/if}
-	<span class="relative flex min-w-0 items-center gap-1.5 px-2.5">
-		<Icon icon={KIND_ICON[clip.kind]} size={14} class="shrink-0" />
-		<span class="truncate font-medium">{label}</span>
+	<span class="absolute inset-0 flex items-center overflow-hidden rounded-fc-md">
+		{#if poster}
+			<span class="absolute inset-0 bg-[length:auto_100%] bg-repeat-x opacity-60" style={strip} aria-hidden="true"></span>
+			<span class="absolute inset-0 bg-linear-to-r from-fc-bg/80 to-fc-bg/10" aria-hidden="true"></span>
+		{/if}
+		<span class="relative flex min-w-0 items-center gap-1.5 px-2.5">
+			<Icon icon={KIND_ICON[clip.kind]} size={14} class="shrink-0" />
+			<span class="truncate font-medium">{label}</span>
+		</span>
 	</span>
 	{#if !readonly}
-		<span
-			class="absolute inset-y-0 left-0 w-2 cursor-ew-resize rounded-l-fc-md bg-fc-fg/0 group-hover:bg-fc-fg/40"
-			aria-hidden="true"
-			data-testid="trim-start"
-			onpointerdown={(event) => grab(event, 'start')}
-		></span>
-		<span
-			class="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r-fc-md bg-fc-fg/0 group-hover:bg-fc-fg/40"
-			aria-hidden="true"
-			data-testid="trim-end"
-			onpointerdown={(event) => grab(event, 'end')}
-		></span>
+		<span class="trim start" aria-hidden="true" data-testid="trim-start" onpointerdown={(event) => grab(event, 'start')}>
+			<span class="handle rounded-l-fc-md"></span>
+		</span>
+		<span class="trim end" aria-hidden="true" data-testid="trim-end" onpointerdown={(event) => grab(event, 'end')}>
+			<span class="handle rounded-r-fc-md"></span>
+		</span>
 	{/if}
 </div>
 
@@ -109,5 +105,43 @@
 		left: calc(var(--x) + var(--dx, 0px));
 		width: calc(var(--w) + var(--dw, 0px));
 		height: 34px;
+	}
+
+	.trim {
+		position: absolute;
+		top: -5px;
+		bottom: -5px;
+		z-index: 1;
+		display: flex;
+		width: 44px;
+		padding-block: 5px;
+		cursor: ew-resize;
+	}
+
+	.trim.start {
+		left: -22px;
+		padding-left: 22px;
+	}
+
+	.trim.end {
+		right: -22px;
+		justify-content: flex-end;
+		padding-right: 22px;
+	}
+
+	.handle {
+		width: 8px;
+		background: transparent;
+	}
+
+	.clip:hover .handle,
+	.clip:focus-visible .handle {
+		background: color-mix(in oklab, var(--color-fc-fg) 45%, transparent);
+	}
+
+	@media (pointer: coarse) {
+		.handle {
+			background: color-mix(in oklab, var(--color-fc-fg) 45%, transparent);
+		}
 	}
 </style>
