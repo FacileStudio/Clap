@@ -50,11 +50,11 @@ fn markup(id: &str, op: &Op) -> Result<String, Error> {
     let text = text.as_deref().unwrap_or_default();
     let escaped = text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
     Ok(match kind {
-        Kind::Video => format!("<video data-clip=\"{id}\" src=\"{}\" {timing}></video>", file()?),
+        Kind::Video => format!("<video class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" {timing}></video>", file()?),
         Kind::Audio => format!("<audio data-clip=\"{id}\" src=\"{}\" {timing}></audio>", file()?),
-        Kind::Image => format!("<img data-clip=\"{id}\" src=\"{}\" alt=\"\" {timing}>", file()?),
-        Kind::Text => format!("<div class=\"clip\" data-clip=\"{id}\" {timing}>{escaped}</div>"),
-        Kind::Html => format!("<div class=\"clip\" data-clip=\"{id}\" {timing}>{text}</div>"),
+        Kind::Image => format!("<img class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" alt=\"\" {timing}>", file()?),
+        Kind::Text => format!("<p class=\"clap-title\" data-clip=\"{id}\" {timing}>{escaped}</p>"),
+        Kind::Html => format!("<div class=\"clap-layer\" data-clip=\"{id}\" {timing}>{text}</div>"),
     })
 }
 

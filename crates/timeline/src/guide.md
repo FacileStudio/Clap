@@ -7,7 +7,8 @@ This section says how to write one that previews and renders well.
 ## Write time-based scenes
 
 Use `layout: raw` and set `duration` on every scene. A raw scene is a full-stage HTML
-composition: position its elements yourself, absolutely, inside the stage size given by `size`.
+composition on a black stage of the size given by `size`. Place clips with the classes of "The
+stage" below, or position them yourself, absolutely.
 
 ```md
 ---
@@ -17,12 +18,8 @@ layout: raw
 duration: 6
 ---
 
-<style>
-  #shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  #title { position: absolute; left: 120px; bottom: 140px; margin: 0; font-size: 120px; color: white; }
-</style>
-<video id="shot" src="assets/shot.mp4" data-start="0" data-duration="6" data-track-index="0" data-in="1.5"></video>
-<h1 id="title" data-start="1" data-duration="4" data-track-index="1">Launch day</h1>
+<video id="shot" class="clap-fill" src="assets/shot.mp4" data-start="0" data-duration="6" data-track-index="0" data-in="1.5"></video>
+<h1 id="title" class="clap-title" data-start="1" data-duration="4" data-track-index="1">Launch day</h1>
 <audio id="music" src="assets/music.mp3" data-start="0" data-duration="6" data-volume="0.4"></audio>
 <script>
   scene.timeline((tl) => tl.from("#title", { opacity: 0, y: 40, duration: 0.8 }, 1));
@@ -31,6 +28,29 @@ duration: 6
 
 Markdown scenes (`default`, `cover`, `center`, `split`) work too: a scene with steps lasts
 `step_duration` per stop, which is how a deck becomes a video. Prefer raw scenes for motion.
+
+## The stage
+
+Clap adds a small stylesheet to every preview and every render. In a raw scene:
+
+- The scene is a black stage with white text: the theme's `--bg`, `--fg`, `--muted`, `--fill`
+  and `--fill-strong` are redefined for it. Set them on `.scene` to change them.
+- Every element with `data-track-index` is positioned, so the track stacks it: a higher track
+  draws on top, with no CSS from you.
+
+Five classes place a clip. Each is one class selector: any rule you write wins over it.
+
+| Class | Does | Use it on |
+|---|---|---|
+| `clap-fill` | Fills the whole stage, cropped to fit (`object-fit: cover`) | a full-frame `<video>` or `<img>` |
+| `clap-layer` | A full-stage layer you lay out inside | an HTML clip |
+| `clap-title` | Centered white title, 112 px, with a soft shadow that reads on video | a title |
+| `clap-caption` | One or two centered lines near the bottom, 44 px | a subtitle or a hint |
+| `clap-lower` | A name plate at the bottom left on a dark rounded panel | a lower third |
+
+`add_clip` writes these classes: a `video` or `image` clip gets `clap-fill`, a `text` clip
+`clap-title`, an `html` clip `clap-layer`. An `audio` clip draws nothing. To make a text clip a
+lower third or a caption, change its class.
 
 ## Clips
 

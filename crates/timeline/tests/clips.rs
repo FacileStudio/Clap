@@ -67,11 +67,19 @@ fn an_added_clip_is_deleted_back_to_the_same_text() {
         text: text.map(str::to_owned),
     };
     let added = apply(LAUNCH, &[add(Kind::Video, Some("assets/b.mp4"), None)]).unwrap();
-    let line = "Today, everywhere.</p>\n<video data-clip=\"video-1\" src=\"assets/b.mp4\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\"></video>\n";
+    let line = "Today, everywhere.</p>\n<video class=\"clap-fill\" data-clip=\"video-1\" src=\"assets/b.mp4\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\"></video>\n";
     assert_eq!(added, LAUNCH.replace("Today, everywhere.</p>\n", line));
     assert_eq!(apply(&added, &[Op::DeleteClip { clip: id("video-1") }]).unwrap(), LAUNCH);
     let text = apply(LAUNCH, &[add(Kind::Text, None, Some("a < b"))]).unwrap();
-    assert!(text.contains("<div class=\"clip\" data-clip=\"text-1\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\">a &lt; b</div>"));
+    assert!(text.contains("<p class=\"clap-title\" data-clip=\"text-1\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\">a &lt; b</p>"));
+    let image = apply(LAUNCH, &[add(Kind::Image, Some("assets/logo.png"), None)]).unwrap();
+    assert!(
+        image.contains(
+            "<img class=\"clap-fill\" data-clip=\"image-1\" src=\"assets/logo.png\" alt=\"\" data-start=\"4\""
+        )
+    );
+    let html = apply(LAUNCH, &[add(Kind::Html, None, Some("<b>Hi</b>"))]).unwrap();
+    assert!(html.contains("<div class=\"clap-layer\" data-clip=\"html-1\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\"><b>Hi</b></div>"));
     let missing = apply(LAUNCH, &[add(Kind::Audio, None, None)]).unwrap_err();
     assert_eq!(missing.code(), "invalid_op");
     let remote = apply(LAUNCH, &[add(Kind::Image, Some("https://example.com/a.png"), None)]).unwrap_err();
@@ -92,7 +100,7 @@ fn a_first_clip_lands_before_the_note_or_at_the_end() {
     let source = "---\nlayout: raw\nduration: 2\n---\n<h1>Title</h1>\n\n<!-- note -->\n\n---\n\nBye.";
     let element = |n| {
         format!(
-            "<div class=\"clip\" data-clip=\"text-{n}\" data-start=\"0\" data-duration=\"1\" data-track-index=\"0\">Hi</div>"
+            "<p class=\"clap-title\" data-clip=\"text-{n}\" data-start=\"0\" data-duration=\"1\" data-track-index=\"0\">Hi</p>"
         )
     };
     let first = apply(source, &[add(0)]).unwrap();
