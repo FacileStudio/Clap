@@ -106,7 +106,7 @@ async fn a_link_in_place_of_the_finished_file_fails_the_render() {
 }
 
 #[tokio::test]
-async fn the_sweep_fails_lost_and_stale_jobs_and_removes_what_no_row_names() {
+async fn the_sweep_fails_lost_jobs_and_waits_for_a_live_worker_and_removes_what_no_row_names() {
     let Some(pool) = common::pool("clap_renders_sweep").await else { return };
     let app = common::app(pool).await;
     let ada = app.person("ada").await;
@@ -130,9 +130,12 @@ async fn the_sweep_fails_lost_and_stale_jobs_and_removes_what_no_row_names() {
     std::fs::create_dir_all(output.parent().unwrap()).unwrap();
     std::fs::write(&output, b"old").unwrap();
     assert_eq!(api::modules::renders::sweep::swept(&app.state).await.unwrap(), 2);
-    assert!(!orphan.exists() && !output.exists() && !dir(&app, &stale).exists());
-    assert!(dir(&app, &waiting).join("job.json").is_file());
-    assert_eq!(mirrored(&app, &ada, &waiting).await["state"], json!("queued"));
+    assert!(!orphan.exists() && !output.exists() && dir(&app, &waiting).join("job.json").is_file());
     assert!(mirrored(&app, &ada, &lost).await["error"].as_str().unwrap().contains("lost"));
-    assert!(mirrored(&app, &ada, &stale).await["error"].as_str().unwrap().contains("too long"));
+    assert_eq!(mirrored(&app, &ada, &stale).await["state"], json!("queued"), "the worker is alive: it waits its turn");
+    common::render::heartbeat(&app.state.data_dir, time::OffsetDateTime::now_utc() - time::Duration::minutes(5));
+    api::modules::renders::sweep::swept(&app.state).await.unwrap();
+    assert!(mirrored(&app, &ada, &stale).await["error"].as_str().unwrap().contains("down too long"));
+    assert!(!dir(&app, &stale).exists());
+    assert_eq!(mirrored(&app, &ada, &waiting).await["state"], json!("queued"), "a recent job still waits");
 }

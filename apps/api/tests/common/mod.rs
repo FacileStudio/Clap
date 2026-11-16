@@ -69,8 +69,12 @@ pub async fn app(pool: PgPool) -> App {
 }
 
 pub async fn app_with(pool: PgPool, vars: &[(&str, &str)]) -> App {
-    let mut pairs =
-        vec![("DATABASE_URL", "postgres://unused/x"), ("RENDER_QUEUE_MAX", "1000000"), ("PUBLIC_URL", HOST)];
+    let mut pairs = vec![
+        ("DATABASE_URL", "postgres://unused/x"),
+        ("RENDER_QUEUE_MAX", "1000000"),
+        ("RENDER_USER_MAX", "1000000"),
+        ("PUBLIC_URL", HOST),
+    ];
     pairs.extend_from_slice(vars);
     let config = Config::from_vars(&Vars::from_pairs(pairs)).unwrap();
     let kits = Kits::over(&config, &pool, idp::client()).await.unwrap();
