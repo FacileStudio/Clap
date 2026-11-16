@@ -30,4 +30,4 @@ echo "==> apps/client"
 )
 
 echo "==> e2e"
-echo "check: no browser run yet, skipping (it lands with the editor shell, PLAN.md step 7)" >&2
+(cd apps/client && sh e2e/landing.sh)
