@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { stageBoxes, stageMessage, type StageBoxes, type StageInfo, type StageState } from '$lib/project/stage';
+	import { stageBoxes, stageMessage, type StageBox, type StageBoxes, type StageInfo, type StageState } from '$lib/project/stage';
 
 	type Layer = { key: number; src: string; phase: 'loading' | 'seeking' | 'shown' };
 
@@ -10,6 +10,7 @@
 		time = 0,
 		playing = false,
 		lazy = false,
+		ghost = null,
 		onready,
 		onstate,
 		onboxes
@@ -22,10 +23,12 @@
 		/** Whether the clock runs: the document then lets its videos and sounds play between two seeks. */
 		playing?: boolean;
 		lazy?: boolean;
+		/** A clip drawn at a temporary box while it is dragged; null draws every clip where its source puts it. */
+		ghost?: Omit<StageBox, 'kind'> | null;
 		onready?: (info: StageInfo) => void;
 		onstate?: (state: StageState) => void;
-		/** The boxes of the clips shown, in stage pixels, after every seek of the shown document. */
-		onboxes?: (boxes: StageBoxes) => void;
+		/** The boxes of the clips shown, in stage pixels, after every seek of the shown document, and its URL. */
+		onboxes?: (boxes: StageBoxes, src: string) => void;
 	} = $props();
 
 	let layers = $state<Layer[]>([]);
@@ -54,6 +57,13 @@
 		}
 	});
 
+	$effect(() => {
+		const message = ghost ? { type: 'clap:ghost', ...ghost } : { type: 'clap:ghost' };
+		for (const layer of layers) {
+			if (layer.phase !== 'loading') frames.get(layer.key)?.contentWindow?.postMessage(message, '*');
+		}
+	});
+
 	function register(node: HTMLIFrameElement, key: number) {
 		frames.set(key, node);
 		return { destroy: () => frames.delete(key) };
@@ -62,7 +72,7 @@
 	function onmessage(event: MessageEvent) {
 		const layer = layers.find((known) => frames.get(known.key)?.contentWindow === event.source);
 		const boxes = layer?.phase === 'shown' ? stageBoxes(event.data) : null;
-		if (boxes) onboxes?.(boxes);
+		if (boxes && layer) onboxes?.(boxes, layer.src);
 		const message = layer ? stageMessage(event.data) : null;
 		if (!layer || !message) return;
 		if (message.type === 'scene:ready') {

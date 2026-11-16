@@ -41,11 +41,17 @@ function split(source: string, op: Of<'split_clip'>): string {
 	return `${first.slice(0, at)}\n${tail}${first.slice(at)}`;
 }
 
-function element(op: Of<'add_clip'>): string {
-	const time = `data-start="${op.start}" data-duration="${op.duration}" data-track-index="${op.track}"`;
-	if (op.kind === 'video') return `<video class="clap-fill" src="${op.src}" ${time}></video>`;
+function element(source: string, op: Of<'add_clip'>): string {
+	const plan = outline(source);
+	const taken = new Set(plan.scenes.flatMap((scene) => scene.clips.map((clip) => clip.id)));
+	let n = 1;
+	while (taken.has(`${op.kind}-${n}`)) n += 1;
+	const id = `data-clip="${op.kind}-${n}"`;
+	const time = `${id} data-start="${op.start}" data-duration="${op.duration}" data-track-index="${op.track}"`;
+	const frame = `data-x="0" data-y="0" data-w="${plan.width}" data-h="${plan.height}" data-rot="0" data-fit="cover"`;
+	if (op.kind === 'video') return `<video class="clap-fill" src="${op.src}" ${time} ${frame}></video>`;
 	if (op.kind === 'audio') return `<audio src="${op.src}" ${time}></audio>`;
-	if (op.kind === 'image') return `<img class="clap-fill" src="${op.src}" ${time} alt="">`;
+	if (op.kind === 'image') return `<img class="clap-fill" src="${op.src}" alt="" ${time} ${frame}>`;
 	if (op.kind === 'html') return `<div class="clap-layer" ${time}>${op.text ?? ''}</div>`;
 	return `<p class="clap-title" ${time}>${op.text ?? ''}</p>`;
 }
@@ -69,7 +75,7 @@ const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
 			if (op.transition === null || op.duration === null) delete meta.transition_duration;
 			else if (op.duration !== undefined) meta.transition_duration = String(op.duration);
 		}),
-	add_clip: (source, op) => restage(source, (scenes) => void scenes[op.scene].body.push(element(op), '')),
+	add_clip: (source, op) => restage(source, (scenes) => void scenes[op.scene].body.push(element(source, op), '')),
 	set_scene_duration: (source, op) => restage(source, (scenes) => void (scenes[op.scene].meta.duration = String(op.duration))),
 	reorder_scene: (source, op) => restage(source, (scenes) => void scenes.splice(op.to, 0, ...scenes.splice(op.scene, 1))),
 	delete_scene: (source, op) => restage(source, (scenes) => void scenes.splice(op.scene, 1)),

@@ -1,4 +1,5 @@
 import type { Clip, Op, Scene, Timeline } from '$lib/types';
+import { nextClipId } from './stage-drop';
 import { setTransition, updateClip } from './look';
 import { findClip, round } from './model';
 
@@ -38,7 +39,7 @@ const HANDLERS: Handlers = {
 		if (found) found.scene.clips.splice(found.scene.clips.indexOf(found.clip), 1);
 	},
 	add_clip: (timeline, { scene, kind, src, start, duration, track }) => {
-		timeline.scenes[scene]?.clips.push({ id: provisional(), kind, src: src ?? null, start, duration, track, media_in: 0 });
+		timeline.scenes[scene]?.clips.push({ id: nextClipId(timeline, kind), kind, src: src ?? null, start, duration, track, media_in: 0 });
 	},
 	set_scene_duration: (timeline, op) => Object.assign(timeline.scenes[op.scene] ?? {}, { duration: op.duration }),
 	reorder_scene: (timeline, op) => reorder(timeline, op.scene, op.to),

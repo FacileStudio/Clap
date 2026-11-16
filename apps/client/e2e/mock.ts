@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { outline } from '../src/lib/timeline/outline';
+import { servedTimeline } from './mock-look';
 import { events, tell } from './mock-events';
 import { frameResponse } from './mock-frame';
 import { edit, json, refuse, save, type Project } from './mock-writes';
@@ -27,7 +28,7 @@ async function one(request: Request, project: Project, rest: string[], url: URL)
 	const seconds = outline(project.source).scenes.reduce((sum, scene) => sum + scene.duration, 0);
 	if (part === 'source') return save(project, await request.json());
 	if (part === 'edits') return edit(project, await request.json());
-	if (part === 'timeline') return json({ rev: project.rev, timeline: { scenes: outline(project.source).scenes } });
+	if (part === 'timeline') return json({ rev: project.rev, timeline: servedTimeline(project.source) });
 	if (part === 'events') return events(project.id, project.rev);
 	if (part === 'frame') return frameResponse(project, url.searchParams.get('scene'));
 	if (part === 'assets') return assetRoute(request, project.id, name && decodeURIComponent(rest.slice(1).join('/')), tell(project.id));

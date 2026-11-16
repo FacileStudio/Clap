@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Asset, Render } from '../src/lib/types';
@@ -25,6 +25,7 @@ function probe(path: string): number | null {
 async function store(project: string, file: File, tell: Tell): Promise<Asset> {
 	const name = `assets/${file.name}`;
 	const path = join(scratch, `${project}-${file.name}`);
+	mkdirSync(scratch, { recursive: true });
 	writeFileSync(path, new Uint8Array(await file.arrayBuffer()));
 	const url = `/api/projects/${project}/assets/${encodeURI(name)}`;
 	const kind = file.type.split('/')[0];

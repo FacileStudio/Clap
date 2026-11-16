@@ -1,12 +1,14 @@
+import type { Point } from '$lib/stage/geometry';
 import type { LocalMedia } from '$lib/project/local-media';
 import type { Asset, ClipKind, Timeline } from '$lib/types';
 import { kindOfAsset, placeOps } from './adds';
 import { sceneStarts } from './model';
 
-/** Where a drop asked to land: a project time and a track. */
+/** Where a drop asked to land: a project time and a track, and the frame point when it was dropped on the stage. */
 export interface DropTarget {
 	time: number;
 	track: number;
+	at?: Point;
 }
 
 /** A clip drawn on the timeline before it exists: a drop being aimed, or a file still uploading. */

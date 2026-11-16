@@ -5,9 +5,10 @@ import { pending } from './pending';
 import { projects } from './projects';
 import { render } from './render';
 import { share } from './share';
+import { stage } from './stage';
 import { timeline } from './timeline';
 
-const rows = { ...projects, ...editor, ...timeline, ...render, ...pending, ...share };
+const rows = { ...projects, ...editor, ...timeline, ...render, ...pending, ...share, ...stage };
 
 export type AppKey = keyof typeof rows;
 type AppCatalog = Record<AppKey, Message>;

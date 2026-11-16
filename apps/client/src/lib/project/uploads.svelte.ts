@@ -44,7 +44,7 @@ export class Uploads {
 
 	/** Sends `files`; with a `target`, each one is aimed there, the next ones a track higher, and drawn as a ghost. */
 	add(files: File[], target: DropTarget | null = null): void {
-		files.forEach((file, index) => this.send(file, target && { time: target.time, track: target.track + index }));
+		files.forEach((file, index) => this.send(file, target && { ...target, track: target.track + index }));
 	}
 
 	/** Stops the upload `id`, or forgets it when it already ended. */
