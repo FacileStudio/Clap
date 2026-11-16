@@ -9,7 +9,13 @@ if ! pg_isready -d "$TEST_DATABASE_URL" -q 2>/dev/null; then
   echo "check: no Postgres at TEST_DATABASE_URL; the database tests will skip (run: mise run db-up)" >&2
 fi
 
-echo "==> workspace (apps/api, apps/worker, crates/render, crates/timeline)"
+cli_version="v$(sed -n 's/^version = "\(.*\)"/\1/p' apps/cli/Cargo.toml | head -n 1)"
+if [ "$cli_version" != "$(sh scripts/version.sh)" ]; then
+  echo "check: apps/cli is $cli_version but apps/client/package.json is $(sh scripts/version.sh); a release tag must match both" >&2
+  exit 1
+fi
+
+echo "==> workspace (apps/api, apps/cli, apps/worker, crates/render, crates/timeline)"
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
