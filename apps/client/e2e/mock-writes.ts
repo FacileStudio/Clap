@@ -1,3 +1,4 @@
+import { outline } from '../src/lib/timeline/outline';
 import type { Op } from '../src/lib/types';
 import { applyEdits } from './mock-edits';
 import { tell } from './mock-events';
@@ -34,5 +35,5 @@ export function edit(project: Project, body: { rev: number; ops: Op[] }): Respon
 	} catch (error) {
 		return refuse(400, 'invalid_argument', (error as Error).message);
 	}
-	return json({ source: project.source, rev: project.rev });
+	return json({ source: project.source, rev: project.rev, timeline: { scenes: outline(project.source).scenes } });
 }

@@ -52,7 +52,7 @@ export const backend = {
 	destroy: (id: string) => request<void>(project(id), send('DELETE')),
 	edit: (id: string, rev: number, ops: Op[]) =>
 		request<{ source: string; rev: number; timeline?: Timeline }>(project(id, '/edits'), send('POST', { rev, ops })),
-	timeline: (id: string) => request<Timeline>(project(id, '/timeline')),
+	timeline: (id: string) => request<{ timeline: Timeline }>(project(id, '/timeline')).then((found) => found.timeline),
 	eventsUrl: (id: string) => `${API}${project(id, '/events')}`,
 	frameUrl,
 	assets: (id: string) => request<{ assets: Asset[] }>(project(id, '/assets')).then((found) => found.assets.map(pictured)),
