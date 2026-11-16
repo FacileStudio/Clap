@@ -5,7 +5,8 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::status::{Status, output, regular, status};
+use super::jobfs;
+use super::status::{OUTPUT_MAX_BYTES, Status, output, status};
 use super::{bundle, sweep};
 use crate::state::AppState;
 
@@ -40,19 +41,26 @@ pub async fn close(state: &AppState, id: Uuid, outcome: &str, error: Option<&str
     Ok(closed.rows_affected() > 0)
 }
 
+async fn kept(state: &AppState, id: Uuid) -> std::io::Result<u64> {
+    let (data_dir, target) = (state.data_dir.to_path_buf(), output(&state.data_dir, id));
+    tokio::fs::create_dir_all(target.parent().unwrap_or(&data_dir)).await?;
+    let copy = move || jobfs::copy_out(&data_dir, &format!("{id}/out.mp4"), &target, OUTPUT_MAX_BYTES);
+    tokio::task::spawn_blocking(copy).await.map_err(std::io::Error::other)?
+}
+
 async fn done(state: &AppState, id: Uuid, status: &Status) -> Result<bool, sqlx::Error> {
-    let (written, kept) = (bundle::dir(&state.data_dir, id).join("out.mp4"), output(&state.data_dir, id));
-    let Some(size) = regular(&written).await.filter(|size| *size > 0) else {
-        return close(state, id, "failed", Some("the worker reported a finished render and wrote no file")).await;
+    let size = match kept(state, id).await {
+        Ok(size) if size > 0 => size,
+        Ok(_) => {
+            return close(state, id, "failed", Some("the worker reported a finished render and wrote an empty file"))
+                .await;
+        }
+        Err(error) => {
+            tracing::warn!(render = %id, %error, "renders: refused the worker's file");
+            return close(state, id, "failed", Some("the worker reported a finished render and wrote no usable file"))
+                .await;
+        }
     };
-    let moved = match tokio::fs::create_dir_all(state.data_dir.join("outputs")).await {
-        Ok(()) => tokio::fs::rename(&written, &kept).await,
-        Err(error) => Err(error),
-    };
-    if let Err(error) = moved {
-        tracing::error!(render = %id, %error, "renders: could not keep a finished file");
-        return close(state, id, "failed", Some("the finished file could not be stored")).await;
-    }
     let stored = sqlx::query_as(
         "UPDATE renders SET state = 'done', frame = greatest($2, frame), frames = greatest($2, frames), error = NULL, \
          output = $3, size = $4, started_at = coalesce(started_at, now()), finished_at = now() \
@@ -71,7 +79,7 @@ async fn done(state: &AppState, id: Uuid, status: &Status) -> Result<bool, sqlx:
 /// `done` the file moves to durable storage, the job directory goes (the worker never deletes
 /// one) and the poster is made beside the file.
 pub async fn mirror(state: &AppState, id: Uuid) -> Result<bool, sqlx::Error> {
-    let Some(status) = status(&bundle::dir(&state.data_dir, id)).await else { return Ok(false) };
+    let Some(status) = status(&state.data_dir, id).await else { return Ok(false) };
     let moved = match status.state.as_str() {
         "running" => progress(state, id, &status).await?,
         "done" => done(state, id, &status).await?,

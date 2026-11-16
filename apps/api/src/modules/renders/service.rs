@@ -89,7 +89,7 @@ pub async fn enqueue(
     let spec = spec::spec(request, (size.width, size.height), parsed.duration(), &state.limits.render)?;
     let plan = bundle::plan(&parsed, &assets::catalog(state, project).await?)?;
     let row = insert(state, user_id, (Some(project), source.rev), &spec).await?;
-    if let Err(error) = bundle::write(&state.data_dir, &plan, &JobFile::of(&row, &spec)).await {
+    if let Err(error) = super::stage::write(&state.data_dir, &plan, &JobFile::of(&row, &spec)).await {
         discard(state, row.id).await;
         return Err(Error::internal("failed to write a render job", error).into());
     }
@@ -119,8 +119,11 @@ pub async fn list(state: &AppState, user_id: i64, project: Uuid) -> Result<Rende
 pub async fn cancel(state: &AppState, user_id: i64, id: Uuid) -> Result<Option<Render>> {
     let row = authorized(state, user_id, id, Access::Editor).await?;
     if !is_final(&row.state) {
-        let asked = tokio::fs::write(bundle::dir(&state.data_dir, id).join("cancel"), b"").await;
-        asked.map_err(|error| Error::internal("failed to ask the worker to stop", error))?;
+        let (data_dir, relative) = (state.data_dir.to_path_buf(), format!("{id}/cancel"));
+        let asked = tokio::task::spawn_blocking(move || super::jobfs::touch(&data_dir, &relative)).await;
+        asked
+            .map_err(|error| Error::internal("failed to ask the worker to stop", error))?
+            .map_err(|error| Error::internal("failed to ask the worker to stop", error))?;
         return Ok(Some(row.into()));
     }
     sqlx::query("DELETE FROM renders WHERE id = $1").bind(id).execute(&state.pool).await.map_err(db)?;
