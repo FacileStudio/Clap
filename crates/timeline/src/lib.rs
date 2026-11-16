@@ -31,13 +31,15 @@ mod place;
 mod runtime;
 mod scan;
 mod scenes;
+mod starter;
 mod tree;
 
 pub use error::Error;
 pub use guide::{CLAP_GUIDE, format_guide};
 pub use model::{Clip, Kind, Scene, Span, Timeline};
 pub use op::Op;
-pub use runtime::{RUNTIME_JS, with_runtime};
+pub use runtime::{RUNTIME_JS, STAGE_CSS, with_runtime};
+pub use starter::{starter, starter_language};
 
 use clips::Trim;
 use scan::{Sketch, sketch};
