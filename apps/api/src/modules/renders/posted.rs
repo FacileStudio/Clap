@@ -10,7 +10,7 @@ use porte::mcpauth::VerifyError;
 use tokio::io::AsyncWriteExt;
 use tronc::{Error, Result};
 
-use super::bundle::{self, JobFile};
+use super::bundle::JobFile;
 use super::spec;
 use super::types::{Render, RenderRequest};
 use crate::limits::RENDER_BUNDLE_MAX_FILES;
@@ -119,8 +119,7 @@ pub async fn post(state: &AppState, user_id: i64, multipart: Multipart) -> Resul
         return Err(Error::invalid("the bundle has no `index.html`"));
     }
     let row = super::service::insert(state, user_id, (None, 0), &spec).await?;
-    let job = bundle::dir(&state.data_dir, row.id);
-    let moved = bundle::adopt(&intake.bundle, &job, &JobFile::of(&row, &spec)).await;
+    let moved = super::stage::adopt(&state.data_dir, &intake.bundle, &JobFile::of(&row, &spec)).await;
     if let Err(error) = moved {
         super::service::discard(state, row.id).await;
         return Err(Error::internal("failed to write a render job", error));

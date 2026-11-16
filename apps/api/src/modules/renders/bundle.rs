@@ -9,8 +9,8 @@ use uuid::Uuid;
 
 use super::spec::Spec;
 use super::types::RenderRow;
+use crate::modules::assets::name;
 use crate::modules::assets::service::Asset;
-use crate::modules::assets::{files, name};
 
 /// The folder of the bundle the media sit in, so no asset name can shadow `index.html`.
 pub const MEDIA: &str = "media";
@@ -83,45 +83,4 @@ impl JobFile {
             created_at: row.created_at.format(&Rfc3339).unwrap_or_default(),
         }
     }
-}
-
-async fn linked(original: &Path, target: &Path) -> std::io::Result<()> {
-    if let Some(parent) = target.parent() {
-        tokio::fs::create_dir_all(parent).await?;
-    }
-    if tokio::fs::hard_link(original, target).await.is_ok() {
-        return Ok(());
-    }
-    tokio::fs::copy(original, target).await.map(|_| ())
-}
-
-/// Writes `value` to `path` so a reader sees the whole file or none: a temporary name, then a
-/// rename.
-pub async fn atomic(path: &Path, value: &[u8]) -> std::io::Result<()> {
-    let temporary = path.with_extension("tmp");
-    tokio::fs::write(&temporary, value).await?;
-    tokio::fs::rename(&temporary, path).await
-}
-
-/// Writes the job directory of `job`: the bundle first, each media file a hard link to the
-/// original (a copy when the volume refuses links), then `job.json` last and by rename, which
-/// is what tells the worker the job is whole.
-pub async fn write(data_dir: &Path, plan: &Plan, job: &JobFile) -> std::io::Result<()> {
-    let bundle = dir(data_dir, job.id).join("bundle");
-    tokio::fs::create_dir_all(&bundle).await?;
-    for (name, sha256) in &plan.media {
-        linked(&files::path(data_dir, sha256), &bundle.join(MEDIA).join(name)).await?;
-    }
-    tokio::fs::write(bundle.join("index.html"), &plan.html).await?;
-    let encoded = serde_json::to_vec(job).map_err(std::io::Error::other)?;
-    atomic(&dir(data_dir, job.id).join("job.json"), &encoded).await
-}
-
-/// Makes a received bundle the job `job`: the bundle directory moves into `target` by rename,
-/// then `job.json` is written last and by rename.
-pub async fn adopt(received: &Path, target: &Path, job: &JobFile) -> std::io::Result<()> {
-    tokio::fs::create_dir_all(target).await?;
-    tokio::fs::rename(received, target.join("bundle")).await?;
-    let encoded = serde_json::to_vec(job).map_err(std::io::Error::other)?;
-    atomic(&target.join("job.json"), &encoded).await
 }
