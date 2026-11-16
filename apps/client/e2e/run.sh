@@ -7,8 +7,9 @@ root="$(git rev-parse --show-toplevel)"
 : "${E2E_ADMIN_URL:=${TEST_DATABASE_URL:-postgres://postgres:postgres@127.0.0.1:${POSTGRES_PORT:-5672}/postgres?sslmode=disable}}"
 export E2E_ADMIN_URL
 
-if [ -z "$(ls -d "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium_headless_shell-* 2>/dev/null)" ]; then
-  echo "e2e: no Playwright Chromium, SKIPPING the browser run (install: bunx playwright-core install chromium-headless-shell)" >&2
+shells="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+if [ -z "${CLAP_CHROME:-}" ] && [ -z "$(ls -d "$shells"/chromium_headless_shell-* 2>/dev/null)" ]; then
+  echo "e2e: no Chromium (CLAP_CHROME or a Playwright download), SKIPPING the browser run" >&2
   exit 0
 fi
 if ! command -v ffmpeg >/dev/null 2>&1; then

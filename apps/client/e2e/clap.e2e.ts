@@ -31,7 +31,7 @@ beforeAll(async () => {
 	if (ffmpeg) makeClip();
 	else console.warn('e2e: SKIPPED the upload, drop, drag and render tests: ffmpeg is not installed');
 	stack = await startStack();
-	browser = await chromium.launch({ headless: true });
+	browser = await chromium.launch({ headless: true, executablePath: process.env.CLAP_CHROME || undefined });
 }, 180_000);
 
 afterAll(async () => {
