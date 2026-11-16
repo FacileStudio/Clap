@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: clap
-      POSTGRES_PASSWORD: clap-internal-db
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clap-internal-db}
       POSTGRES_DB: clap
     volumes:
     - db_data:/var/lib/postgresql/data
@@ -52,7 +52,7 @@ services:
       traefik.http.routers.clap-secure.service: clap-api
       traefik.http.services.clap-api.loadbalancer.server.port: "4000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgres://clap:clap-internal-db@clap-db:5432/clap?sslmode=disable}
+      DATABASE_URL: ${DATABASE_URL:-postgres://clap:${POSTGRES_PASSWORD:-clap-internal-db}@clap-db:5432/clap?sslmode=disable}
       PORT: '4000'
       APP_ENV: ${APP_ENV:-production}
       LOG_LEVEL: ${LOG_LEVEL:-info}
