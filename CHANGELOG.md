@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-16
+
 ### Fixed
 
 - Images no longer flicker in the preview after a drop or an edit. The preview keeps the
