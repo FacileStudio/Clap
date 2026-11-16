@@ -131,7 +131,7 @@ async fn the_sweep_removes_only_old_files_no_row_names() {
     }
     let old = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 60 * 60);
     for path in [files(dir, &orphan), poster.clone(), files(dir, &kept)] {
-        std::fs::File::options().write(true).open(path).unwrap().set_modified(old).unwrap();
+        std::fs::File::open(path).unwrap().set_modified(old).unwrap();
     }
     assert_eq!(api::modules::assets::sweep::sweep(&app.state).await.unwrap(), 2);
     assert!(!files(dir, &orphan).exists() && !poster.exists());
