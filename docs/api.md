@@ -400,4 +400,8 @@ call next. `download_url` is a link the person opens in their browser, signed in
 | `MCP_STATE_KEY` | unset | The HMAC key of MCP confirmations; required with `MCP_RESOURCE` |
 | `BULLE_URL`, `BULLE_CLIENT_ID` | `https://bulle.facile.studio`, `bulle` | The assistant the client frames |
 
+In `docker-compose.yml` the API's `RENDER_MAX_WIDTH`, `RENDER_MAX_HEIGHT`, `RENDER_MAX_FPS` and
+`RENDER_MAX_SECONDS` take the values of the worker's `CLAP_RENDER_MAX_*` variables, so the API
+never queues a render the worker would refuse. Set the `CLAP_` names in the deploy env.
+
 Back to the [documentation index](README.md).
