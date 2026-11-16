@@ -15,6 +15,8 @@
 		ontrash: () => void;
 	} = $props();
 
+	let still = $state(0);
+
 	const actions = $derived([
 		{ label: t('project.rename'), icon: icons.edit, onselect: onrename },
 		{ label: t('project.trash'), icon: icons.remove, tone: 'danger' as const, onselect: ontrash }
@@ -28,7 +30,7 @@
 			focus-visible:outline-fc-ring"
 		aria-label={project.title}
 	>
-		<SceneFrame src={backend.frameUrl(project.id, { scene: 0, stamp: project.rev })} title={project.title} lazy />
+		<SceneFrame src={backend.frameUrl(project.id, { scene: 0, stamp: project.rev })} title={project.title} time={still} lazy onready={(info) => (still = Math.min(info.duration / 2, 2))} />
 	</a>
 	<div class="flex items-center gap-1 pl-2">
 		<div class="min-w-0 flex-1 py-1">

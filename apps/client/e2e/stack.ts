@@ -1,5 +1,5 @@
 import { SQL, type Subprocess } from 'bun';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { startMock } from './mock';
@@ -47,6 +47,15 @@ async function seed(env: Record<string, string>): Promise<string> {
 	return (JSON.parse(out) as { cookie: string }).cookie;
 }
 
+/**
+ * Writes the render worker's heartbeat. No worker runs here; without a fresh heartbeat the API refuses to queue
+ * a render, and the tests only check that a job is queued.
+ */
+function heartbeat(dataDir: string): void {
+	mkdirSync(join(dataDir, 'renders'), { recursive: true });
+	writeFileSync(join(dataDir, 'renders', '.worker'), new Date().toISOString());
+}
+
 async function startApi(): Promise<Stack> {
 	const port = freePort();
 	const base = `http://127.0.0.1:${port}`;
@@ -61,8 +70,11 @@ async function startApi(): Promise<Stack> {
 	};
 	const server = Bun.spawn([api], { env: { ...process.env, ...env }, stdout: 'inherit', stderr: 'inherit' });
 	await ready(base, server);
+	const beat = setInterval(() => heartbeat(dataDir), 5000);
+	heartbeat(dataDir);
 	const cookie = await seed(env);
 	const stop = async () => {
+		clearInterval(beat);
 		server.kill('SIGTERM');
 		await server.exited;
 		rmSync(dataDir, { recursive: true, force: true });
