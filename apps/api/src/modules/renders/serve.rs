@@ -1,10 +1,7 @@
-use axum::body::Body;
 use axum::extract::{Path, Request, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderValue, header};
 use axum::response::Response;
 use porte::Identity;
-use tower::ServiceExt;
-use tower_http::services::ServeFile;
 use tronc::{Error, Result};
 
 use super::{service, status};
@@ -37,12 +34,7 @@ pub async fn file(
         Some(project) => fetch(&state, project).await?.title,
         None => String::new(),
     };
-    let answer = ServeFile::new(status::output(&state.data_dir, row.id)).oneshot(request).await;
-    let answer = answer.map_err(|error| Error::internal("failed to read a render", error))?;
-    if answer.status() == StatusCode::NOT_FOUND {
-        return Err(Error::internal("a render file is missing", std::io::Error::other(row.id.to_string())));
-    }
-    let mut response = answer.map(Body::new);
+    let mut response = super::output::send(&status::output(&state.data_dir, row.id), request.headers()).await?;
     let headers = response.headers_mut();
     let disposition = format!("attachment; filename=\"{}\"", file_name(&title));
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("video/mp4"));
