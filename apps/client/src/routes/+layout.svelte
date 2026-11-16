@@ -15,6 +15,7 @@
 	} from '@facile/muse';
 	import { backend } from '$lib/backend';
 	import { logoIcon } from '$lib/brand';
+	import Landing from '$lib/components/Landing.svelte';
 	import { rememberReturn, takeReturn } from '$lib/return';
 	import { session } from '$lib/session.svelte';
 	import { restoreTheme, saveTheme } from '$lib/theme';
@@ -57,6 +58,10 @@
 
 {#if !session.ready}
 	<div class="flex h-dvh w-full items-center justify-center bg-fc-page"><Spinner /></div>
+{:else if path === '/downloads'}
+	{@render children()}
+{:else if !session.user && path === '/'}
+	<Landing />
 {:else if !session.user}
 	<AuthScreen appName="Clap" href={backend.loginUrl()} />
 {:else}
