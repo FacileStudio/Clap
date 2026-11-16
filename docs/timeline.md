@@ -30,7 +30,10 @@ pub enum Error { Parse(String), UnknownClip(String), UnknownScene(usize),
 impl Error { pub fn code(&self) -> &'static str }
 
 pub const RUNTIME_JS: &str;
+pub const STAGE_CSS: &str;
 pub fn with_runtime(html: &str) -> String;
+pub fn starter(locale: &str) -> String;
+pub fn starter_language(locale: &str) -> &'static str;
 pub const CLAP_GUIDE: &str;
 pub fn format_guide() -> String;
 ```
@@ -78,7 +81,7 @@ JSON, tagged by `op`. Times are seconds.
 | `trim_clip` | `clip`, `start?`, `duration?`, `media_in?` | Sets `data-start`, `data-duration`, `data-in`. |
 | `split_clip` | `clip`, `at` | Shortens the clip to `at` and adds a copy of the element after it, from `at`, with id `<id>-b`. For a video or an audio the copy's `data-in` moves forward by the same amount. |
 | `delete_clip` | `clip` | Removes the element, and its lines when it is alone on them. |
-| `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>`. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
+| `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
 | `set_scene_duration` | `scene`, `duration` | Sets the `duration` key, adding the key or the frontmatter block when missing. |
 | `reorder_scene` | `scene`, `to` | Moves the scene's lines so that it sits at index `to`. |
 | `delete_scene` | `scene` | Removes the scene's lines. The last scene cannot be removed. |
@@ -139,6 +142,24 @@ does, for the preview: after each `window.__scene.seek(t)` it sets every shown `
 `data-volume`. `with_runtime(html)` adds it to a compiled document. A parent frame posts
 `{type: "clap:playing", playing: true}` to let media play between seeks. Under the renderer the
 script does nothing: the renderer swaps frames in itself (see [Rendering](rendering.md)).
+
+## The stage
+
+`STAGE_CSS` is the stylesheet `with_runtime` puts at the end of the document's head, so the
+preview, the API's frame and every render (API and `clap render`) draw the same picture. A raw
+scene becomes a black stage with white text, and every element with `data-track-index` is
+positioned, so the track the scene runtime writes as `z-index` stacks the clips. It defines the
+classes `add_clip` writes, documented in the guide's "The stage": `clap-fill`, `clap-layer`,
+`clap-title`, `clap-caption`, `clap-lower`. Stage rules sit in `:where()` and each class is one
+class selector, so the theme's element rules lose to them and any author rule wins.
+
+## The starter
+
+`starter(locale)` is the source a new project begins with: one raw scene of 4 seconds, a
+centered title that rises in (`clap-title`) and a hint line under it (`clap-caption`), animated
+with `scene.timeline`. `locale` is an `Accept-Language` value or a tag; the starter is written in
+French, English, German or Spanish, French when none matches. The API answers it for
+`POST /projects` without a source, and `clap new` without `--template` writes it.
 
 ## The format guide
 
