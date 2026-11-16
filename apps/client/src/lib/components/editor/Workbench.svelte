@@ -143,7 +143,16 @@
 
 {#snippet timeline()}
 	<div class="size-full min-h-0 overflow-hidden rounded-fc-lg bg-fc-component">
-		<Timeline {engine} {transport} assets={desk.assets} readonly={compact} />
+		<Timeline
+			{engine}
+			{transport}
+			assets={desk.assets}
+			readonly={compact}
+			ghosts={desk.ghosts}
+			measured={desk.uploads.measured}
+			ondropasset={(asset, target) => desk.drop(asset, target)}
+			ondropfiles={(files, target) => desk.dropFiles(files, target)}
+		/>
 	</div>
 {/snippet}
 

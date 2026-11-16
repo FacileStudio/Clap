@@ -4,15 +4,19 @@
 	import type { Transport } from '$lib/project/transport.svelte';
 	import { runCommand } from '$lib/timeline/commands';
 	import { drag } from '$lib/timeline/drag';
-	import { dropOps, textOps } from '$lib/timeline/adds';
+	import { textOps } from '$lib/timeline/adds';
+	import { bringsFiles, broughtKind, carriedAsset, placeableFiles, trackAt } from '$lib/timeline/drop';
 	import type { Engine } from '$lib/timeline/engine.svelte';
+	import { aimedGhost, type DropTarget, type Ghost } from '$lib/timeline/ghost';
 	import type { GestureHost } from '$lib/timeline/host';
 	import { ASSET_MIME, GUTTER, HEAD, ROW, RULER, TAIL } from '$lib/timeline/layout';
 	import { clamp, sceneStarts, total, trackRows } from '$lib/timeline/model';
 	import { fitZoom, scrollFor, zoomBy } from '$lib/timeline/scale';
 	import { SNAP_PX, snap, snapTargets } from '$lib/timeline/snap';
 	import { watchViewport } from '$lib/timeline/viewport';
+	import type { LocalMedia } from '$lib/project/local-media';
 	import type { Asset } from '$lib/types';
+	import DropGhost from './DropGhost.svelte';
 	import Ruler from './Ruler.svelte';
 	import SceneLane from './SceneLane.svelte';
 	import TimelineToolbar from './TimelineToolbar.svelte';
@@ -21,17 +25,28 @@
 		engine,
 		transport,
 		assets,
-		readonly = false
+		readonly = false,
+		ghosts = [],
+		measured = {},
+		ondropasset,
+		ondropfiles
 	}: {
 		engine: Engine;
 		transport: Transport;
 		assets: Asset[];
 		readonly?: boolean;
+		/** Dropped files still uploading or waiting for their probe, drawn where they will land. */
+		ghosts?: Ghost[];
+		/** What the browser read of each uploaded file, by asset name, for lengths the server has not probed yet. */
+		measured?: Record<string, LocalMedia>;
+		ondropasset?: (asset: Asset, target: DropTarget) => void;
+		ondropfiles?: (files: File[], target: DropTarget) => void;
 	} = $props();
 
 	let zoom = $state(60);
 	let snapping = $state(true);
 	let guide = $state<number | null>(null);
+	let aimed = $state<Ghost | null>(null);
 	let view = $state({ left: 0, width: 1200 });
 	let viewport = $state<HTMLDivElement>();
 	let track = $state<HTMLDivElement>();
@@ -99,19 +114,25 @@
 		});
 
 	function ondragover(event: DragEvent) {
-		if (readonly || !event.dataTransfer?.types.includes(ASSET_MIME)) return;
+		const brought = bringsFiles(event.dataTransfer) ? broughtKind(event.dataTransfer) : null;
+		const target = { time: timeAt(event), track: trackAt(event.clientY, track, rows) };
+		const ghost = readonly ? null : aimedGhost(carriedAsset(), brought, measured, target);
+		aimed = ghost;
+		if (!ghost || !event.dataTransfer) return;
 		event.preventDefault();
 		event.dataTransfer.dropEffect = 'copy';
 	}
 
 	function ondrop(event: DragEvent) {
+		aimed = null;
 		const name = event.dataTransfer?.getData(ASSET_MIME);
-		const asset = assets.find((known) => known.name === name);
-		if (readonly || !asset || !track) return;
+		const asset = name ? assets.find((known) => known.name === name) : undefined;
+		const files = asset ? [] : placeableFiles(event.dataTransfer);
+		if (readonly || (!asset && files.length === 0) || !track) return;
 		event.preventDefault();
-		const y = event.clientY - track.getBoundingClientRect().top - RULER - HEAD;
-		const row = clamp(Math.floor(y / ROW), 0, rows.length - 1);
-		host.commit(dropOps(engine.timeline, asset, timeAt(event), rows[row]));
+		const target = { time: timeAt(event), track: trackAt(event.clientY, track, rows) };
+		if (asset) ondropasset?.(asset, target);
+		else ondropfiles?.(files, target);
 	}
 </script>
 
@@ -138,6 +159,7 @@
 		role="application"
 		aria-label={t('timeline.title')}
 		{ondragover}
+		ondragleave={(event) => void (!viewport?.contains(event.relatedTarget as Node | null) && (aimed = null))}
 		{ondrop}
 	>
 		<div class="flex min-h-full" style="width: {GUTTER + length * zoom + TAIL}px">
@@ -163,6 +185,9 @@
 				{#if clipCount === 0 && !readonly}
 					<p class="pointer-events-none absolute top-24 left-4 text-fc-sm text-fc-fg-muted">{t('timeline.empty')}</p>
 				{/if}
+				{#each aimed ? [...ghosts, aimed] : ghosts as ghost (ghost.id)}
+					<DropGhost {ghost} timeline={engine.timeline} {rows} {zoom} />
+				{/each}
 				{#if guide !== null}
 					<div class="pointer-events-none absolute inset-y-0 z-10 w-px bg-fc-warning" style="left: {guide * zoom}px"></div>
 				{/if}

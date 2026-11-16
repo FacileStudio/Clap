@@ -42,6 +42,18 @@ export const timeline = {
 		'Arrastre un medio aquí, o añada un texto.',
 		'Ziehen Sie eine Mediendatei hierher oder fügen Sie einen Text hinzu.'
 	],
+	'timeline.ghost.uploading': [
+		'{name}, uploading, {percent}%',
+		'{name}, envoi en cours, {percent} %',
+		'{name}, subiendo, {percent} %',
+		'{name}, wird hochgeladen, {percent} %'
+	],
+	'timeline.ghost.waiting': [
+		'{name}, waiting for its length',
+		'{name}, en attente de sa durée',
+		'{name}, esperando su duración',
+		'{name}, wartet auf seine Länge'
+	],
 	'timeline.failed': [
 		'The edit was not applied',
 		'La modification n’a pas été appliquée',

@@ -4,6 +4,14 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Added
+
+- Files dragged from the desktop onto the timeline upload and land at the drop time and track.
+  While a file or a media bin item is aimed, a ghost clip shows where it will land and for how
+  long; while it uploads, the ghost stays with the file's first frame and the upload progress.
+  The browser reads the length and the first frame itself, so a clip is placed before the
+  server's probe ends, and the media bin can place a file while it is still being analysed.
+
 ### Changed
 
 - A raw scene is a black stage on which clips stack by track, through a stylesheet the preview,
