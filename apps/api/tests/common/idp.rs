@@ -74,10 +74,26 @@ pub fn token(subject: &str, extra: Value) -> String {
         "scope": "clap.write", "client_id": "diapo", "act": {"sub": "diapo"},
     });
     for (name, value) in extra.as_object().cloned().unwrap_or_default() {
-        claims[name] = value;
+        match value {
+            Value::Null => claims.as_object_mut().unwrap().remove(&name),
+            value => claims.as_object_mut().unwrap().insert(name, value),
+        };
     }
     let segment = |value: &Value| URL_SAFE_NO_PAD.encode(serde_json::to_vec(value).unwrap());
     let input = format!("{}.{}", segment(&json!({"alg": "RS256", "kid": KEY_ID, "typ": "JWT"})), segment(&claims));
     let signature = SigningKey::<Sha256>::new(key()).sign(input.as_bytes());
     format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+}
+
+/// A token shaped exactly as Registre mints one by RFC 8693 exchange for a plain app audience
+/// (`GetPrivateClaimsFromTokenExchangeRequest` in Registre's `modules/oidc/storage_exchange.go`):
+/// `scope`, `act`, the caller as `client_id`, and `email` only because it is verified, with no
+/// `email_verified` and no `name`, which Registre adds only for an MCP resource audience.
+pub fn exchanged(subject: &str, actor: &str) -> String {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let shape = serde_json::json!({
+        "aud": [CLIENT_ID], "client_id": actor, "act": {"sub": actor}, "nbf": now, "jti": format!("jti-{subject}"),
+        "email_verified": null, "name": null,
+    });
+    token(subject, shape)
 }
