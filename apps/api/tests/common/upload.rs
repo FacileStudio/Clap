@@ -36,6 +36,7 @@ pub async fn upload(app: &App, who: &Person, project: &str, file: File<'_>) -> A
         .header(header::HOST, "clap.test")
         .header(header::AUTHORIZATION, format!("Bearer {}", who.token))
         .header(header::CONTENT_TYPE, format!("multipart/form-data; boundary={BOUNDARY}"))
+        .header(header::CONTENT_LENGTH, body(&file).len())
         .body(Body::from(body(&file)))
         .unwrap();
     raw(&app.router, request).await
