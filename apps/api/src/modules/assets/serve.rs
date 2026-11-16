@@ -33,9 +33,14 @@ pub enum Variant {
     Poster,
     /// The 720p H.264 proxy of a video.
     Proxy,
+    /// The filmstrip of a video, a JPEG.
+    Strip,
+    /// The waveform of a sound, JSON.
+    Peaks,
 }
 
-/// `?frame=`: the token a frame's asset links carry. `?variant=`: `poster` or `proxy`.
+/// `?frame=`: the token a frame's asset links carry. `?variant=`: `poster`, `proxy`, `strip` or
+/// `peaks`.
 #[derive(Deserialize)]
 pub struct AssetQuery {
     frame: Option<String>,
@@ -61,6 +66,12 @@ fn chosen(state: &AppState, asset: &Asset, variant: Variant) -> Result<(PathBuf,
         }
         Variant::Proxy if asset.has_proxy => {
             Ok((state.data_dir.join(files::proxy(&asset.sha256)), "video/mp4".to_owned()))
+        }
+        Variant::Strip if asset.has_strip => {
+            Ok((state.data_dir.join(files::derived(&asset.sha256, "strip.jpg")), "image/jpeg".to_owned()))
+        }
+        Variant::Peaks if asset.has_peaks => {
+            Ok((state.data_dir.join(files::derived(&asset.sha256, "peaks.json")), "application/json".to_owned()))
         }
         _ => Err(missing()),
     }

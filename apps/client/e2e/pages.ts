@@ -64,6 +64,11 @@ export async function appendSource(page: Page, text: string): Promise<void> {
 
 /** The `data-start` the stored source gives the first element that loads `src`. */
 export function startOf(source: string, src: string): number {
+	return attributeOf(source, src, 'data-start');
+}
+
+/** The number the attribute `name` holds on the first element of the stored source that loads `src`. */
+export function attributeOf(source: string, src: string, name: string): number {
 	const tag = new RegExp(`<[^>]*${src.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^>]*>`).exec(source)?.[0] ?? '';
-	return Number(/data-start="([^"]*)"/.exec(tag)?.[1] ?? Number.NaN);
+	return Number(new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1] ?? Number.NaN);
 }

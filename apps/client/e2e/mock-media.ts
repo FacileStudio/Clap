@@ -34,7 +34,10 @@ async function store(project: string, file: File, tell: Tell): Promise<Asset> {
 	assets.set(project, [...(assets.get(project) ?? [])
 		.filter((known) => known.name !== name), asset]);
 	setTimeout(() => {
-		Object.assign(asset, { state: 'ready', duration_ms: kind === 'image' ? null : (probe(path) ?? 2000) });
+		const duration_ms = kind === 'image' ? null : (probe(path) ?? 2000);
+		const step = Math.max(2000, Math.ceil((duration_ms ?? 0) / 60));
+		const strip = { strip_url: `${url}?variant=strip`, strip_tiles: Math.min(60, Math.ceil((duration_ms ?? 0) / step)), strip_step: step / 1000 };
+		Object.assign(asset, { state: 'ready', duration_ms, width: 320, height: 180 }, kind === 'video' ? strip : {});
 		tell('asset', { name: asset.name, state: asset.state });
 	}, 150);
 	return asset;

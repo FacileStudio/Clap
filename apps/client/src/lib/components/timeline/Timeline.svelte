@@ -57,7 +57,7 @@
 	const starts = $derived(sceneStarts(engine.timeline));
 	const length = $derived(total(engine.timeline));
 	const clipCount = $derived(engine.timeline.scenes.reduce((sum, scene) => sum + scene.clips.length, 0));
-	const posters = $derived(new Map(assets.flatMap((asset) => (asset.poster_url ? [[asset.name, asset.poster_url]] : []))));
+	const media = $derived(new Map(assets.map((asset) => [asset.name, asset])));
 
 	const host: GestureHost = {
 		timeline: () => engine.timeline,
@@ -179,7 +179,7 @@
 				<Ruler {zoom} from={(view.left - GUTTER) / zoom} to={(view.left + view.width) / zoom} onpointerdown={scrub} />
 				<div class="relative" role="presentation" onpointerdown={() => engine.select(null)}>
 					{#each engine.timeline.scenes as scene (scene.index)}
-						<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {posters} {readonly} {nodes} />
+						<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {media} {readonly} {nodes} />
 					{/each}
 				</div>
 				{#if clipCount === 0 && !readonly}

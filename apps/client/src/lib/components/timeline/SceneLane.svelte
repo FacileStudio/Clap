@@ -12,7 +12,7 @@
 	import { round } from '$lib/timeline/model';
 	import { nudgeOps } from '$lib/timeline/nudge';
 	import { reorderGesture, resizeGesture } from '$lib/timeline/scene-gesture';
-	import type { Clip, Scene } from '$lib/types';
+	import type { Asset, Clip, Scene } from '$lib/types';
 	import ClipBlock from './ClipBlock.svelte';
 	import TransitionChip from './TransitionChip.svelte';
 
@@ -23,7 +23,7 @@
 		rows,
 		engine,
 		host,
-		posters,
+		media,
 		readonly,
 		nodes
 	}: {
@@ -35,7 +35,8 @@
 		rows: number[];
 		engine: Engine;
 		host: GestureHost;
-		posters: ReadonlyMap<string, string>;
+		/** The project's assets by name. */
+		media: ReadonlyMap<string, Asset>;
 		readonly: boolean;
 		/** Where the drawn clips and scenes are kept for the gestures. */
 		nodes: { clips: Map<string, HTMLElement>; lanes: Map<number, HTMLElement> };
@@ -145,7 +146,7 @@
 					row={Math.max(0, rows.indexOf(clip.track))}
 					{zoom}
 					label={label(clip)}
-					poster={posters.get(clip.src ?? '') ?? null}
+					asset={media.get(clip.src ?? '')}
 					selected={engine.selection.has(clip.id)}
 					{readonly}
 					register={registerClip}

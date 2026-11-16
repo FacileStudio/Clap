@@ -1,4 +1,5 @@
-//! The background task of one asset: `ffprobe`, then a poster and a 720p proxy for a video.
+//! The background task of one asset: `ffprobe`, then a poster, a filmstrip and a waveform, then a
+//! 720p proxy for a video.
 
 use uuid::Uuid;
 
@@ -102,8 +103,8 @@ async fn proxy(state: &AppState, job: &Job, duration_ms: Option<i64>) {
 }
 
 /// Looks at one asset, one media job at a time across the process (renders' posters included): probes it, grabs the poster of a
-/// video, stores what it found and tells open editors, then encodes the proxy of a video and
-/// tells them again. An asset replaced or deleted meanwhile is left alone.
+/// video, stores what it found and tells open editors, makes the filmstrip and the waveform and
+/// tells them again, then encodes the proxy of a video and tells them once more. An asset replaced or deleted meanwhile is left alone.
 pub async fn run(state: AppState, job: Job) {
     let Ok(_slot) = state.media.clone().acquire_owned().await else { return };
     let Some(kind) = kind_of(&state, &job).await else { return };
@@ -113,9 +114,9 @@ pub async fn run(state: AppState, job: Job) {
         Ok(_) => state.events.asset(job.project, &job.name, if facts.is_ok() { "ready" } else { "failed" }),
         Err(error) => return tracing::error!(asset = %job.name, %error, "assets: could not store a probe"),
     }
-    if let Ok(facts) = facts.as_ref()
-        && facts.kind == "video"
-    {
+    let Ok(facts) = facts else { return };
+    super::previews::make(&state, &job, facts.kind, &facts.probe).await;
+    if facts.kind == "video" {
         proxy(&state, &job, facts.probe.duration_ms).await;
     }
 }
@@ -125,7 +126,8 @@ pub fn spawn(state: AppState, job: Job) {
     tokio::spawn(run(state, job));
 }
 
-/// Starts again, at boot, every asset a previous process left `probing` or without its proxy.
+/// Starts again, at boot, every asset a previous process left `probing`, or `ready` without its
+/// proxy, its filmstrip or its waveform.
 pub async fn resume(state: &AppState) {
     super::leftovers::clear(&state.data_dir).await;
     let data_dir = state.data_dir.to_path_buf();
@@ -137,7 +139,9 @@ pub async fn resume(state: &AppState) {
     }
     let left = sqlx::query_as::<_, Job>(
         "SELECT project_id, name, sha256 FROM assets \
-         WHERE state = 'probing' OR (state = 'ready' AND kind = 'video' AND proxy IS NULL) ORDER BY created_at",
+         WHERE state = 'probing' OR (state = 'ready' AND kind = 'video' AND (proxy IS NULL OR strip IS NULL)) \
+         OR (state = 'ready' AND peaks IS NULL AND (kind = 'audio' OR (kind = 'video' AND has_audio))) \
+         ORDER BY created_at",
     )
     .fetch_all(&state.pool)
     .await;

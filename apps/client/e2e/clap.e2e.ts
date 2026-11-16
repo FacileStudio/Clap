@@ -4,12 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { dragFile } from './drops';
-import { api, appendSource, dragBy, openPage, settled, startOf, waitData, type Stack } from './pages';
+import { api, appendSource, attributeOf, dragBy, openPage, settled, startOf, waitData, type Stack } from './pages';
 import { startStack } from './stack';
 
 const scratch = mkdtempSync(join(tmpdir(), 'clap-e2e-'));
 const clip = join(scratch, 'clip.mp4');
 const still = join(scratch, 'still.png');
+const long = join(scratch, 'long.mp4');
 const SRC = 'assets/clip.mp4';
 const ffmpeg = Bun.which('ffmpeg');
 
@@ -21,19 +22,25 @@ let id = '';
 const stored = async () => (await api<{ source: string; rev: number }>(stack, `/projects/${id}`)).source;
 const withClip = ffmpeg ? test : test.skip;
 
-function makeClip(): void {
-	const video = ['-f', 'lavfi', '-i', 'testsrc=duration=2:size=320x180:rate=15'];
-	const sound = ['-f', 'lavfi', '-i', 'sine=frequency=440:duration=2'];
-	const encode = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', clip];
+function makeClip(path: string, seconds: number): void {
+	const video = ['-f', 'lavfi', '-i', `testsrc=duration=${seconds}:size=320x180:rate=15`];
+	const sound = ['-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`];
+	const encode = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', path];
 	const run = Bun.spawnSync([ffmpeg ?? 'ffmpeg', '-v', 'error', '-y', ...video, ...sound, ...encode]);
 	if (run.exitCode !== 0) throw new Error(`ffmpeg could not make the test clip: ${run.stderr.toString()}`);
+}
+
+function makePicture(): void {
 	const picture = Bun.spawnSync([ffmpeg ?? 'ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=red:s=64x36', '-frames:v', '1', still]);
 	if (picture.exitCode !== 0) throw new Error(`ffmpeg could not make the test picture: ${picture.stderr.toString()}`);
 }
 
 beforeAll(async () => {
-	if (ffmpeg) makeClip();
-	else console.warn('e2e: SKIPPED the upload, drop, drag and render tests: ffmpeg is not installed');
+	if (ffmpeg) {
+		makeClip(clip, 2);
+		makeClip(long, 8);
+		makePicture();
+	} else console.warn('e2e: SKIPPED the upload, drop, drag and render tests: ffmpeg is not installed');
 	stack = await startStack();
 	browser = await chromium.launch({ headless: true, executablePath: process.env.CLAP_CHROME || undefined });
 }, 180_000);
@@ -118,6 +125,35 @@ withClip('a picture dropped from the desktop shows a ghost, then lands at the dr
 	await settled(editor);
 	expect(startOf(await stored(), 'assets/still.png')).toBe(time);
 	expect(await editor.getByTestId('drop-ghost').count()).toBe(0);
+});
+
+withClip('a trimmed video starts its filmstrip on the frame of its media_in', async () => {
+	await editor.locator('[data-testid="media-bin"] input[type="file"]').setInputFiles(long);
+	await editor.locator('[data-testid="media-item"][data-name="assets/long.mp4"][data-state="ready"]').waitFor({ state: 'attached', timeout: 30_000 });
+	const theirs = await api<{ source: string; rev: number }>(stack, `/projects/${id}`);
+	const scene = '\n---\nduration: 4\n---\n\n<video src="assets/long.mp4" data-start="0" data-duration="3" data-in="4.5" data-track-index="0"></video>\n';
+	const scenes = await editor.getByTestId('scene').count();
+	await api(stack, `/projects/${id}/source`, { method: 'PUT', body: { source: theirs.source + scene, rev: theirs.rev } });
+	await editor.locator(`[data-testid="scene"][data-scene="${scenes}"]`).waitFor({ state: 'attached', timeout: 15_000 });
+	const block = editor.locator(`[data-testid="scene"][data-scene="${scenes}"] [data-testid="clip"][data-kind="video"]`);
+	const first = block.locator('[data-testid="strip-tile"]').first();
+	await first.waitFor({ state: 'attached', timeout: 30_000 });
+	expect([await first.getAttribute('data-tile'), await first.getAttribute('data-at')]).toEqual(['2', '4.5']);
+
+	await block.scrollIntoViewIfNeeded();
+	const grip = await block.getByTestId('trim-start').boundingBox();
+	if (!grip) throw new Error('the clip has no trim handle');
+	await editor.mouse.move(grip.x + grip.width * 0.75, grip.y + grip.height / 2);
+	await editor.mouse.down();
+	await editor.mouse.move(grip.x + grip.width * 0.75 + 50, grip.y + grip.height / 2, { steps: 8 });
+	await editor.mouse.up();
+	await settled(editor);
+	await waitData(editor, 'save-status', 'status', 'clean');
+	const media_in = attributeOf(await stored(), 'assets/long.mp4', 'data-in');
+	expect(media_in).toBeGreaterThan(4.5);
+	await editor.locator(`[data-testid="clip-strip"][data-from="${media_in}"]`).waitFor({ state: 'attached', timeout: 10_000 });
+	expect(Number(await first.getAttribute('data-at'))).toBeCloseTo(media_in, 3);
+	expect(Number(await first.getAttribute('data-tile'))).toBe(Math.min(3, Math.floor(media_in / 2)));
 });
 
 test('typed source is saved, and a source the parser refuses shows its line', async () => {
