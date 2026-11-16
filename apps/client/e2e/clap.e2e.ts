@@ -3,11 +3,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright-core';
+import { dragFile } from './drops';
 import { api, appendSource, dragBy, openPage, settled, startOf, waitData, type Stack } from './pages';
 import { startStack } from './stack';
 
 const scratch = mkdtempSync(join(tmpdir(), 'clap-e2e-'));
 const clip = join(scratch, 'clip.mp4');
+const still = join(scratch, 'still.png');
 const SRC = 'assets/clip.mp4';
 const ffmpeg = Bun.which('ffmpeg');
 
@@ -25,6 +27,8 @@ function makeClip(): void {
 	const encode = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', clip];
 	const run = Bun.spawnSync([ffmpeg ?? 'ffmpeg', '-v', 'error', '-y', ...video, ...sound, ...encode]);
 	if (run.exitCode !== 0) throw new Error(`ffmpeg could not make the test clip: ${run.stderr.toString()}`);
+	const picture = Bun.spawnSync([ffmpeg ?? 'ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=red:s=64x36', '-frames:v', '1', still]);
+	if (picture.exitCode !== 0) throw new Error(`ffmpeg could not make the test picture: ${picture.stderr.toString()}`);
 }
 
 beforeAll(async () => {
@@ -99,6 +103,21 @@ withClip('the selected clip is marked in the source, and S splits it at the play
 	expect(await editor.locator('[data-testid="clip"][data-kind="video"]').count()).toBe(2);
 	expect((await stored()).split(SRC).length - 1).toBe(2);
 	expect(startOf(await stored(), SRC)).toBe(start);
+});
+
+withClip('a picture dropped from the desktop shows a ghost, then lands at the drop time', async () => {
+	const file = { name: 'still.png', type: 'image/png', bytes: new Uint8Array(await Bun.file(still).arrayBuffer()) };
+	const lane = editor.getByTestId('scene').first();
+	const at = { x: 120, y: 70 };
+	await dragFile(lane, file, { ...at, hover: true });
+	const aimed = editor.getByTestId('drop-ghost').first();
+	await aimed.waitFor({ timeout: 5_000 });
+	const time = Number(await aimed.getAttribute('data-start'));
+	await dragFile(lane, file, at);
+	await editor.locator('[data-testid="clip"][data-kind="image"]').waitFor({ timeout: 15_000 });
+	await settled(editor);
+	expect(startOf(await stored(), 'assets/still.png')).toBe(time);
+	expect(await editor.getByTestId('drop-ghost').count()).toBe(0);
 });
 
 test('typed source is saved, and a source the parser refuses shows its line', async () => {

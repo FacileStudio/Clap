@@ -5,6 +5,7 @@
 	import { shortTime } from '$lib/project/timecode';
 	import type { Uploads } from '$lib/project/uploads.svelte';
 	import { kindOfAsset } from '$lib/timeline/adds';
+	import { carry } from '$lib/timeline/drop';
 	import { ASSET_MIME } from '$lib/timeline/layout';
 	import type { Asset } from '$lib/types';
 
@@ -27,10 +28,14 @@
 		event.dataTransfer?.setData(ASSET_MIME, asset.name);
 		event.dataTransfer?.setData('text/plain', asset.name);
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+		carry(asset);
 	}
 
 	const short = (asset: Asset) => asset.name.split('/').pop() ?? asset.name;
-	const placeable = (asset: Asset) => !readonly && asset.state === 'ready' && kindOfAsset(asset) !== null;
+	const known = (asset: Asset) =>
+		asset.state === 'ready' ||
+		(asset.state === 'probing' && (kindOfAsset(asset) === 'image' || (uploads.measured[asset.name]?.duration ?? null) !== null));
+	const placeable = (asset: Asset) => !readonly && known(asset) && kindOfAsset(asset) !== null;
 </script>
 
 <div class="flex size-full min-h-0 flex-col gap-3 overflow-auto p-3" data-testid="media-bin">
@@ -55,6 +60,7 @@
 					{placeable(asset) ? 'cursor-grab active:cursor-grabbing' : ''}"
 				draggable={placeable(asset)}
 				ondragstart={(event) => ondragstart(event, asset)}
+				ondragend={() => carry(null)}
 				data-testid="media-item"
 				data-name={asset.name}
 				data-state={asset.state}
