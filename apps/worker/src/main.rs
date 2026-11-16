@@ -50,7 +50,12 @@ fn serve(config: &Config, tools: &Tools) -> ! {
     }
 }
 
+/// The worker's file creation mask: what it creates in a job directory stays writable by the
+/// API's group, which removes the directory once the job is over.
+const UMASK: u32 = 0o002;
+
 fn main() -> ExitCode {
+    rustix::process::umask(rustix::fs::Mode::from_raw_mode(UMASK));
     let config = Config::from_env();
     if std::env::args().nth(1).as_deref() == Some("healthcheck") {
         return if health::alive(&config.renders) { ExitCode::SUCCESS } else { ExitCode::FAILURE };

@@ -23,7 +23,15 @@ services:
   clap-data-owner:
     image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
     restart: "no"
-    command: ["sh", "-c", "mkdir -p /data/renders && chown -R 65532:65532 /data"]
+    command:
+    - sh
+    - -c
+    - >-
+      mkdir -p /data/renders &&
+      chown 65532:65532 /data && chmod 0750 /data &&
+      for entry in /data/* /data/.[!.]*; do [ -e "$$entry" ] && [ "$$entry" != /data/renders ] && chown -R 65532:65532 "$$entry"; done;
+      rm -f /data/renders/.worker &&
+      chown 65532:65532 /data/renders && chmod 3775 /data/renders
     volumes:
     - data:/data
   clap-api:
@@ -105,7 +113,7 @@ services:
       context: .
       dockerfile: Dockerfile
     entrypoint: ["/usr/bin/tini", "--", "/worker"]
-    user: "65532:65532"
+    user: "65533:65532"
     network_mode: none
     read_only: true
     tmpfs:
