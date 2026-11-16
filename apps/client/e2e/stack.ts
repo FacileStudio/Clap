@@ -1,8 +1,9 @@
 import { SQL, type Subprocess } from 'bun';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { startMock } from './mock';
+import { finish, heartbeat } from './worker';
 import type { Stack } from './pages';
 
 const root = resolve(import.meta.dir, '../../..');
@@ -47,15 +48,6 @@ async function seed(env: Record<string, string>): Promise<string> {
 	return (JSON.parse(out) as { cookie: string }).cookie;
 }
 
-/**
- * Writes the render worker's heartbeat. No worker runs here; without a fresh heartbeat the API refuses to queue
- * a render, and the tests only check that a job is queued.
- */
-function heartbeat(dataDir: string): void {
-	mkdirSync(join(dataDir, 'renders'), { recursive: true });
-	writeFileSync(join(dataDir, 'renders', '.worker'), new Date().toISOString());
-}
-
 async function startApi(): Promise<Stack> {
 	const port = freePort();
 	const base = `http://127.0.0.1:${port}`;
@@ -65,6 +57,7 @@ async function startApi(): Promise<Stack> {
 		PORT: String(port),
 		CLIENT_DIR: clientDir,
 		DATA_DIR: dataDir,
+		PUBLIC_URL: base,
 		OIDC_ISSUER: '',
 		RUST_LOG: process.env.RUST_LOG ?? 'warn'
 	};
@@ -79,7 +72,7 @@ async function startApi(): Promise<Stack> {
 		await server.exited;
 		rmSync(dataDir, { recursive: true, force: true });
 	};
-	return { base, cookie, stop };
+	return { base, cookie, stop, finish: (id, mp4) => finish(dataDir, id, mp4) };
 }
 
 /**
