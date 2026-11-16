@@ -23,7 +23,7 @@ services:
   clap-data-owner:
     image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
     restart: "no"
-    command: ["chown", "-R", "65532:65532", "/data"]
+    command: ["sh", "-c", "mkdir -p /data/renders && chown -R 65532:65532 /data"]
     volumes:
     - data:/data
   clap-api:
@@ -81,6 +81,54 @@ services:
         condition: service_completed_successfully
     deploy:
       replicas: 1
+  clap-render:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["/usr/bin/tini", "--", "/worker"]
+    user: "65532:65532"
+    network_mode: none
+    read_only: true
+    tmpfs:
+    - /tmp:size=1g,mode=1777
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    - seccomp=deploy/chrome-seccomp.json
+    volumes:
+    - type: volume
+      source: data
+      target: /data/renders
+      volume:
+        subpath: renders
+    labels:
+      journal.app: clap-render
+    environment:
+      CLAP_RENDERS_DIR: /data/renders
+      CLAP_RENDER_MAX_WIDTH: ${CLAP_RENDER_MAX_WIDTH:-1920}
+      CLAP_RENDER_MAX_HEIGHT: ${CLAP_RENDER_MAX_HEIGHT:-1080}
+      CLAP_RENDER_MAX_FPS: ${CLAP_RENDER_MAX_FPS:-30}
+      CLAP_RENDER_MAX_SECONDS: ${CLAP_RENDER_MAX_SECONDS:-600}
+      CLAP_RENDER_TIMEOUT_SECONDS: ${CLAP_RENDER_TIMEOUT_SECONDS:-3600}
+    healthcheck:
+      test: ["CMD", "/worker", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 1s
+    depends_on:
+      clap-data-owner:
+        condition: service_completed_successfully
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+          pids: 1024
 volumes:
   db_data:
     name: clap_db_data
