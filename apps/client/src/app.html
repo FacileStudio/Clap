@@ -4,9 +4,42 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="color-scheme" content="light dark" />
-		<title>Clap</title>
-		<meta name="description" content="A video editor whose project is one text file." />
+		<title>Clap · Your video edit fits in one text file.</title>
+		<meta name="description" content="Drag your clips onto the timeline, add animated titles and get an MP4 rendered on our servers. Nothing to install." />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="icon" href="/favicon.ico" sizes="48x48" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafafa" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0a" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Facile" />
+		<meta property="og:locale" content="en_US" />
+		<meta property="og:url" content="https://clap.facile.studio/" />
+		<meta property="og:title" content="Clap · Your video edit fits in one text file." />
+		<meta property="og:description" content="Drag your clips onto the timeline, add animated titles and get an MP4 rendered on our servers. Nothing to install." />
+		<meta property="og:image" content="https://clap.facile.studio/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Clap: Your video edit fits in one text file." />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Clap · Your video edit fits in one text file." />
+		<meta name="twitter:description" content="Drag your clips onto the timeline, add animated titles and get an MP4 rendered on our servers. Nothing to install." />
+		<meta name="twitter:image" content="https://clap.facile.studio/og-image.png" />
+		<script>
+			/*
+			 * Vision counts visits to the two public pages only. A project page's path carries its id,
+			 * so the tracker never loads there. It is a pinned copy served from this origin.
+			 */
+			(function () {
+				if (location.hostname !== 'clap.facile.studio') return;
+				if (location.pathname !== '/' && location.pathname !== '/downloads') return;
+				var s = document.createElement('script');
+				s.async = true;
+				s.src = '/vision-tracker.js';
+				document.head.appendChild(s);
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
