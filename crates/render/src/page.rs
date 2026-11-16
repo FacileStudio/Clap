@@ -8,16 +8,13 @@ use url::Url;
 use crate::Error;
 use crate::cdp::Browser;
 use crate::job::{Capture, Job, entry};
-use crate::media::{self, Media};
+use crate::swap::PRELUDE;
 
 /// What "loaded" means: the document, its fonts and a seekable scene.
 const READY: &str = "document.readyState === 'complete' && document.fonts.status === 'loaded' \
     && !!window.__scene && typeof window.__scene.seek === 'function' && window.__scene.duration > 0";
 /// Resolves once two animation frames have run, so the seek has been painted.
 const PAINTED: &str = "new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(true))))";
-/// Runs before any script of the page: swaps each `<video>` for an `<img>` the capture loop
-/// feeds, silences each `<audio>`, and exposes `window.__clap.scan` and `window.__clap.show`.
-const PRELUDE: &str = include_str!("prelude.js");
 /// How long a page gets to become ready.
 const READY_TIMEOUT: Duration = Duration::from_secs(20);
 /// The pause between two readiness checks, and the frame time one warm-up frame advances.
@@ -29,7 +26,7 @@ const CAPTURE_START: f64 = 100_000.0;
 
 /// A page attached over CDP.
 pub(crate) struct Page<'a> {
-    browser: &'a mut Browser,
+    pub(crate) browser: &'a mut Browser,
     session: String,
     capture: Capture,
     interval: f64,
@@ -63,7 +60,7 @@ impl<'a> Page<'a> {
         self.browser.call(Some(&self.session), method, params)
     }
 
-    fn eval(&mut self, expression: &str) -> Result<Value, Error> {
+    pub(crate) fn eval(&mut self, expression: &str) -> Result<Value, Error> {
         let params = json!({"expression": expression, "returnByValue": true, "awaitPromise": true});
         let mut answer = self.call("Runtime.evaluate", params)?;
         match answer.get("exceptionDetails") {
@@ -107,20 +104,6 @@ impl<'a> Page<'a> {
         }
         let duration = self.eval("window.__scene.duration")?;
         duration.as_f64().ok_or_else(|| Error::Scene("window.__scene.duration is not a number".to_owned()))
-    }
-
-    /// The `<video>` and `<audio>` elements of the loaded page, as `prelude.js` found them.
-    pub(crate) fn media(&mut self) -> Result<Vec<Media>, Error> {
-        let scan = self.eval("window.__clap.scan()")?;
-        media::read(&scan, &self.browser.guard)
-    }
-
-    /// Hands each swapped video the still it shows now, and waits until every one has loaded.
-    pub(crate) fn show(&mut self, stills: &[(usize, &str)]) -> Result<(), Error> {
-        if stills.is_empty() {
-            return Ok(());
-        }
-        self.eval(&format!("window.__clap.show({})", json!(stills))).map(|_| ())
     }
 
     /// Puts the scene at `seconds`. The page never plays: every frame is a seek.

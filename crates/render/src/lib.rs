@@ -21,6 +21,7 @@ mod page;
 mod pipe;
 mod proc;
 mod stock;
+mod swap;
 pub mod tools;
 
 use std::ops::ControlFlow;
