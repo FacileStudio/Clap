@@ -88,6 +88,8 @@ services:
       RENDER_MAX_FPS: ${CLAP_RENDER_MAX_FPS:-30}
       RENDER_MAX_SECONDS: ${CLAP_RENDER_MAX_SECONDS:-600}
       RENDER_QUEUE_MAX: ${RENDER_QUEUE_MAX:-10}
+      RENDER_USER_MAX: ${RENDER_USER_MAX:-2}
+      UPLOADS_PER_USER: ${UPLOADS_PER_USER:-2}
       RENDER_BUNDLE_MAX_BYTES: ${RENDER_BUNDLE_MAX_BYTES:-1073741824}
       CLAP_FFMPEG: ${CLAP_FFMPEG:-}
       CLAP_FFPROBE: ${CLAP_FFPROBE:-}
@@ -107,6 +109,11 @@ services:
         condition: service_completed_successfully
     deploy:
       replicas: 1
+      resources:
+        limits:
+          cpus: "2"
+          memory: 3g
+          pids: 512
   clap-render:
     restart: unless-stopped
     build:
@@ -138,6 +145,7 @@ services:
       CLAP_RENDER_MAX_FPS: ${CLAP_RENDER_MAX_FPS:-30}
       CLAP_RENDER_MAX_SECONDS: ${CLAP_RENDER_MAX_SECONDS:-600}
       CLAP_RENDER_TIMEOUT_SECONDS: ${CLAP_RENDER_TIMEOUT_SECONDS:-3600}
+      CLAP_RENDER_FRAMES_MAX_BYTES: ${CLAP_RENDER_FRAMES_MAX_BYTES:-4294967296}
     healthcheck:
       test: ["CMD", "/worker", "healthcheck"]
       interval: 30s
