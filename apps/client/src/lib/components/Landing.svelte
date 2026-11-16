@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		DownloadSection,
 		FeatureSplit,
 		ForDevelopers,
 		LANDING_HEADING,
@@ -13,6 +14,7 @@
 	import { backend } from '$lib/backend';
 	import { locale, t } from '$lib/landing/i18n';
 	import { icons } from '$lib/landing/icons';
+	import { CHECKSUMS, INSTALL, RELEASES } from '$lib/landing/install';
 	import { marks } from '$lib/landing/marks';
 	import EditorDemo from './landing/EditorDemo.svelte';
 	import LandingShell from './landing/LandingShell.svelte';
@@ -93,8 +95,16 @@
 			suiteHref="https://suite.facile.studio/#tarifs"
 		/>
 
-		<div class={width}>
+		<div class="{width} flex flex-col gap-10">
 			<ForDevelopers {rows} description={t('landing.dev.line')} {selfHostHref} />
+			<DownloadSection
+				mode="device"
+				allHref="/downloads"
+				commands={INSTALL}
+				releasesHref={RELEASES}
+				checksumsHref={CHECKSUMS}
+				headingLevel={3}
+			/>
 		</div>
 	</div>
 </LandingShell>

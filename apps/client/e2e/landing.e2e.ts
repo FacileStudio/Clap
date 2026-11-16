@@ -64,9 +64,11 @@ test('every sign-up and pricing button opens the sign-up page in the visitor loc
 	}
 }, 120_000);
 
-test('the downloads page offers no download while the command is unpublished', async () => {
+test('the downloads page offers the install commands and the release files', async () => {
 	const page = await visit('/downloads', 'fr', 390);
 	const links = await page.locator('main a').evaluateAll((all) => all.map((a) => a.getAttribute('href')));
-	expect(links).toEqual(['/', 'https://github.com/FacileStudio/Clap']);
+	expect(links).toContain('https://github.com/FacileStudio/Clap/releases');
+	expect(links).toContain('https://github.com/FacileStudio/Clap/releases/latest/download/checksums.txt');
+	expect(await page.locator('main').innerText()).toContain('facile install clap');
 	await page.context().close();
 });
