@@ -45,7 +45,8 @@ async fn bundle(
     multipart: Multipart,
 ) -> Result<(StatusCode, Json<Render>)> {
     let user_id = posted::caller(&state, &headers).await?;
-    Ok((StatusCode::ACCEPTED, Json(posted::post(&state, user_id, multipart).await?)))
+    let length = headers.get(http::header::CONTENT_LENGTH).and_then(|value| value.to_str().ok()?.parse().ok());
+    Ok((StatusCode::ACCEPTED, Json(posted::post(&state, user_id, length, multipart).await?)))
 }
 
 /// `POST /renders`: a bundle posted with a bearer token. It carries its own check, so it sits

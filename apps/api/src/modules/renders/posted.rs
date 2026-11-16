@@ -14,6 +14,7 @@ use super::bundle::JobFile;
 use super::spec;
 use super::types::{Render, RenderRequest};
 use crate::limits::RENDER_BUNDLE_MAX_FILES;
+use crate::modules::assets::inflight::Ask;
 use crate::modules::assets::name;
 use crate::modules::assets::temporary::Temporary;
 use crate::state::AppState;
@@ -43,6 +44,7 @@ pub async fn caller(state: &AppState, headers: &HeaderMap) -> Result<i64> {
 
 struct Intake {
     bundle: PathBuf,
+    max: u64,
     spec: Option<RenderRequest>,
     files: usize,
     bytes: u64,
@@ -68,7 +70,7 @@ async fn described(mut field: Field<'_>) -> Result<RenderRequest> {
         .map_err(|error| Error::invalid(format!("the `spec` part is not a render request: {error}")))
 }
 
-async fn stored(state: &AppState, intake: &mut Intake, mut field: Field<'_>) -> Result<()> {
+async fn stored(intake: &mut Intake, mut field: Field<'_>) -> Result<()> {
     let path = field.file_name().unwrap_or_default().to_owned();
     if !name::valid(&path) || intake.files >= RENDER_BUNDLE_MAX_FILES {
         return Err(Error::invalid(format!(
@@ -81,8 +83,8 @@ async fn stored(state: &AppState, intake: &mut Intake, mut field: Field<'_>) -> 
     let mut file = tokio::fs::File::create(&target).await.map_err(io)?;
     while let Some(chunk) = field.chunk().await.map_err(invalid)? {
         intake.bytes += chunk.len() as u64;
-        if intake.bytes > state.limits.bundle {
-            return Err(Error::too_large(format!("a bundle holds at most {} MiB", state.limits.bundle >> 20)));
+        if intake.bytes > intake.max {
+            return Err(Error::too_large(format!("a bundle holds at most {} MiB", intake.max >> 20)));
         }
         file.write_all(&chunk).await.map_err(io)?;
     }
@@ -90,12 +92,12 @@ async fn stored(state: &AppState, intake: &mut Intake, mut field: Field<'_>) -> 
     file.flush().await.map_err(io)
 }
 
-async fn received(state: &AppState, staging: &Path, mut multipart: Multipart) -> Result<Intake> {
-    let mut intake = Intake { bundle: staging.join("bundle"), spec: None, files: 0, bytes: 0 };
+async fn received(staging: &Path, mut multipart: Multipart, max: u64) -> Result<Intake> {
+    let mut intake = Intake { bundle: staging.join("bundle"), max, spec: None, files: 0, bytes: 0 };
     while let Some(field) = multipart.next_field().await.map_err(invalid)? {
         match field.name() {
             Some("spec") => intake.spec = Some(described(field).await?),
-            Some("file") => stored(state, &mut intake, field).await?,
+            Some("file") => stored(&mut intake, field).await?,
             _ => {}
         }
     }
@@ -107,18 +109,22 @@ async fn received(state: &AppState, staging: &Path, mut multipart: Multipart) ->
 /// file name is its relative path; `index.html` is required. The files stream to disk under the
 /// same caps as a project render, then the bundle moves into a job directory and `job.json` is
 /// written last.
-pub async fn post(state: &AppState, user_id: i64, multipart: Multipart) -> Result<Render> {
+pub async fn post(state: &AppState, user_id: i64, length: Option<u64>, multipart: Multipart) -> Result<Render> {
     super::status::serving(state).await?;
+    let (per_user, space) = (state.limits.uploads, format!("bundles:{user_id}"));
+    let room = state.limits.bundle.saturating_mul(per_user as u64);
+    let ask = Ask { user: user_id, per_user, space: &space, length, file_max: state.limits.bundle, room };
+    let slot = state.inflight.enter(ask)?;
     let staging = crate::modules::assets::files::incoming(&state.data_dir).join(uuid::Uuid::new_v4().to_string());
     tokio::fs::create_dir_all(&staging).await.map_err(io)?;
     let guard = Temporary::at(staging.clone());
-    let intake = received(state, &staging, multipart).await?;
+    let intake = received(&staging, multipart, slot.bytes()).await?;
     let request = intake.spec.ok_or_else(|| Error::invalid("the multipart body has no `spec` part"))?;
     let spec = spec::posted(&request, &state.limits.render)?;
     if !tokio::fs::try_exists(intake.bundle.join("index.html")).await.unwrap_or(false) {
         return Err(Error::invalid("the bundle has no `index.html`"));
     }
-    let row = super::service::insert(state, user_id, (None, 0), &spec).await?;
+    let row = super::queue::insert(state, user_id, (None, 0), &spec).await?;
     let moved = super::stage::adopt(&state.data_dir, &intake.bundle, &JobFile::of(&row, &spec)).await;
     if let Err(error) = moved {
         super::service::discard(state, row.id).await;
