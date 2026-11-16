@@ -22,8 +22,7 @@ pub struct Written {
     pub url: String,
 }
 
-/// The answer of a write that left `project` as it is now.
-pub fn written(ctx: &Context, project: Project) -> Answer<Written> {
+fn written(ctx: &Context, project: Project) -> Answer<Written> {
     let scenes = scene::parse(&project.source).map_or(0, |project| project.scenes().len());
     let url = ctx.project_url(project.id);
     Written { id: project.id.to_string(), title: project.title, rev: project.rev, scenes, url }.into()

@@ -8,7 +8,7 @@ use tronc::json::{Json, JsonLimit};
 
 use super::error::ProjectError;
 use super::source::BODY_MAX_BYTES;
-use super::timeline::{self, EditsRequest};
+use super::timeline::{self, EditsRequest, TimelineAnswer};
 use super::types::{Author, CreateRequest, ListQuery, PatchRequest, Project, ProjectEntry, SourceRequest};
 use super::{patch, service, trash, write};
 use crate::extract::{Params, id};
@@ -58,11 +58,30 @@ pub async fn remove(State(state): State<AppState>, who: Identity, Path(raw): Pat
     trash::permanent(&state, who.user_id, id(&raw)?).await.map(|()| StatusCode::NO_CONTENT)
 }
 
+/// What `POST /projects/{id}/edits` answers.
+#[derive(serde::Serialize)]
+pub struct EditsAnswer {
+    source: String,
+    rev: i64,
+    timeline: clap_timeline::Timeline,
+    clips: Vec<String>,
+}
+
 pub async fn edits(
     State(state): State<AppState>,
     who: Identity,
     Path(raw): Path<String>,
     JsonLimit(body): Body<EditsRequest>,
-) -> std::result::Result<Json<Project>, ProjectError> {
-    timeline::edits(&state, &Author::of(&who), id(&raw)?, body).await.map(Json)
+) -> std::result::Result<Json<EditsAnswer>, ProjectError> {
+    let edited = timeline::edits(&state, &Author::of(&who), id(&raw)?, body).await?;
+    let (source, rev) = (edited.project.source, edited.project.rev);
+    Ok(Json(EditsAnswer { source, rev, timeline: edited.timeline, clips: edited.clips }))
+}
+
+pub async fn timeline(
+    State(state): State<AppState>,
+    who: Identity,
+    Path(raw): Path<String>,
+) -> std::result::Result<Json<TimelineAnswer>, ProjectError> {
+    timeline::read(&state, who.user_id, id(&raw)?).await.map(Json)
 }

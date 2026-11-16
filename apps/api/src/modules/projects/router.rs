@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{get, post, put};
 
-use super::handlers::{create, edits, list, read, remove, save, update};
+use super::handlers::{create, edits, list, read, remove, save, timeline, update};
 use crate::state::AppState;
 
 /// The project routes, mounted under `/api` behind `require_auth`.
@@ -11,4 +11,5 @@ pub fn routes() -> Router<AppState> {
         .route("/projects/{id}", get(read).patch(update).delete(remove))
         .route("/projects/{id}/source", put(save))
         .route("/projects/{id}/edits", post(edits))
+        .route("/projects/{id}/timeline", get(timeline))
 }

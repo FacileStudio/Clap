@@ -3,7 +3,7 @@ use http::StatusCode;
 use serde_json::{Value, json};
 use tronc::mcp::ToolError;
 
-use super::problem::problems;
+use super::problem::{problems, timeline_body};
 
 /// Why a project write was refused. Every door answers the same three cases: REST as a status,
 /// MCP as a tool error.
@@ -20,6 +20,8 @@ pub enum ProjectError {
     },
     /// The source does not parse: `422`, every problem with its line.
     Invalid(scene::Errors),
+    /// A timeline operation does not apply: `422`, with the engine's code.
+    Timeline(clap_timeline::Error),
 }
 
 impl From<tronc::Error> for ProjectError {
@@ -55,6 +57,9 @@ impl IntoResponse for ProjectError {
             ProjectError::Invalid(errors) => {
                 tronc::json::write(StatusCode::UNPROCESSABLE_ENTITY, &invalid_body(&errors))
             }
+            ProjectError::Timeline(error) => {
+                tronc::json::write(StatusCode::UNPROCESSABLE_ENTITY, &timeline_body(&error))
+            }
         }
     }
 }
@@ -66,6 +71,10 @@ impl From<ProjectError> for ToolError {
             ProjectError::Stale { rev, sent } => {
                 ToolError(format!("{}. clap_get_project answers the current source and rev.", stale(rev, sent)))
             }
+            ProjectError::Timeline(error) => ToolError(format!(
+                "nothing was saved ({}): {error}. clap_get_project answers the source; clip ids are its id attributes.",
+                error.code()
+            )),
             ProjectError::Invalid(errors) => ToolError(format!(
                 "the source is not a valid project, nothing was saved:\n{errors}\nclap_format_guide explains the format."
             )),
