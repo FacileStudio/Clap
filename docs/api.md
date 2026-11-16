@@ -305,6 +305,23 @@ the project as it is saved now.
   shadow `index.html`. Each media file is a hard link to the original, or a copy when the volume
   refuses links.
 
+**Trust.** Everything under `renders/` is written next to a browser that ran user HTML, so the
+API treats it as hostile. Every path is opened by `modules::renders::jobfs` with `openat2`
+relative to `renders/`, refusing a symbolic link or a magic link anywhere on the path and a
+mount crossing, with `O_NONBLOCK` so a planted FIFO cannot hang it. The opened file must be a
+regular file with one hard link, within a size cap (`status.json` 64 KiB, `.worker` 64 bytes,
+`out.mp4` 8 GiB). `out.mp4` is copied from that descriptor into `outputs/`; nothing the worker
+wrote is renamed, and `outputs/` is served from descriptors opened with `O_NOFOLLOW`. `cancel`
+is created without truncation or link following.
+
+A bundle is built in `DATA_DIR/staging/<id>`, which the worker cannot see, with each media
+file a copy (never a link to the blob other projects share). `renders/<id>` is created `0700`,
+set to `3775`, the bundle is renamed into it, and `job.json` is written through the job
+directory's descriptor with `O_EXCL`, then renamed. Blobs are read-only (`0444`); a pass at
+boot seals those stored before.
+
+The worker runs as its own uid, 65533, in the API's group. See `docs/rendering.md`.
+
 **Mirroring.** One task reads the `status.json` of every unfinished render each second, copies
 `state`, `frame`, `frames` and `error` into the `renders` table, and tells the open streams.
 

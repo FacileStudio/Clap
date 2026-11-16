@@ -40,8 +40,10 @@ Unlike Docs, the runtime image is not distroless: rendering needs `chrome-headle
 - the API running as uid 65532, as in the other suite images
 
 The `/data` volume is created by a root container, so `docker-compose.yml` runs a one-shot
-`clap-data-owner` service (busybox) that creates `/data/renders` and hands `/data` to 65532
-before `clap-api` and `clap-render` start.
+`clap-data-owner` service (busybox) that creates `/data/renders`, hands `/data` and everything
+in it except the contents of `renders/` to 65532, makes `renders/` mode `3775` and removes a
+stale heartbeat, before `clap-api` starts. The render worker runs as 65533 in group 65532
+(`docs/rendering.md`).
 
 ## Bumping Chrome
 
