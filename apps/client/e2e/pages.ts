@@ -1,7 +1,13 @@
 import type { Browser, Locator, Page } from 'playwright-core';
 
 /** What a running stack hands the tests: the app's URL and the session cookie of the signed-in person, if it needs one. */
-export type Stack = { base: string; cookie: string | null; stop: () => Promise<void> | void };
+export type Stack = {
+	base: string;
+	cookie: string | null;
+	stop: () => Promise<void> | void;
+	/** Plays the render worker for render `id`: writes `mp4` as its output and reports it done. Real API only. */
+	finish?: (id: string, mp4: string) => void;
+};
 
 /** A French browser page at `path`, signed in, `width` pixels wide. */
 export async function openPage(browser: Browser, stack: Stack, path: string, width = 1440): Promise<Page> {
