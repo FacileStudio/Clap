@@ -9,16 +9,21 @@ FROM rust:1-bookworm AS api-build
 WORKDIR /repo
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY apps/api/Cargo.toml apps/api/build.rs apps/api/
+COPY apps/worker/Cargo.toml apps/worker/
 COPY crates/render/Cargo.toml crates/render/
-RUN mkdir -p apps/api/src apps/api/migrations crates/render/src && echo 'fn main() {}' > apps/api/src/main.rs \
-    && echo '' > apps/api/src/lib.rs && echo '' > crates/render/src/lib.rs \
-    && cargo build --release --locked -p api && rm -rf apps/api/src apps/api/migrations crates/render/src
+COPY crates/timeline/Cargo.toml crates/timeline/
+RUN mkdir -p apps/api/src apps/api/migrations apps/worker/src crates/render/src crates/timeline/src \
+    && echo 'fn main() {}' > apps/api/src/main.rs && echo 'fn main() {}' > apps/worker/src/main.rs \
+    && echo '' > apps/api/src/lib.rs && echo '' > crates/render/src/lib.rs && echo '' > crates/timeline/src/lib.rs \
+    && cargo build --release --locked -p api -p worker \
+    && rm -rf apps/api/src apps/api/migrations apps/worker/src crates/render/src crates/timeline/src
 COPY apps/api apps/api
+COPY apps/worker apps/worker
 COPY crates crates
 COPY apps/client/package.json /version/package.json
 COPY scripts/version.sh /version/version.sh
-RUN touch apps/api/src/main.rs apps/api/src/lib.rs && APP_VERSION="$(sh /version/version.sh /version/package.json)" \
-    && export APP_VERSION && cargo build --release --locked -p api
+RUN touch apps/*/src/*.rs crates/*/src/*.rs && APP_VERSION="$(sh /version/version.sh /version/package.json)" \
+    && export APP_VERSION && cargo build --release --locked -p api -p worker
 
 FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc AS chrome
 ARG CHROME_VERSION=157.0.8103.78
@@ -38,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 COPY --from=chrome /opt/chrome-headless-shell-linux64 /opt/chrome-headless-shell
 COPY --from=api-build /repo/target/release/api /api
+COPY --from=api-build /repo/target/release/worker /worker
 COPY --from=client-build /client/build /client
 ENV CLIENT_DIR=/client
 ENV PORT=4000

@@ -9,7 +9,7 @@ if ! pg_isready -d "$TEST_DATABASE_URL" -q 2>/dev/null; then
   echo "check: no Postgres at TEST_DATABASE_URL; the database tests will skip (run: mise run db-up)" >&2
 fi
 
-echo "==> workspace (apps/api, crates/render)"
+echo "==> workspace (apps/api, apps/worker, crates/render, crates/timeline)"
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
