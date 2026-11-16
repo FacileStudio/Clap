@@ -12,6 +12,14 @@ rule, the same error bodies, the same frame. Clap adds media, renders and timeli
 - **Auth** is porte's: the `session` cookie of a browser sign-in, or `Authorization: Bearer
   <token>` for the CLI. A cookie write (`POST`, `PUT`, `PATCH`, `DELETE`) must carry the suite's
   CSRF header (`porte::CSRF_HEADER_NAME`), or it answers `403`.
+- **Registre bearer tokens.** When Registre is configured, a bearer shaped as a JWT is checked
+  by porte: issued by Registre for the audience `OIDC_MACHINE_AUDIENCE` (the app's client id
+  unless set), mapped to the account by `(issuer, sub)`, and gated on `clap.read` for `GET` and
+  `clap.write` for every other method. That is how another suite app calls Clap for a person
+  after an RFC 8693 token exchange. An account that never signed in to Clap is created by its
+  first `POST /renders`, not by these routes: until then they answer `401`.
+- **The CLI.** With `OIDC_CLI_AUDIENCE=facile-cli`, `POST /auth/oidc/device/exchange` trades a
+  `facile-cli` device-grant token for a session token.
 - **Errors** use the suite envelope from tronc: `{"error": {"code", "message"}}`.
 - **`None` is `404`.** One function, `modules::projects::access::access`, answers what a caller
   may do with a project. Every project, asset and render query goes through it. A project the
@@ -34,7 +42,8 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | `POST /projects` | editor in the space | Body `{title?, space_id?, source?}`. `201` with the project at `rev` 1. No `source` gives a one-scene starter. The title is the one given, else the source's `title`, else `Untitled` |
 | `GET /projects/{id}` | viewer | `{id, space_id, title, source, rev, created_at, updated_at, trashed_at, access}` |
 | `PUT /projects/{id}/source` | editor | Body `{source, rev}`. Saves and answers the project at `rev + 1`. See "The rev rule" |
-| `POST /projects/{id}/edits` | editor | Body `{rev, ops}`: timeline operations. See "Timeline edits" |
+| `GET /projects/{id}/timeline` | viewer | `{rev, timeline}`: the scenes and clips of the saved source |
+| `POST /projects/{id}/edits` | editor | Body `{rev, ops}`: timeline operations. Answers `{source, rev, timeline, clips}`. See "Timeline edits" |
 | `PATCH /projects/{id}` | editor; manager for `space_id` and `trashed` | Body `{title?, space_id?, trashed?}`. `space_id: null` moves the project to the caller's personal projects. Never changes `rev` |
 | `DELETE /projects/{id}` | manager | Deletes a trashed project for good, with its revisions, assets and renders. `412` when the project is not in the trash |
 | `GET /projects/{id}/events` | viewer | Server-sent events. See "Events" |
@@ -45,6 +54,7 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | `DELETE /projects/{id}/assets/{name}` | editor | `204` |
 | `GET /projects/{id}/renders` | viewer | `{renders: [...]}`, newest first |
 | `POST /projects/{id}/renders` | editor | Body `{width?, height?, fps?, range?}`. `202` with the queued render. See "Renders" |
+| `POST /renders` | a Registre bearer with `clap.write` | A render of a posted bundle. See "Posted bundles" |
 | `GET /renders/{id}` | viewer of its project | The render: state, progress, `download_url` once done |
 | `GET /renders/{id}/events` | viewer | Server-sent `status` events until the render is final |
 | `GET /renders/{id}/file` | viewer | The MP4, with `Range`. `412` until the render is done |
@@ -59,7 +69,7 @@ porte adds the sign-in routes (`/auth/oidc`, `/auth/oidc/callback`, `/auth/oidc/
 `/auth/oidc/device/exchange`, `/auth/sync-profile`, `/auth/backchannel-logout`, `/auth/logout`,
 `/auth/me`, `/auth/config`).
 
-Not built yet: `POST /renders` for Diapo's MP4 export, share links, `/oembed`, `/embed/{token}`.
+Not built yet: share links, `/oembed`, `/embed/{token}`.
 
 ## The rev rule
 
@@ -100,18 +110,34 @@ Kinds: `empty`, `unclosed_frontmatter`, `bad_frontmatter_line`, `unknown_key`, `
 
 ## Timeline edits
 
+The timeline is the model the crate `clap-timeline` reads from the source: scenes, and in each
+the clips, with their id, kind, start, duration, track and lines (`docs/timeline.md`).
+
+`GET /projects/{id}/timeline` answers `{rev, timeline}` for the source as it is saved.
+
 `POST /projects/{id}/edits` takes `{rev, ops}`. Each op is an object tagged by `op`:
 `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
 `split_clip {clip, at}`, `delete_clip {clip}`,
 `add_clip {scene, kind, src?, start, duration, track, text?}`,
 `set_scene_duration {scene, duration}`, `reorder_scene {scene, to}`, `delete_scene {scene}`,
-`add_scene {at, duration, body}`. The ops apply in order to the source read at `rev`, and the
-result is saved under the rev rule, so the route answers the project with its new source and
-`rev`.
+`add_scene {at, duration, body}`. The ops apply in order to the source read at `rev`; the result
+is saved under the rev rule, as one revision, and the route answers
+`{source, rev, timeline, clips}`: the new source, its `rev`, its timeline, and the ids, as they
+are now, of the clips the ops named or added.
 
-The engine that applies them is the crate `clap-timeline`. Until it is part of the build, the
-route checks access, the `rev` (`409`) and the op names (`400`), then answers `503 unavailable`
-and changes nothing. One function holds the call: `modules::projects::timeline::apply`.
+- A stale `rev` is `409`, as for a save. An `ops` entry that is not an operation is `400`.
+- An op that does not apply is `422` and nothing is saved. The body is tronc's
+  `invalid_argument` envelope plus `timeline_error`, the engine's code: `unknown_clip`,
+  `unknown_scene`, `overlap`, `out_of_bounds`, `invalid_op`, `invalid_result` or `parse`.
+
+  ```json
+  {"error": {"code": "invalid_argument", "message": "clip `title` would overlap clip `sub` on track 1"}, "timeline_error": "overlap"}
+  ```
+
+- A clip without `data-clip` or `id` has a derived id, `clip-<scene>-<n>`, which shifts when a
+  clip before it is added or deleted. Read the timeline again after every edit.
+
+One function holds the calls: `modules::projects::timeline::edits`.
 
 ## Events
 
@@ -224,6 +250,9 @@ the session. The frame route rewrites every project file the source names to a s
 - A video that has a proxy is linked with `&variant=proxy`: the preview plays the 720p file.
   The render uses the original.
 - A file the project does not hold keeps its path as written, and loads nothing.
+- The document also carries Clap's media runtime (`clap_timeline::with_runtime`): after each
+  `seek` it puts every shown `<video>` and `<audio>` at `data-in` plus the time into the clip
+  and applies `data-volume`. It is one more inline script, which the policy already allows.
 
 This is Diapo's design, with one more query parameter.
 
@@ -239,6 +268,7 @@ DATA_DIR/renders/<id>/job.json            written last, by rename: the job is wh
 DATA_DIR/renders/<id>/status.json         progress, written by rename             worker
 DATA_DIR/renders/<id>/out.mp4             the result                              worker
 DATA_DIR/renders/<id>/cancel              asks the worker to stop                 API
+DATA_DIR/renders/.worker                  the heartbeat, an RFC 3339 timestamp    worker
 DATA_DIR/outputs/<id>.mp4                 where a finished render is kept         API
 ```
 
@@ -264,6 +294,10 @@ the project as it is saved now.
 - `range` lies inside the project. The rendered length is at most `RENDER_MAX_SECONDS` (600).
 - Past a cap: `400`. A source that names a file the project does not hold: `412`, listing the
   names. More than `RENDER_QUEUE_MAX` (10) renders waiting or running on the instance: `429`.
+- The worker's heartbeat must be less than 30 s old, or the route answers `503 unavailable`
+  and queues nothing. A render already waiting when the worker goes silent carries a `notice`
+  in `GET /renders/{id}`.
+- `index.html` is the compiled project with Clap's media runtime, as in the preview.
 - In `index.html` every project file is a relative path under `media/`, so no asset name can
   shadow `index.html`. Each media file is a hard link to the original, or a copy when the volume
   refuses links.
@@ -272,18 +306,53 @@ the project as it is saved now.
 `state`, `frame`, `frames` and `error` into the `renders` table, and tells the open streams.
 
 - On `done` it moves `out.mp4` to `DATA_DIR/outputs/<id>.mp4` and deletes the job directory.
-- On `failed` and `cancelled` it deletes the job directory.
+- On `failed` and `cancelled` the job directory stays 24 hours, for whoever looks into it.
+- The worker never deletes a job directory. The API does.
 - The files in a job directory are written next to a browser that ran user HTML, so they are
   not trusted: `status.json` and `out.mp4` must be regular files (a symbolic link fails the
   render), a status over 64 KiB or with an unknown state is ignored, the error text is cut at
   2000 characters.
 
 **Sweep.** At boot and every ten minutes: an unfinished render whose `job.json` is gone, or
-that waited more than six hours, is `failed`; a job directory or an output file no row names
-is removed.
+that waited more than six hours, is `failed` and loses its directory at once, so a worker that comes back cannot pick it up; a
+job directory or an output file no row names is removed, and so is the directory of a render
+that failed or was cancelled more than 24 hours ago.
+
+### Posted bundles
+
+`POST /api/renders` renders a scene another suite app compiled, such as a Diapo deck exported
+to MP4. It answers `202` with the same render a project render gets, and `GET /renders/{id}`,
+`/events`, `/file` and `DELETE` work on it with the same bearer.
+
+- **Auth.** `Authorization: Bearer <token>`: a Registre access token for the audience `clap`
+  (`OIDC_MACHINE_AUDIENCE`), exchanged for the signed-in person (it carries `act`), with the
+  scope `clap.write`. porte verifies it offline and creates the person's Clap account on a
+  first call, as for MCP. No token, a bad one, another audience, or the app audience without
+  `act`: `401`. No `clap.write`: `403`. A session cookie or a session token is not accepted
+  here.
+- **Body.** `multipart/form-data` with:
+  - one `spec` part, the JSON `{"width": 1920, "height": 1080, "fps": 30, "range": [0, 12.5]}`.
+    `width` and `height` are required; `fps` defaults to 30; `range` is optional;
+  - one `file` part per file of the bundle, whose `filename` is its relative path:
+    `index.html`, `assets/chart.png`. `index.html` is required and must expose
+    `window.__scene` as `scene::compile` writes it. It is rendered as posted: Clap adds nothing.
+- **Paths.** The asset name rule: relative, at most 200 bytes, segments of ASCII letters,
+  digits, `.`, `_` and `-` that do not start with a dot. Anything else is `400`.
+- **Caps.** The same size and frame-rate caps as a project render, the same queue cap (`429`)
+  and the same worker check (`503`). A `range` is at most `RENDER_MAX_SECONDS` long; without
+  one the worker fails a scene longer than that once it has loaded. The bundle holds at most
+  `RENDER_BUNDLE_MAX_BYTES` (1 GiB, `413`) and 2000 files. It streams to disk.
+- **Ownership.** The render belongs to the account the token acts for: `project_id` is `null`,
+  `rev` is 0, and only that account reads, downloads or cancels it. Anyone else gets `404`.
+
+```sh
+curl -X POST https://clap.facile.studio/api/renders -H "Authorization: Bearer $TOKEN" \
+  -F 'spec={"width":1920,"height":1080,"fps":30}' \
+  -F 'file=@index.html;filename=index.html' -F 'file=@chart.png;filename=assets/chart.png'
+```
 
 A render is `{id, project_id, rev, width, height, fps, range, state, frame, frames, error, size,
-created_at, started_at, finished_at, download_url}`. `state` is `queued`, `running`, `done`,
+created_at, started_at, finished_at, download_url, notice}`. `state` is `queued`, `running`, `done`,
 `failed` or `cancelled`.
 
 ## MCP
@@ -304,7 +373,7 @@ Every answer about a project carries its `url`, `https://<host>/projects/<id>`.
 | `clap_create_project` | write | `{title, source?, space_id?}` | `{id, title, rev, scenes, url}` |
 | `clap_write_project` | write | `{project_id, source, rev}` | `{id, title, rev, scenes, url}` |
 | `clap_edit_project` | write | `{project_id, old_string, new_string, rev}` | `{id, title, rev, scenes, url}`; refuses zero or several matches |
-| `clap_timeline_edit` | write | `{project_id, rev, ops}` | `{id, title, rev, scenes, url}`; a tool error "not available yet" until the engine ships |
+| `clap_timeline_edit` | write | `{project_id, rev, ops}` | `{id, title, rev, scenes, duration, clips, url}`; `clips` are the ids of the clips it changed or added |
 | `clap_render` | write | `{project_id, width?, height?, fps?, range?}` | the same as `clap_render_status` |
 | `clap_delete_project` | write | `{project_id}` | a confirmation: the person agrees on `/pending`, then the project goes to the trash |
 
@@ -324,6 +393,9 @@ call next. `download_url` is a link the person opens in their browser, signed in
 | `RENDER_MAX_FPS` | `30` | The highest frame rate |
 | `RENDER_MAX_SECONDS` | `600` | The longest render |
 | `RENDER_QUEUE_MAX` | `10` | Renders waiting or running at once |
+| `RENDER_BUNDLE_MAX_BYTES` | `1073741824` | The files of one posted bundle together |
+| `OIDC_MACHINE_AUDIENCE` | `OIDC_CLIENT_ID` | The audience a Registre bearer token must carry |
+| `OIDC_CLI_AUDIENCE` | unset | `facile-cli`: mounts the CLI's device exchange |
 | `MCP_RESOURCE` | unset | The public URL of `/mcp`; turns MCP on |
 | `MCP_STATE_KEY` | unset | The HMAC key of MCP confirmations; required with `MCP_RESOURCE` |
 | `BULLE_URL`, `BULLE_CLIENT_ID` | `https://bulle.facile.studio`, `bulle` | The assistant the client frames |

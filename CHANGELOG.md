@@ -16,6 +16,10 @@ All notable changes to Clap. Versions follow SemVer.
   the finished MP4 and serves it. Limits: 1920x1080, 30 fps, 10 minutes.
 - MCP at `/mcp` with eleven tools (`clap_list_projects` to `clap_delete_project`), scopes
   `clap.read` and `clap.write`, and deletion behind a confirmation.
+- `POST /api/renders`: another suite app posts a compiled bundle with a Registre token it
+  exchanged for the person, and gets a render job.
+- Timeline edits through `clap-timeline`: `GET /api/projects/{id}/timeline`,
+  `POST /api/projects/{id}/edits` and the `clap_timeline_edit` tool.
 - Registre directory sync, account deletion with erasure, and `GET /api/assistant`.
 
 - The app shell: a Rust API on tronc-rs and porte-rs with Registre sign-in, health probes,
