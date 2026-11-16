@@ -4,6 +4,10 @@
 pub mod apiref;
 pub mod auth;
 pub mod env;
+pub mod extract;
+pub mod limits;
+pub mod mcp;
+pub mod modules;
 pub mod router;
 pub mod security;
 pub mod server;
