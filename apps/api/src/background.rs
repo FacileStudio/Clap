@@ -26,6 +26,9 @@ async fn locked(pool: &PgPool) -> Option<PgConnection> {
 /// the lock back. `None` once `token` is cancelled.
 pub async fn hold(pool: &PgPool, token: &CancellationToken) -> Option<PgConnection> {
     loop {
+        if token.is_cancelled() {
+            return None;
+        }
         if let Some(connection) = locked(pool).await {
             return Some(connection);
         }
@@ -57,7 +60,8 @@ async fn kept(connection: &mut PgConnection, token: &CancellationToken) {
 }
 
 /// Runs the background work while this process holds the lock, until `token` is cancelled. When
-/// the lock's connection dies, the work stops and the process waits for the lock again.
+/// the lock's connection dies, the work stops and the process waits for the lock again. Once
+/// `token` is cancelled it returns, giving the lock back, so the process can exit.
 pub async fn run(state: AppState, token: CancellationToken) {
     while let Some(mut connection) = hold(&state.pool, &token).await {
         tracing::info!("background: holding the lock, starting the mirror, the sweeps and the purge");
@@ -65,5 +69,8 @@ pub async fn run(state: AppState, token: CancellationToken) {
         start(&state, &work);
         kept(&mut connection, &token).await;
         work.cancel();
+        if token.is_cancelled() {
+            return;
+        }
     }
 }
