@@ -347,7 +347,10 @@ to MP4. It answers `202` with the same render a project render gets, and `GET /r
 - **Auth.** `Authorization: Bearer <token>`: a Registre access token for the audience `clap`
   (`OIDC_MACHINE_AUDIENCE`), exchanged for the signed-in person (it carries `act`), with the
   scope `clap.write`. porte verifies it offline and creates the person's Clap account on a
-  first call, as for MCP. No token, a bad one, another audience, or the app audience without
+  first call, as for MCP. Registre puts `email` on such a token only when the address is
+  verified, and no `email_verified` claim, so this route alone trusts an email that comes
+  without the claim; an explicit `email_verified: false` is still refused. Sign-in and `/mcp`
+  keep requiring the claim. No token, a bad one, another audience, or the app audience without
   `act`: `401`. No `clap.write`: `403`. A session cookie or a session token is not accepted
   here.
 - **Body.** `multipart/form-data` with:
