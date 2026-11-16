@@ -128,7 +128,8 @@ is saved under the rev rule, as one revision, and the route answers
 `{source, rev, timeline, clips}`: the new source, its `rev`, its timeline, and the ids, as they
 are now, of the clips the ops named or added.
 
-- A stale `rev` is `409`, as for a save. An `ops` entry that is not an operation is `400`.
+- A stale `rev` is `409`, as for a save. An `ops` entry that is not an operation is `400`, and
+  so are more than 500 operations in one edit. The engine runs on a blocking thread.
 - An op that does not apply is `422` and nothing is saved. The body is tronc's
   `invalid_argument` envelope plus `timeline_error`, the engine's code: `unknown_clip`,
   `unknown_scene`, `overlap`, `out_of_bounds`, `invalid_op`, `invalid_result` or `parse`.
@@ -454,10 +455,23 @@ appear only once the poster exists.
 
 ### Posters
 
-When a render finishes, the API keeps `out.mp4` at `DATA_DIR/outputs/<render id>.mp4` and makes
-its poster beside it, `<render id>.jpg`, with `ffmpeg`: one frame from the middle of the video,
+When a render finishes, the API keeps `out.mp4` at `DATA_DIR/outputs/<render id>.mp4` and, on a
+task of its own that waits for the one-at-a-time media permit, makes its poster beside it, `<render id>.jpg`, with `ffmpeg`: one frame from the middle of the video,
 at most one second in, at most 640 pixels wide. A failure is logged and the share page has no
 picture. Deleting a render deletes both files.
+
+## Background work and deploys
+
+During a zero-downtime deploy two API processes run on one database and one volume. Only one
+of them runs the background work: the render mirror and its sweep, the asset sweep, the trash
+and revision purge, and the boot pass that resumes unfinished assets. The process holds a
+Postgres advisory lock (`background::KEY`) for as long as it runs it; the other process tries
+every 5 seconds and starts the work once the first has exited. A holder whose lock connection
+dies stops the work and waits for the lock again.
+
+The boot pass removes an unfinished upload or a staged bundle only once it is a day old: the
+other process may be receiving a younger one. The asset sweep checks a file's age again right
+before it removes it, so a file stored again meanwhile stays.
 
 ## MCP
 
