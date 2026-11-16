@@ -14,6 +14,9 @@ use super::types::{Author, Project, SourceRequest};
 use super::write;
 use crate::state::AppState;
 
+/// The most operations one edit applies.
+pub const MAX_OPS: usize = 500;
+
 /// `POST /projects/{id}/edits`: timeline operations, applied in order to the source read at `rev`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -44,6 +47,9 @@ pub struct Edited {
 pub fn ops(raw: &[Value]) -> Result<Vec<Op>> {
     if raw.is_empty() {
         return Err(Error::invalid("ops is empty: give at least one operation"));
+    }
+    if raw.len() > MAX_OPS {
+        return Err(Error::invalid(format!("ops holds {} operations: send at most {MAX_OPS} at once", raw.len())));
     }
     let parsed = |(index, op): (usize, &Value)| {
         Op::deserialize(op)
@@ -82,7 +88,7 @@ pub async fn read(state: &AppState, user_id: i64, id: Uuid) -> std::result::Resu
 
 /// Applies timeline operations to the project's source and saves the result as [`write::save`]
 /// does: the same `rev` rule, the same revision, the same event. Nothing is saved unless every
-/// operation applies.
+/// operation applies. The engine runs on a blocking thread, at most [`MAX_OPS`] operations.
 pub async fn edits(
     state: &AppState,
     author: &Author,
@@ -95,11 +101,17 @@ pub async fn edits(
         return Err(ProjectError::Stale { rev: row.rev, sent: request.rev });
     }
     let ops = ops(&request.ops)?;
-    let before = clap_timeline::read(&row.source).map_err(ProjectError::Timeline)?;
-    let source = clap_timeline::apply(&row.source, &ops).map_err(ProjectError::Timeline)?;
-    let timeline = clap_timeline::read(&source).map_err(ProjectError::Timeline)?;
+    let edit = move || -> std::result::Result<_, clap_timeline::Error> {
+        let before = clap_timeline::read(&row.source)?;
+        let source = clap_timeline::apply(&row.source, &ops)?;
+        let timeline = clap_timeline::read(&source)?;
+        Ok((affected(&before, &timeline, &ops), source, timeline))
+    };
+    let applied =
+        tokio::task::spawn_blocking(edit).await.map_err(|error| Error::internal("an edit did not finish", error))?;
+    let (clips, source, timeline) = applied.map_err(ProjectError::Timeline)?;
     let project = write::save(state, author, id, SourceRequest { source, rev: request.rev }).await?;
-    Ok(Edited { clips: affected(&before, &timeline, &ops), project, timeline })
+    Ok(Edited { clips, project, timeline })
 }
 
 #[cfg(test)]
