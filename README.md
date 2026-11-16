@@ -16,6 +16,29 @@ renderer.
 - `crates/render`: `clap-render`, which turns a seekable HTML scene into an H.264 MP4 with
   `chrome-headless-shell` and `ffmpeg`. See [docs/rendering.md](docs/rendering.md).
 
+- `crates/timeline`: `clap-timeline`, the clip model and the edit operations. See
+  [docs/timeline.md](docs/timeline.md).
+- `apps/worker`: the isolated render service.
+- `apps/cli`: the `clap` command line. See [docs/cli.md](docs/cli.md).
+
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/FacileStudio/Clap/main/install.sh | bash
+```
+
+Installs to `~/.local/bin` via [facile](https://github.com/FacileStudio/facile), the suite
+installer. Pass `--bin-dir <dir>` to change that, `--source` to build from source, `--no-skill`
+to skip AI agent skill registration.
+
+Already have `facile`:
+
+```sh
+facile install clap
+```
+
+No release is published yet: until the first tag, run `cargo run -p clap-cli -- <command>`.
+
 ## Stack
 
 | Layer | Tech |

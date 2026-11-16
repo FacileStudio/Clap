@@ -31,6 +31,8 @@ impl Error { pub fn code(&self) -> &'static str }
 
 pub const RUNTIME_JS: &str;
 pub fn with_runtime(html: &str) -> String;
+pub const CLAP_GUIDE: &str;
+pub fn format_guide() -> String;
 ```
 
 `Timeline` and its parts are `Serialize`; `Op` and `Kind` are also `Deserialize`. The crate has
@@ -137,5 +139,12 @@ does, for the preview: after each `window.__scene.seek(t)` it sets every shown `
 `data-volume`. `with_runtime(html)` adds it to a compiled document. A parent frame posts
 `{type: "clap:playing", playing: true}` to let media play between seeks. Under the renderer the
 script does nothing: the renderer swaps frames in itself (see [Rendering](rendering.md)).
+
+## The format guide
+
+`CLAP_GUIDE` is Clap's section of the format guide: time-based scenes, clips, tracks, media,
+determinism and the timeline operations. `format_guide()` answers `scene::FORMAT_GUIDE` followed
+by it. `clap guide` prints it, and the API's `clap_format_guide` tool should answer the same
+constant instead of its own copy (`apps/api/src/mcp/guide.md` holds the same text today).
 
 Back to the [documentation index](README.md).
