@@ -127,7 +127,7 @@ pub fn spawn(state: AppState, job: Job) {
 
 /// Starts again, at boot, every asset a previous process left `probing` or without its proxy.
 pub async fn resume(state: &AppState) {
-    files::clear_incoming(&state.data_dir).await;
+    super::leftovers::clear(&state.data_dir).await;
     let data_dir = state.data_dir.to_path_buf();
     match tokio::task::spawn_blocking(move || super::seal::seal(&data_dir)).await {
         Ok(Ok(0)) => {}

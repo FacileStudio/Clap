@@ -47,16 +47,6 @@ pub async fn adopt(data_dir: &Path, temporary: &Path, sha256: &str) -> io::Resul
 /// The mode of a stored blob: nobody writes it again, whoever holds a descriptor or a link.
 pub const SEALED: u32 = 0o444;
 
-/// Removes every upload a previous process left unfinished.
-pub async fn clear_incoming(data_dir: &Path) {
-    let dir = incoming(data_dir);
-    if let Err(error) = tokio::fs::remove_dir_all(&dir).await
-        && error.kind() != io::ErrorKind::NotFound
-    {
-        tracing::warn!(%error, "assets: could not clear unfinished uploads");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
