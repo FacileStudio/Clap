@@ -9,7 +9,9 @@ pub const POSTER_TIMEOUT: Duration = Duration::from_secs(60);
 
 const HEAD: [&str; 6] = ["-nostdin", "-v", "error", "-y", "-protocol_whitelist", "file"];
 
-fn framed(before: &[&str], input: &Path, after: &[&str], output: &Path) -> Vec<OsString> {
+/// The `ffmpeg` arguments that read `input` under the decoder limits, after the input options
+/// `before`, then write `output` with the output options `after` on two threads.
+pub fn framed(before: &[&str], input: &Path, after: &[&str], output: &Path) -> Vec<OsString> {
     let mut args = tools::argv(&HEAD);
     args.extend(tools::argv(before));
     args.extend(tools::argv(&tools::DECODE));
@@ -37,7 +39,9 @@ pub fn proxy_args(input: &Path, output: &Path) -> Vec<OsString> {
     framed(&[], input, &[&video[..], &codecs[..], &sound[..]].concat(), output)
 }
 
-async fn written(tools: &Tools, args: Vec<OsString>, limit: Duration, output: &Path) -> Result<(), String> {
+/// Runs `ffmpeg` with `args`, whose last element is the output, within `limit`, writing to a
+/// scratch file renamed onto `output` once whole.
+pub async fn written(tools: &Tools, args: Vec<OsString>, limit: Duration, output: &Path) -> Result<(), String> {
     let scratch = output.with_extension("part");
     let mut args = args;
     args.pop();

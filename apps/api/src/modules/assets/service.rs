@@ -16,7 +16,8 @@ use crate::state::AppState;
 macro_rules! columns {
     () => {
         "name, mime, size, sha256, kind, duration_ms, width, height, fps, has_audio, state, error, created_at, \
-         poster IS NOT NULL AS has_poster, proxy IS NOT NULL AS has_proxy"
+         poster IS NOT NULL AS has_poster, proxy IS NOT NULL AS has_proxy, strip IS NOT NULL AS has_strip, \
+         strip_tiles, strip_step, peaks IS NOT NULL AS has_peaks"
     };
 }
 
@@ -44,6 +45,14 @@ pub struct Asset {
     pub has_poster: bool,
     #[serde(skip)]
     pub has_proxy: bool,
+    #[serde(skip)]
+    pub has_strip: bool,
+    #[serde(skip)]
+    pub has_peaks: bool,
+    /// How many frames the filmstrip holds, side by side, once there is one.
+    pub strip_tiles: Option<i32>,
+    /// The seconds between two frames of the filmstrip: frame `i` is the picture at `i * step`.
+    pub strip_step: Option<f64>,
     /// Where a signed-in caller reads the bytes as uploaded.
     #[sqlx(skip)]
     pub url: String,
@@ -53,6 +62,12 @@ pub struct Asset {
     /// Where the 720p proxy is, once there is one.
     #[sqlx(skip)]
     pub proxy_url: Option<String>,
+    /// Where the filmstrip is, a JPEG 90 pixels high, once there is one.
+    #[sqlx(skip)]
+    pub strip_url: Option<String>,
+    /// Where the waveform is, `{"peaks": [0..1, ...]}`, once there is one.
+    #[sqlx(skip)]
+    pub peaks_url: Option<String>,
 }
 
 /// What `GET /projects/{id}/assets` answers.
@@ -71,6 +86,8 @@ fn located(project: Uuid, asset: Asset) -> Asset {
     Asset {
         poster_url: asset.has_poster.then(|| format!("{base}?variant=poster")),
         proxy_url: asset.has_proxy.then(|| format!("{base}?variant=proxy")),
+        strip_url: asset.has_strip.then(|| format!("{base}?variant=strip")),
+        peaks_url: asset.has_peaks.then(|| format!("{base}?variant=peaks")),
         url: base,
         ..asset
     }
@@ -83,7 +100,8 @@ async fn insert(state: &AppState, user_id: i64, project: Uuid, name: &str, store
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (project_id, name) DO UPDATE SET \
          mime = EXCLUDED.mime, size = EXCLUDED.size, sha256 = EXCLUDED.sha256, kind = EXCLUDED.kind, \
          state = EXCLUDED.state, created_by = EXCLUDED.created_by, created_at = now(), duration_ms = NULL, \
-         width = NULL, height = NULL, fps = NULL, has_audio = false, poster = NULL, proxy = NULL, error = NULL \
+         width = NULL, height = NULL, fps = NULL, has_audio = false, poster = NULL, proxy = NULL, error = NULL, \
+         strip = NULL, strip_tiles = NULL, strip_step = NULL, peaks = NULL \
          RETURNING ",
         columns!()
     ))

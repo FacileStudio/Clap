@@ -35,6 +35,10 @@ All notable changes to Clap. Versions follow SemVer.
   scene transition and its length.
 - After every seek the preview posts `clap:boxes`, the stage boxes of the clips shown, and draws
   a dragged clip where a `clap:ghost` message says.
+- The timeline draws what a clip shows: a video its filmstrip from the frame its trim starts
+  on, a sound its waveform, an image its picture. The API makes a filmstrip (`strip_url`,
+  `strip_tiles`, `strip_step`) and a waveform (`peaks_url`) for each upload, and for the media
+  already uploaded at the next boot.
 
 ### Changed
 

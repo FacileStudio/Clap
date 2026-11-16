@@ -132,6 +132,12 @@ export interface Asset {
 	poster_url: string | null;
 	url: string;
 	error?: string | null;
+	/** The filmstrip: `strip_tiles` frames side by side, frame `i` taken at `i * strip_step` seconds. */
+	strip_url?: string | null;
+	strip_tiles?: number | null;
+	strip_step?: number | null;
+	/** The waveform, `{"peaks": [0..1, ...]}`. */
+	peaks_url?: string | null;
 }
 
 /** Where a render job stands. */

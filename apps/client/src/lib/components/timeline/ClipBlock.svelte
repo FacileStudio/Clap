@@ -5,14 +5,16 @@
 	import { shortTime } from '$lib/project/timecode';
 	import type { Grip } from '$lib/timeline/clip-gesture';
 	import { ROW } from '$lib/timeline/layout';
-	import type { Clip } from '$lib/types';
+	import { peaksOf } from '$lib/timeline/peaks';
+	import { stripOf, stripTiles, tileStyle, wavePath } from '$lib/timeline/strip';
+	import type { Asset, Clip } from '$lib/types';
 
 	let {
 		clip,
 		row,
 		zoom,
 		label,
-		poster,
+		asset,
 		selected,
 		readonly,
 		register,
@@ -24,7 +26,8 @@
 		row: number;
 		zoom: number;
 		label: string;
-		poster: string | null;
+		/** The asset the clip loads, when the project has it. */
+		asset: Asset | undefined;
 		selected: boolean;
 		readonly: boolean;
 		/** Hands the drawn element to the gestures. */
@@ -53,7 +56,23 @@
 	const ramp = (preset: unknown, seconds: number | null | undefined) =>
 		preset ? Math.min(seconds ?? 0.5, clip.duration / 2) * zoom : 0;
 	const ramps = $derived({ enter: ramp(clip.enter, clip.enter_duration), exit: ramp(clip.exit, clip.exit_duration) });
-	const strip = $derived(poster ? `background-image: url('${poster.replace(/'/g, '%27')}')` : '');
+	const HEIGHT = 34;
+	const film = $derived(clip.kind === 'video' ? stripOf(asset) : null);
+	const tiles = $derived(film ? stripTiles(film, clip.media_in, clip.duration, zoom, HEIGHT) : []);
+	const picture = $derived(clip.kind === 'image' ? (asset?.url ?? null) : clip.kind === 'video' && !film ? (asset?.poster_url ?? null) : null);
+	const cover = $derived(picture ? `background-image: url('${picture.replace(/'/g, '%27')}')` : '');
+	const peaksUrl = $derived(clip.kind === 'audio' ? (asset?.peaks_url ?? null) : null);
+	let peaks = $state<number[]>([]);
+	const wave = $derived(wavePath(peaks, (asset?.duration_ms ?? 0) / 1000, clip.media_in, clip.duration));
+
+	$effect(() => {
+		const url = peaksUrl;
+		peaks = [];
+		if (!url) return;
+		let live = true;
+		peaksOf(url).then((values) => live && (peaks = values));
+		return () => void (live = false);
+	});
 
 	function grab(event: PointerEvent, grip: Grip) {
 		if (event.button !== 0) return;
@@ -83,8 +102,27 @@
 	{onkeydown}
 >
 	<span class="absolute inset-0 flex items-center overflow-hidden rounded-fc-md">
-		{#if poster}
-			<span class="absolute inset-0 bg-[length:auto_100%] bg-repeat-x opacity-60" style={strip} aria-hidden="true"></span>
+		{#if film}
+			<span class="absolute inset-0 opacity-70" aria-hidden="true" data-testid="clip-strip" data-from={clip.media_in}>
+				{#each tiles as tile (tile.left)}
+					<span class="absolute inset-y-0 bg-no-repeat" style={tileStyle(film, tile)} data-testid="strip-tile" data-tile={tile.index} data-at={tile.at}></span>
+				{/each}
+			</span>
+		{:else if cover}
+			<span class="absolute inset-0 bg-[length:auto_100%] bg-repeat-x opacity-60" style={cover} aria-hidden="true"></span>
+		{/if}
+		{#if wave.count > 0}
+			<svg
+				class="absolute inset-0 size-full text-fc-success opacity-70"
+				viewBox="0 0 {wave.count} 2"
+				preserveAspectRatio="none"
+				aria-hidden="true"
+				data-testid="clip-wave"
+			>
+				<path d={wave.d} fill="currentColor" />
+			</svg>
+		{/if}
+		{#if film || cover}
 			<span class="absolute inset-0 bg-linear-to-r from-fc-bg/80 to-fc-bg/10" aria-hidden="true"></span>
 		{/if}
 		{#if ramps.enter > 0}

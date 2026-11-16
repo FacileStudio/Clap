@@ -50,7 +50,7 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | `GET /projects/{id}/frame` | viewer | The project compiled to one HTML document. `?scene=n` compiles scene `n` alone, from 0. See "The sandboxed frame" |
 | `GET /projects/{id}/assets` | viewer | `{assets: [...]}`, by name. See "Assets" |
 | `POST /projects/{id}/assets` | editor | Multipart: a `file` part, and an optional `name` part. `201` with the asset in state `probing`. The same name replaces the asset |
-| `GET /projects/{id}/assets/{name}` | viewer, or a frame link | The bytes, with `Range` (`206`). `?variant=poster` or `?variant=proxy` reads the derived file |
+| `GET /projects/{id}/assets/{name}` | viewer, or a frame link | The bytes, with `Range` (`206`). `?variant=poster`, `proxy`, `strip` or `peaks` reads the derived file |
 | `DELETE /projects/{id}/assets/{name}` | editor | `204` |
 | `GET /projects/{id}/renders` | viewer | `{renders: [...]}`, newest first |
 | `POST /projects/{id}/renders` | editor | Body `{width?, height?, fps?, range?}`. `202` with the queued render. See "Renders" |
@@ -162,7 +162,8 @@ data: {"name":"assets/clip.mp4","state":"ready"}
 - The first event arrives at once: a `changed` that says where the project is now.
 - A `changed` follows every saved source, whichever door wrote it, and every `PATCH` (same `rev`).
 - An `asset` follows every upload (`probing`, or `ready` for a font), every finished probe
-  (`ready` or `failed`), a finished proxy (`ready` again) and every delete (`deleted`).
+  (`ready` or `failed`), a finished filmstrip or waveform and a finished proxy (`ready` again) and
+  every delete (`deleted`).
 - Before each event the server checks the reader still reads the project. If not, the stream ends.
 - After a lag the stream answers one `changed`: list the assets again.
 
@@ -181,8 +182,16 @@ An asset is a file of one project, named by the relative path the source writes:
 {"name": "assets/clip.mp4", "mime": "video/mp4", "size": 1048576, "sha256": "…", "kind": "video",
  "duration_ms": 2000, "width": 1920, "height": 1080, "fps": 25.0, "has_audio": true,
  "state": "ready", "error": null, "created_at": "…", "url": "/api/projects/…/assets/assets/clip.mp4",
- "poster_url": "…?variant=poster", "proxy_url": "…?variant=proxy"}
+ "poster_url": "…?variant=poster", "proxy_url": "…?variant=proxy",
+ "strip_url": "…?variant=strip", "strip_tiles": 1, "strip_step": 2.0, "peaks_url": "…?variant=peaks"}
 ```
+
+- **Previews.** The timeline draws a video from its filmstrip and a sound from its waveform.
+  `strip_url` is one JPEG, 90 pixels high, of `strip_tiles` frames side by side, frame `i`
+  taken at `i * strip_step` seconds, with `strip_step = max(2, duration / 60)` and at most 60
+  frames. `peaks_url` answers `{"peaks": [...]}`: at most 1000 values from 0 to 1, each the
+  largest absolute sample of its slice of the sound, mixed to mono at 8 kHz (one value per
+  10 ms for a sound under 10 s). Both are `null` until made, and for a kind that has none.
 
 - **Upload.** The `file` part streams to `DATA_DIR/uploads/` chunk by chunk, hashed and counted
   as it passes. Nothing but the first 2 KiB is held in memory, and the route has no framework
@@ -204,16 +213,19 @@ An asset is a file of one project, named by the relative path the source writes:
   plus the size of the project's largest asset, which it may be replacing, and 64 KiB of
   multipart framing; it is `413` at once when it does not fit, and the stream stops at the
   reservation. The exact cap is checked again once the name is known.
-- **Storage.** `DATA_DIR/assets/<first two hex>/<sha256>`, once per content, with the poster
-  and the proxy at `DATA_DIR/derived/<first two hex>/<sha256>.poster.jpg` and `.proxy.mp4`. A
+- **Storage.** `DATA_DIR/assets/<first two hex>/<sha256>`, once per content, with the poster,
+  the proxy, the filmstrip and the waveform at `DATA_DIR/derived/<first two hex>/<sha256>.poster.jpg`,
+  `.proxy.mp4`, `.strip.jpg` and `.peaks.json`. A
   daily sweep removes files no row names, after an hour of grace.
 - **Probe.** One background task per asset, one at a time across the process, runs `ffprobe`
-  (JSON output, 30 s limit), then for a video `ffmpeg` for a JPEG poster (60 s) and for a 720p
-  H.264 and AAC proxy (one hour). Both binaries get an argument vector, never a shell string,
+  (JSON output, 30 s limit), then for a video `ffmpeg` for a JPEG poster (60 s), then the
+  filmstrip of a video and the waveform of anything with sound (each with the proxy's time
+  limit), then for a video a 720p H.264 and AAC proxy. Both binaries get an argument vector, never a shell string,
   read no standard input and open only local files (`-protocol_whitelist file`). The asset is
   `ready` once probed, and the proxy arrives later. A file that only looks like media is
   `failed`, with the reason in `error`. A video with no picture stream becomes `audio`. At boot,
-  assets left `probing` start again.
+  assets left `probing` start again, and so do `ready` ones missing a proxy, a filmstrip or a
+  waveform they should have.
 - **Limits on the decoders.** Every `ffprobe` and `ffmpeg` gets `-threads 2` and
   `-max_pixels 8847360` (no picture over DCI 4K) before its input, the proxy encode
   `-threads 2`. A proxy has a minute plus four times the video's length, at most 15 minutes. One

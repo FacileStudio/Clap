@@ -20,7 +20,13 @@ pub fn poster(sha256: &str) -> String {
 
 /// Where the 720p proxy of the file `sha256` lives, relative to `DATA_DIR`.
 pub fn proxy(sha256: &str) -> String {
-    format!("derived/{}/{sha256}.proxy.mp4", &sha256[..2])
+    derived(sha256, "proxy.mp4")
+}
+
+/// Where the file `sha256` made into `suffix` (`strip.jpg`, `peaks.json`) lives, relative to
+/// `DATA_DIR`. The sweep reads the digest back from the part before the first dot.
+pub fn derived(sha256: &str, suffix: &str) -> String {
+    format!("derived/{}/{sha256}.{suffix}", &sha256[..2])
 }
 
 /// `DATA_DIR/uploads`: where an upload is written before its digest is known. Emptied at boot.
@@ -65,6 +71,7 @@ mod tests {
         assert_eq!(tokio::fs::read(path(&dir, sha)).await.unwrap(), b"hello");
         assert_eq!(std::fs::read_dir(path(&dir, sha).parent().unwrap()).unwrap().count(), 1);
         assert_eq!(poster(sha), format!("derived/2c/{sha}.poster.jpg"));
+        assert_eq!(derived(sha, "strip.jpg"), format!("derived/2c/{sha}.strip.jpg"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
