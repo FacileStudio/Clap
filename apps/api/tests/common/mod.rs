@@ -7,7 +7,9 @@ pub mod idp;
 pub mod mcp;
 pub mod media;
 pub mod render;
+pub mod share;
 pub mod upload;
+pub mod worker;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,6 +24,8 @@ use tronc::env::Vars;
 pub use http::{Answer, send};
 
 pub const ISSUER: &str = "https://sso.test";
+
+pub const HOST: &str = "https://clap.test";
 
 pub struct App {
     pub router: Router,
@@ -64,7 +68,8 @@ pub async fn app(pool: PgPool) -> App {
 }
 
 pub async fn app_with(pool: PgPool, vars: &[(&str, &str)]) -> App {
-    let mut pairs = vec![("DATABASE_URL", "postgres://unused/x"), ("RENDER_QUEUE_MAX", "1000000")];
+    let mut pairs =
+        vec![("DATABASE_URL", "postgres://unused/x"), ("RENDER_QUEUE_MAX", "1000000"), ("PUBLIC_URL", HOST)];
     pairs.extend_from_slice(vars);
     let config = Config::from_vars(&Vars::from_pairs(pairs)).unwrap();
     let kits = Kits::over(&config, &pool, idp::client()).await.unwrap();
