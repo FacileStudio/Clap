@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-16
+
 ### Added
 
 - Share links: one live link per project, shown once and stored hashed, that opens the latest
