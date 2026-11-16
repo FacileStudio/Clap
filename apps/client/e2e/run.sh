@@ -2,7 +2,7 @@
 set -eu
 
 cd "$(dirname "$0")/.."
-root="$(git rev-parse --show-toplevel)"
+root="$(cd ../.. && pwd)"
 
 : "${E2E_ADMIN_URL:=${TEST_DATABASE_URL:-postgres://postgres:postgres@127.0.0.1:${POSTGRES_PORT:-5672}/postgres?sslmode=disable}}"
 export E2E_ADMIN_URL
