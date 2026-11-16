@@ -10,7 +10,7 @@ use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use uuid::Uuid;
 
-pub use router::{POLICY, routes};
+pub use router::{POLICY, cookieless, routes};
 
 /// How long the asset links of one frame work.
 pub const TTL: Duration = Duration::from_secs(60 * 60);

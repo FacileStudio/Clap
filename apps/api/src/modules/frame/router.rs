@@ -71,7 +71,8 @@ async fn frame(
     Ok((headers, html).into_response())
 }
 
-async fn cookieless(mut response: Response) -> Response {
+/// Removes any cookie a layer inside set: a response to a sandboxed or public reader carries none.
+pub async fn cookieless(mut response: Response) -> Response {
     response.headers_mut().remove(header::SET_COOKIE);
     response
 }
