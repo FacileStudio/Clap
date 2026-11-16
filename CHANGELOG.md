@@ -6,6 +6,10 @@ All notable changes to Clap. Versions follow SemVer.
 
 ### Added
 
+- Share links: one live link per project, shown once and stored hashed, that opens the latest
+  finished render at `/v/{token}`, a framable player at `/embed/{token}`, oEmbed at `/oembed`
+  for Prisme, and a poster for every finished render.
+
 - Projects: one source text per project in the scene format, with `rev`-checked saves (`409` on
   a stale `rev`, `422` with each invalid line), revisions, trash, spaces mirrored from Registre,
   and server-sent events for open editors.
