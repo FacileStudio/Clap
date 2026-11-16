@@ -6,6 +6,18 @@ All notable changes to Clap. Versions follow SemVer.
 
 ### Added
 
+- Projects: one source text per project in the scene format, with `rev`-checked saves (`409` on
+  a stale `rev`, `422` with each invalid line), revisions, trash, spaces mirrored from Registre,
+  and server-sent events for open editors.
+- The sandboxed preview frame, whose media load through signed, cookie-less links.
+- Media: uploads streamed to disk up to 2 GiB, typed by their content, probed with `ffprobe`,
+  with a poster and a 720p proxy made by `ffmpeg`, served with `Range`.
+- Renders: the API queues a job directory for the render worker, mirrors its progress, keeps
+  the finished MP4 and serves it. Limits: 1920x1080, 30 fps, 10 minutes.
+- MCP at `/mcp` with eleven tools (`clap_list_projects` to `clap_delete_project`), scopes
+  `clap.read` and `clap.write`, and deletion behind a confirmation.
+- Registre directory sync, account deletion with erasure, and `GET /api/assistant`.
+
 - The app shell: a Rust API on tronc-rs and porte-rs with Registre sign-in, health probes,
   `/version` and the API reference, and a SvelteKit client with a sign-in screen and an empty
   projects page.

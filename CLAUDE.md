@@ -50,9 +50,14 @@ when their dependency is missing: read the output before trusting a green run.
   files under `/data/renders` (`docs/rendering.md`).
 - **Edits are minimal text patches.** `clap-timeline` changes the attribute values and lines
   an op concerns and nothing else; every result must parse with `scene::parse`.
-- **Auth is porte's.** `apps/api/src/auth` wires porte as its `docs/architecture.md` says.
-  Directory sync, account deletions and the MCP verifier are not wired yet: they need the
-  spaces tables of `0002_clap.sql` (PLAN.md step 2) and must land before the first deploy.
+- **Auth is porte's.** `apps/api/src/auth` wires porte as its `docs/architecture.md` says:
+  sessions, Registre sign-in, directory sync, deletions with erasure, the MCP verifier.
+- **One `access()`.** `modules::projects::access::access` authorizes every project, asset and
+  render query; `None` is always `404`. Read `docs/api.md` before changing a route.
+- **User HTML is served by one route,** `GET /api/projects/{id}/frame`, with the `sandbox
+  allow-scripts` policy and no cookie. Never give it `allow-same-origin` or `connect-src`.
+- **The API never launches Chrome.** It writes `DATA_DIR/renders/<id>/` and reads the worker's
+  `status.json` (`docs/api.md`, "Renders"). What the worker's side writes is not trusted.
 - **Render Chrome reaches nothing.** It loads `file://` URLs inside the bundle directory and
   refuses every other request (`crates/render/src/guard.rs`), with the proxy and resolver
   flags of `chrome.rs` behind that. Never loosen either.
