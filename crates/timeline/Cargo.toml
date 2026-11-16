@@ -1,0 +1,17 @@
+[package]
+name = "clap-timeline"
+description = "Reads a clap.md into scenes and clips, and writes edits back as minimal text patches"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.1.0" }
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.21"
+
+[dev-dependencies]
+proptest = "1.9.0"
+serde_json = "1.0.154"
