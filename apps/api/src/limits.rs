@@ -12,6 +12,13 @@ pub const ASSET_MAX_BYTES: u64 = 2 << 30;
 /// unless `SPACE_ASSETS_MAX_BYTES` says otherwise: 20 GiB.
 pub const SPACE_ASSETS_MAX_BYTES: u64 = 20 << 30;
 
+/// The most bytes a posted render bundle holds, unless `RENDER_BUNDLE_MAX_BYTES` says otherwise:
+/// 1 GiB.
+pub const RENDER_BUNDLE_MAX_BYTES: u64 = 1 << 30;
+
+/// The most files a posted render bundle holds.
+pub const RENDER_BUNDLE_MAX_FILES: usize = 2000;
+
 /// What one render may ask for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RenderLimits {
@@ -42,6 +49,8 @@ pub struct Limits {
     pub asset: u64,
     /// `SPACE_ASSETS_MAX_BYTES`: the most bytes the assets of one space hold together.
     pub space_assets: u64,
+    /// `RENDER_BUNDLE_MAX_BYTES`: the most bytes a posted render bundle holds.
+    pub bundle: u64,
     /// The render caps.
     pub render: RenderLimits,
 }
@@ -81,6 +90,7 @@ impl Limits {
             source: usize::try_from(source).map_err(|_| EnvError("SOURCE_MAX_BYTES is too large".to_owned()))?,
             asset: positive(vars, "ASSET_MAX_BYTES", ASSET_MAX_BYTES)?,
             space_assets: positive(vars, "SPACE_ASSETS_MAX_BYTES", SPACE_ASSETS_MAX_BYTES)?,
+            bundle: positive(vars, "RENDER_BUNDLE_MAX_BYTES", RENDER_BUNDLE_MAX_BYTES)?,
             render: RenderLimits::from_vars(vars)?,
         })
     }
@@ -98,6 +108,7 @@ mod tests {
     fn the_defaults_are_two_gib_a_file_twenty_a_space_and_1080p30_for_ten_minutes() {
         let limits = Limits::from_vars(&vars(&[])).unwrap();
         assert_eq!((limits.source, limits.asset, limits.space_assets), (512 << 10, 2 << 30, 20 << 30));
+        assert_eq!(limits.bundle, 1 << 30);
         assert_eq!(limits.render, RenderLimits { width: 1920, height: 1080, fps: 30, seconds: 600, queue: 10 });
     }
 

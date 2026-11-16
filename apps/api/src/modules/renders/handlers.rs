@@ -1,14 +1,15 @@
 //! The render handlers: thin wrappers that read the caller and the path.
 
-use axum::extract::{Path, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum::routing::{MethodRouter, post};
 use porte::Identity;
 use tronc::Result;
 use tronc::json::Json;
 
-use super::service;
 use super::types::{Render, RenderRequest, Renders};
+use super::{posted, service};
 use crate::extract::id;
 use crate::modules::projects::error::ProjectError;
 use crate::state::AppState;
@@ -36,4 +37,19 @@ pub async fn cancel(State(state): State<AppState>, who: Identity, Path(raw): Pat
         Some(render) => (StatusCode::ACCEPTED, Json(render)).into_response(),
         None => StatusCode::NO_CONTENT.into_response(),
     })
+}
+
+async fn bundle(
+    State(state): State<AppState>,
+    headers: http::HeaderMap,
+    multipart: Multipart,
+) -> Result<(StatusCode, Json<Render>)> {
+    let user_id = posted::caller(&state, &headers).await?;
+    Ok((StatusCode::ACCEPTED, Json(posted::post(&state, user_id, multipart).await?)))
+}
+
+/// `POST /renders`: a bundle posted with a bearer token. It carries its own check, so it sits
+/// outside `require_auth`, and its body streams to disk under the bundle cap.
+pub fn posted() -> MethodRouter<AppState> {
+    post(bundle).layer(DefaultBodyLimit::disable())
 }

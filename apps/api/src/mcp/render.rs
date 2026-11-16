@@ -28,7 +28,8 @@ pub struct RenderIn {
 pub struct RenderOut {
     /// The render id: pass it to clap_render_status.
     pub id: String,
-    pub project_id: String,
+    /// The project that is rendered; absent for a bundle another app posted.
+    pub project_id: Option<String>,
     /// The project revision that is rendered.
     pub rev: i64,
     /// `queued`, `running`, `done`, `failed` or `cancelled`.
@@ -41,16 +42,16 @@ pub struct RenderOut {
     pub error: Option<String>,
     /// Where the person downloads the MP4 in their browser, once the render is done.
     pub download_url: Option<String>,
-    /// The page a person opens to see the project.
+    /// The page a person opens to see the project, or the app when the render has none.
     pub url: String,
 }
 
 fn out(ctx: &Context, render: Render) -> Answer<RenderOut> {
     RenderOut {
         download_url: render.download_url.map(|path| format!("{}{path}", ctx.origin)),
-        url: ctx.project_url(render.project_id),
+        url: render.project_id.map_or_else(|| ctx.origin.to_string(), |project| ctx.project_url(project)),
         id: render.id.to_string(),
-        project_id: render.project_id.to_string(),
+        project_id: render.project_id.map(|project| project.to_string()),
         rev: render.rev,
         state: render.state,
         frame: render.frame,

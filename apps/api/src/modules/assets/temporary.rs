@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-/// A file on its way in: removed when dropped, unless it was kept.
+/// A file, or a directory, on its way in: removed when dropped, unless it was kept.
 #[derive(Debug)]
 pub struct Temporary(Option<PathBuf>);
 
@@ -24,7 +24,10 @@ impl Temporary {
 impl Drop for Temporary {
     fn drop(&mut self) {
         if let Some(path) = self.0.take() {
-            std::fs::remove_file(path).ok();
+            match path.is_dir() {
+                true => std::fs::remove_dir_all(path).ok(),
+                false => std::fs::remove_file(path).ok(),
+            };
         }
     }
 }
