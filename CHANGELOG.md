@@ -4,6 +4,13 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Fixed
+
+- Images no longer flicker in the preview after a drop or an edit. The preview keeps the
+  previous frame until the new one has decoded the images and loaded the videos it shows (2.5 s
+  at most), and asset links signed within the same ten minutes keep one expiry, so a reloaded
+  preview reuses the files the browser already holds instead of fetching them again.
+
 ## [0.2.1] - 2026-11-16
 
 ### Security

@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tronc::Error;
 use uuid::Uuid;
 
-use super::{TTL, now};
+use super::{expiry, now};
 use crate::extract::{Params, id};
 use crate::modules::assets::{name, service as assets};
 use crate::modules::projects::access::{self, Access};
@@ -36,7 +36,7 @@ async fn compiled(state: &AppState, id: Uuid, only: Option<usize>) -> Result<Str
     let parsed = clap_timeline::parse(&row.source).map_err(ProjectError::Invalid)?;
     let catalog = assets::catalog(state, id).await?;
     let proxied: HashMap<&str, bool> = catalog.iter().map(|asset| (asset.name.as_str(), asset.has_proxy)).collect();
-    let token = state.frame_key.token(id, now() + TTL.as_secs());
+    let token = state.frame_key.token(id, expiry(now()));
     let resolve = |path: &str| {
         let (name, fragment) = name::referenced(path);
         let variant = if *proxied.get(name)? { "&variant=proxy" } else { "" };
