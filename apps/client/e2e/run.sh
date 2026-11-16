@@ -15,9 +15,17 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "e2e: no ffmpeg: the upload, drop, drag and split tests will be SKIPPED" >&2
 fi
 
+reachable() {
+  for attempt in 1 2 3 4 5; do
+    pg_isready -d "$E2E_ADMIN_URL" -t 5 -q 2>/dev/null && return 0
+    sleep 2
+  done
+  return 1
+}
+
 if [ "${E2E_STACK:-}" = mock ]; then
   echo "e2e: E2E_STACK=mock, running against the in-memory API" >&2
-elif [ ! -d "$root/apps/api/src/modules/projects" ] || ! pg_isready -d "$E2E_ADMIN_URL" -q 2>/dev/null; then
+elif [ ! -d "$root/apps/api/src/modules/projects" ] || ! reachable; then
   echo "e2e: no project API in this tree or no Postgres, running against the in-memory MOCK API (run: mise run db-up)" >&2
   export E2E_STACK=mock
 else
