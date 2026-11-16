@@ -18,6 +18,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 - A render no longer fails now and then with "the first frame came back empty" on a loaded
   host: the capture primes one frame before frame zero.
+- Rendered videos set their text in a sans-serif face again: the render image mapped `sans-serif`
+  and `system-ui` to a monospace font.
 
 ## [0.1.0] - 2026-11-16
 

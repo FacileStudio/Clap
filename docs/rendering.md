@@ -265,6 +265,20 @@ wrote once the job is over. The API reads and writes this directory as untrusted
   bundle file that resolves outside the bundle.
 - `worker healthcheck` exits 0 when the heartbeat is less than 30 s old.
 
+### Fonts
+
+A scene's text uses the theme's stack (`ui-sans-serif, system-ui, ..., Arial, sans-serif`), and Chrome
+resolves `system-ui` and the generic families through fontconfig. In `debian:bookworm-slim`
+with only `fonts-liberation`, fontconfig resolved `sans-serif`, `serif` and `system-ui` to
+Liberation Mono, so every text rendered in a typewriter face. The image now ships
+`fonts-liberation` (Liberation Sans, Serif and Mono, metric-compatible with Arial, Times New
+Roman and Courier New) and `fonts-dejavu-core` (wider glyph coverage behind them; about 3 MB),
+and `deploy/fonts.conf`, installed as `/etc/fonts/conf.d/59-generic-families.conf`, maps
+`sans-serif`, `system-ui` and `ui-sans-serif` to Liberation Sans, `serif` to Liberation Serif
+and `monospace` to Liberation Mono. The image build fails when `fc-match` answers anything else
+for those four. `apps/api/tests/render_fonts.rs` renders a scene that turns green only when the
+theme's text lays out in a proportional face.
+
 ### Isolation
 
 The `clap-render` service of `docker-compose.yml`:
