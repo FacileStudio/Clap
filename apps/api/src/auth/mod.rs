@@ -56,23 +56,15 @@ impl Kits {
     pub async fn over(cfg: &Config, pool: &PgPool, http: HttpClient) -> Result<Kits, BootError> {
         let store = pg::Store::new(pool.clone()).with_token_sealer(pg::TokenSealer::parse(&cfg.token_key)?);
         let sessions = Manager::new(&cfg.porte, session::Deps { sessions: store.sessions(), now: None });
-        let deps = oidc::Deps {
-            users: Pictures::wrap(store.users()),
-            identities: store.identities(),
-            codes: store.login_codes(),
-            sessions: sessions.clone(),
-            config_extra: None,
-            http: Some(http.clone()),
-            now: None,
-        };
-        let oidc = Kit::new(&cfg.porte, deps).await?;
+        let oidc = Kit::new(&cfg.porte, deps(&store, &sessions, &http)).await?;
         let mut kits =
             Kits { sessions, oidc, syncer: None, deletions: None, mcp: None, exchanger: None, machine: None };
         if cfg.porte.enabled() {
             kits.exchanger = Some(Exchanger::new(exchange::Config::from_porte(&cfg.porte, store.identities()))?);
             kits.directory(cfg, pool, store.clone());
+            let delegated = delegated(cfg, &store, &kits, &http).await?;
             let resource = machine_resource(cfg);
-            kits.machine = Some(Arc::new(verifier(cfg, &store, &kits.oidc, (resource, http.clone())).await?));
+            kits.machine = Some(Arc::new(verifier(cfg, &store, &delegated, (resource, http.clone())).await?));
         }
         if !cfg.mcp_resource.is_empty() {
             let resource = cfg.mcp_resource.clone();
@@ -97,6 +89,33 @@ impl Kits {
         self.oidc = self.oidc.clone().with_erased(Arc::new(deletions.clone()));
         self.deletions = Some(deletions);
     }
+}
+
+fn deps(store: &pg::Store, sessions: &Manager, http: &HttpClient) -> oidc::Deps {
+    oidc::Deps {
+        users: Pictures::wrap(store.users()),
+        identities: store.identities(),
+        codes: store.login_codes(),
+        sessions: sessions.clone(),
+        config_extra: None,
+        http: Some(http.clone()),
+        now: None,
+    }
+}
+
+/// The kit `POST /api/renders` provisions accounts through. Registre mints a token exchanged for
+/// a plain app audience with `email` only when the address is verified, and with no
+/// `email_verified` claim (it adds the profile claims only for an MCP resource audience: see
+/// `GetPrivateClaimsFromTokenExchangeRequest` in Registre's `modules/oidc/storage_exchange.go`).
+/// So this kit trusts an email that comes without the claim; porte still refuses an explicit
+/// `false`, and erased subjects as the sign-in kit does. Sign-in and `/mcp` keep the strict kit.
+async fn delegated(cfg: &Config, store: &pg::Store, kits: &Kits, http: &HttpClient) -> Result<Kit, BootError> {
+    let trusting = porte::Config { trust_email_without_verified_claim: true, ..cfg.porte.clone() };
+    let kit = Kit::new(&trusting, deps(store, &kits.sessions, http)).await?;
+    Ok(match kits.deletions.clone() {
+        Some(deletions) => kit.with_erased(Arc::new(deletions)),
+        None => kit,
+    })
 }
 
 /// The resource a bearer of `POST /api/renders` may name besides the app's audience: the MCP
