@@ -20,7 +20,7 @@
 	import Landing from '$lib/components/Landing.svelte';
 	import { rememberReturn, takeReturn } from '$lib/return';
 	import { session } from '$lib/session.svelte';
-	import { restoreTheme, saveTheme } from '$lib/theme';
+	import { restoreTheme } from '$lib/theme';
 
 	let { children } = $props();
 
@@ -58,9 +58,6 @@
 	});
 	const userMenu = $derived<UserMenuOptions>({
 		settingsHref: '/settings',
-		locale: i18n.locale,
-		onLocaleChange: rememberLocale,
-		onThemeChange: saveTheme,
 		onSignOut: async () => {
 			await session.logout();
 			await goto('/');
