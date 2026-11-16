@@ -60,8 +60,5 @@ async fn the_api_and_the_worker_render_one_second_to_an_mp4_the_api_serves() {
     let probe = api::modules::assets::probe::probe(&tools, &saved).await.unwrap();
     assert_eq!((probe.width, probe.height), (Some(320), Some(180)), "{probe:?}");
     assert!(probe.duration_ms.is_some_and(|ms| (900..=1100).contains(&ms)), "{probe:?}");
-    assert!(
-        api::modules::public::poster::path(&app.state.data_dir, done["id"].as_str().unwrap().parse().unwrap())
-            .is_file()
-    );
+    common::media::poster(&app, done["id"].as_str().unwrap()).await;
 }

@@ -18,7 +18,8 @@ async fn a_finished_render_gets_a_poster_that_turns_on_og_image_and_the_oembed_p
     let app = common::app(pool).await;
     let ada = app.person("ada").await;
     let id = common::render::project(&app, &ada, None).await;
-    done(&app, &ada, &id, &clip(&app.state.data_dir)).await;
+    let render = done(&app, &ada, &id, &clip(&app.state.data_dir)).await;
+    common::media::poster(&app, render["id"].as_str().unwrap()).await;
     let token = link(&app, &ada, &id).await;
     let picture = format!("/v/{token}/thumbnail.jpg");
     let served = app.call("GET", &picture, None, None).await;
