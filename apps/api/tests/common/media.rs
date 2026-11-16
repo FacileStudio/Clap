@@ -43,3 +43,14 @@ pub async fn settled(app: &App, who: &Person, project: &str, name: &str, proxied
     }
     panic!("the asset {name} was still being looked at after two minutes");
 }
+
+pub async fn poster(app: &App, render: &str) -> std::path::PathBuf {
+    let path = api::modules::public::poster::path(&app.state.data_dir, render.parse().unwrap());
+    for _ in 0..150 {
+        if path.is_file() {
+            return path;
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    panic!("no poster for {render} after 30 s");
+}
