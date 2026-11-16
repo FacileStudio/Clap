@@ -28,6 +28,7 @@
 
 	const path = $derived(page.url.pathname);
 
+	const open = $derived(path === '/downloads' || /^\/(v|embed)\/[^/]+$/.test(path));
 	const focused = $derived(path.startsWith('/projects/'));
 	const onSettings = $derived(path.startsWith('/settings'));
 
@@ -36,11 +37,11 @@
 	restoreTheme();
 
 	$effect(() => {
-		if (!session.ready) void session.load();
+		if (!session.ready && !open) void session.load();
 	});
 
 	$effect(() => {
-		if (!session.ready) return;
+		if (!session.ready || open) return;
 		if (!session.user) return rememberReturn(page.url);
 		const next = takeReturn();
 		if (next && next !== `${page.url.pathname}${page.url.search}`) void goto(next, { replaceState: true });
@@ -67,10 +68,10 @@
 	});
 </script>
 
-{#if !session.ready}
-	<div class="flex h-dvh w-full items-center justify-center bg-fc-page"><Spinner /></div>
-{:else if path === '/downloads'}
+{#if open}
 	{@render children()}
+{:else if !session.ready}
+	<div class="flex h-dvh w-full items-center justify-center bg-fc-page"><Spinner /></div>
 {:else if !session.user && path === '/'}
 	<Landing />
 {:else if !session.user}
