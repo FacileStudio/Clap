@@ -105,6 +105,15 @@ async fn a_link_in_place_of_the_finished_file_fails_the_render() {
     assert_eq!(outputs, 0, "nothing is kept through the link");
 }
 
+fn orphans(app: &common::App) -> (std::path::PathBuf, std::path::PathBuf) {
+    let orphan = app.state.data_dir.join("renders").join(uuid::Uuid::new_v4().to_string());
+    let output = app.state.data_dir.join("outputs").join(format!("{}.mp4", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(orphan.join("bundle")).unwrap();
+    std::fs::create_dir_all(output.parent().unwrap()).unwrap();
+    std::fs::write(&output, b"old").unwrap();
+    (orphan, output)
+}
+
 #[tokio::test]
 async fn the_sweep_fails_lost_jobs_and_waits_for_a_live_worker_and_removes_what_no_row_names() {
     let Some(pool) = common::pool("clap_renders_sweep").await else { return };
@@ -124,18 +133,14 @@ async fn the_sweep_fails_lost_jobs_and_waits_for_a_live_worker_and_removes_what_
     };
     aged(&lost, "5 minutes").await;
     aged(&stale, "7 hours").await;
-    let orphan = app.state.data_dir.join("renders").join(uuid::Uuid::new_v4().to_string());
-    let output = app.state.data_dir.join("outputs").join(format!("{}.mp4", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(orphan.join("bundle")).unwrap();
-    std::fs::create_dir_all(output.parent().unwrap()).unwrap();
-    std::fs::write(&output, b"old").unwrap();
+    let (orphan, output) = orphans(&app);
     assert_eq!(api::modules::renders::sweep::swept(&app.state).await.unwrap(), 2);
     assert!(!orphan.exists() && !output.exists() && dir(&app, &waiting).join("job.json").is_file());
     assert!(mirrored(&app, &ada, &lost).await["error"].as_str().unwrap().contains("lost"));
     assert_eq!(mirrored(&app, &ada, &stale).await["state"], json!("queued"), "the worker is alive: it waits its turn");
     common::render::heartbeat(&app.state.data_dir, time::OffsetDateTime::now_utc() - time::Duration::minutes(5));
     api::modules::renders::sweep::swept(&app.state).await.unwrap();
-    assert!(mirrored(&app, &ada, &stale).await["error"].as_str().unwrap().contains("down too long"));
-    assert!(!dir(&app, &stale).exists());
+    let down = mirrored(&app, &ada, &stale).await;
+    assert!(down["error"].as_str().unwrap().contains("down too long") && !dir(&app, &stale).exists());
     assert_eq!(mirrored(&app, &ada, &waiting).await["state"], json!("queued"), "a recent job still waits");
 }
