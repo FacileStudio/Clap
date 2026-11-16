@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
 
@@ -44,4 +44,14 @@ pub fn finished(app: &App, render: &Value, bytes: &[u8]) {
     std::fs::write(dir(app, render).join("out.mp4"), bytes).unwrap();
     let frames = render["frames"].clone();
     report(app, render, json!({"state": "done", "frame": frames, "frames": frames, "error": null, "updated_at": "x"}));
+}
+
+pub fn heartbeat(data_dir: &Path, at: time::OffsetDateTime) {
+    let stamp = at.format(&time::format_description::well_known::Rfc3339).unwrap();
+    std::fs::write(data_dir.join("renders").join(".worker"), stamp).unwrap();
+}
+
+pub fn jobs(app: &App) -> usize {
+    let entries = std::fs::read_dir(app.state.data_dir.join("renders")).unwrap();
+    entries.filter(|entry| entry.as_ref().unwrap().file_name() != ".worker").count()
 }

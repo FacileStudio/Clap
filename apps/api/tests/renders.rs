@@ -69,7 +69,9 @@ async fn a_failure_and_a_cancel_close_the_render() {
     report(&app, &failing, json!({"state": "failed", "frame": 3, "frames": 60, "error": "chrome exited"}));
     let failed = mirrored(&app, &ada, &failing).await;
     assert_eq!((failed["state"].clone(), failed["error"].clone()), (json!("failed"), json!("chrome exited")));
-    assert!(failed["finished_at"].is_string() && !dir(&app, &failing).exists());
+    assert!(failed["finished_at"].is_string() && dir(&app, &failing).join("status.json").is_file());
+    let age = "UPDATE renders SET finished_at = now() - interval '25 hours' WHERE id = $1::uuid";
+    sqlx::query(age).bind(failing["id"].as_str().unwrap()).execute(&app.pool).await.unwrap();
     let stopping = queued(&app, &ada, &id, json!({})).await;
     let one = format!("/api/renders/{}", stopping["id"].as_str().unwrap());
     let asked = app.call("DELETE", &one, Some(&ada), None).await;
@@ -80,6 +82,10 @@ async fn a_failure_and_a_cancel_close_the_render() {
     let list = app.call("GET", &format!("/api/projects/{id}/renders"), Some(&ada), None).await.json();
     let states: Vec<&str> = list["renders"].as_array().unwrap().iter().map(|r| r["state"].as_str().unwrap()).collect();
     assert_eq!(states, ["cancelled", "failed"]);
+    assert_eq!(api::modules::renders::sweep::swept(&app.state).await.unwrap(), 1);
+    assert!(!dir(&app, &failing).exists() && dir(&app, &stopping).exists());
+    assert_eq!(app.call("DELETE", &one, Some(&ada), None).await.status, 204);
+    assert!(!dir(&app, &stopping).exists());
 }
 
 #[tokio::test]

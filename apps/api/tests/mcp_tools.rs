@@ -57,7 +57,7 @@ async fn an_agent_creates_reads_edits_and_rewrites_a_project_under_the_rev_rule(
 }
 
 #[tokio::test]
-async fn an_agent_lists_projects_and_assets_reads_the_guide_and_is_told_the_timeline_is_not_there_yet() {
+async fn an_agent_lists_projects_and_assets_and_reads_the_guide() {
     let Some(served) = served("clap_mcp_reads").await else { return };
     let client = client(&served, "clap.read,clap.write").await;
     let id = created(&served, &client).await;
@@ -79,10 +79,32 @@ async fn an_agent_lists_projects_and_assets_reads_the_guide_and_is_told_the_time
     assert!(
         text.starts_with(scene::FORMAT_GUIDE) && text.contains("data-track-index") && text.contains("## Determinism")
     );
-    let ops = json!({"project_id": id, "rev": 1, "ops": [{"op": "move_clip", "clip": "title", "start": 2}]});
-    assert!(refused(&client, "clap_timeline_edit", ops).await.contains("not available yet"));
-    let stale = json!({"project_id": id, "rev": 9, "ops": [{"op": "delete_clip", "clip": "title"}]});
+}
+
+#[tokio::test]
+async fn an_agent_edits_the_timeline_under_the_rev_rule_and_hears_which_clips_changed() {
+    let Some(served) = served("clap_mcp_timeline").await else { return };
+    let client = client(&served, "clap.read,clap.write").await;
+    let id = created(&served, &client).await;
+    let stale = json!({"project_id": id, "rev": 9, "ops": [{"op": "delete_scene", "scene": 1}]});
     assert!(refused(&client, "clap_timeline_edit", stale).await.contains("is at rev 1, not 9"));
+    let unknown = json!({"project_id": id, "rev": 1, "ops": [{"op": "delete_clip", "clip": "nope"}]});
+    assert!(refused(&client, "clap_timeline_edit", unknown).await.contains("unknown_clip"));
+    let body = "<h1 id=\"end\" data-start=\"0\" data-duration=\"2\">End</h1>";
+    let ops = json!([{"op": "add_scene", "at": 2, "duration": 4, "body": body}, {"op": "move_clip", "clip": "end", "start": 1}]);
+    let edited: Value =
+        decode(&call(&client, "clap_timeline_edit", args(json!({"project_id": id, "rev": 1, "ops": ops}))).await);
+    assert_eq!(
+        (edited["rev"].clone(), edited["scenes"].clone(), edited["clips"].clone()),
+        (json!(2), json!(3), json!(["end"]))
+    );
+    let origin: String =
+        sqlx::query_scalar("SELECT origin FROM project_revisions WHERE project_id = $1::uuid AND rev = 2")
+            .bind(&id)
+            .fetch_one(&served.app.pool)
+            .await
+            .unwrap();
+    assert_eq!(origin, "mcp");
 }
 
 #[tokio::test]
