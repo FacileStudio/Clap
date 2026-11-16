@@ -59,6 +59,9 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | `GET /renders/{id}/events` | viewer | Server-sent `status` events until the render is final |
 | `GET /renders/{id}/file` | viewer | The MP4, with `Range`. `412` until the render is done |
 | `DELETE /renders/{id}` | editor | A waiting or running render is asked to stop: `202` with the render. A finished one is removed with its file: `204` |
+| `POST /projects/{id}/share` | editor | Shares the project. `201` with `{shared, created_at, url}` for a new link; `200` without `url` when the project is already shared. `?rotate=true` revokes the live link first |
+| `GET /projects/{id}/share` | editor | `{shared, created_at}` |
+| `DELETE /projects/{id}/share` | editor | Revokes the link, `204`; `404` when the project is not shared |
 | `GET /spaces` | session | The caller's spaces and roles, mirrored from Registre |
 | `GET /assistant` | session | `{name, accent}` of the caller's Bulle assistant; `Bulle` on any failure |
 | `GET /auth/session` | none | `{user, bulle_url}`; `user` is `null` when signed out |
@@ -69,7 +72,7 @@ porte adds the sign-in routes (`/auth/oidc`, `/auth/oidc/callback`, `/auth/oidc/
 `/auth/oidc/device/exchange`, `/auth/sync-profile`, `/auth/backchannel-logout`, `/auth/logout`,
 `/auth/me`, `/auth/config`).
 
-Not built yet: share links, `/oembed`, `/embed/{token}`.
+The public routes need no session and are listed under "Share links".
 
 ## The rev rule
 
@@ -355,6 +358,62 @@ A render is `{id, project_id, rev, width, height, fps, range, state, frame, fram
 created_at, started_at, finished_at, download_url, notice}`. `state` is `queued`, `running`, `done`,
 `failed` or `cancelled`.
 
+## Share links
+
+A project has at most one live share link. `POST /projects/{id}/share` creates it and answers its
+URL, `<public url>/v/<token>`, **once**: the token is 32 random bytes, URL-safe, and only its
+SHA-256 is stored, so the server cannot show it again. A second `POST` answers `200` and the state
+without a `url`. `?rotate=true` revokes the live link and answers a new one. A revoked link is
+gone for good, and a trashed project cannot be shared. This is Diapo's design, with `/v/` in
+place of `/p/`.
+
+**A link shows the latest finished render of its project**: the `done` render with the newest
+`finished_at`. A new render replaces it once it finishes; deleting a render falls back to the
+one before. A shared project with no finished render answers `404` everywhere, as an unknown
+link does. The link never shows the source, the project id, a render id or the space.
+
+`<public url>` is `PUBLIC_URL`, else the origin of `OIDC_SUCCESS_URL`, else
+`http://localhost:<PORT>`.
+
+### Public routes
+
+No session, no cookie (a layer removes any `Set-Cookie`). Every one answers `404` for a token
+that is unknown, revoked, on a trashed project, or on a project with no finished render. All but
+the video take 5 requests a second per client with a burst of 60; a player asks for many ranges,
+so the video sits outside that limit, as Diapo's public assets do.
+
+| Route | Answers |
+|---|---|
+| `GET /api/public/renders/{token}` | `{title, duration_ms, width, height, poster, video}`. `poster` is a route, or `null` while none exists; `video` is the route below |
+| `GET /api/public/renders/{token}/video.mp4` | The MP4, with `Range` (`206`), `Access-Control-Allow-Origin: *` and `Cross-Origin-Resource-Policy: cross-origin` |
+| `GET /v/{token}` | The watch page: the client's `index.html` with `robots: noindex`, `og:title`, `og:type` (`video.other`), `og:url`, `og:site_name`, `og:video`, `og:video:secure_url`, `og:video:type`, `og:video:width`, `og:video:height`, the oEmbed discovery `<link>`, and `og:image` once the poster exists. Text is HTML-escaped. A link that is not live answers the bare shell with `404` |
+| `GET /v/{token}/thumbnail.jpg` | The poster, a JPEG at most 640 pixels wide. `404` until it is made |
+| `GET /embed/{token}` | The same player for another site to frame: `Content-Security-Policy: ... frame-ancestors 'self' https://prisme.facile.studio` and no `X-Frame-Options`. The origins come from `EMBED_ANCESTORS` |
+| `GET /oembed?url=<share URL>&format=json` | oEmbed 1.0. `404` unless `url` is `<public url>/v/<token>` of a live link: a private project URL, another host and an unknown token all look the same. `501` for `format=xml` |
+
+The client draws `/v/{token}` and `/embed/{token}` from `GET /api/public/renders/{token}`, with a
+`<video>` on `video`. Every other page of the app keeps `frame-ancestors 'none'` and
+`X-Frame-Options: DENY`.
+
+oEmbed answers:
+
+```json
+{"version": "1.0", "type": "rich", "provider_name": "Clap", "provider_url": "https://clap.facile.studio",
+ "title": "Launch", "width": 960, "height": 540, "duration_ms": 12000,
+ "html": "<iframe src=\"https://clap.facile.studio/embed/<token>\" width=\"960\" height=\"540\" title=\"Launch\" frameborder=\"0\" allow=\"autoplay; fullscreen; picture-in-picture\" allowfullscreen></iframe>",
+ "thumbnail_url": "https://clap.facile.studio/v/<token>/thumbnail.jpg", "thumbnail_width": 640, "thumbnail_height": 360}
+```
+
+The size is 960 wide at the render's ratio, shrunk to `maxwidth` and `maxheight`. `thumbnail_*`
+appear only once the poster exists.
+
+### Posters
+
+When a render finishes, the API keeps `out.mp4` at `DATA_DIR/outputs/<render id>.mp4` and makes
+its poster beside it, `<render id>.jpg`, with `ffmpeg`: one frame from the middle of the video,
+at most one second in, at most 640 pixels wide. A failure is logged and the share page has no
+picture. Deleting a render deletes both files.
+
 ## MCP
 
 `/mcp` is a `tronc::mcp::App`, on when `MCP_RESOURCE` is set, with RFC 9728 metadata and
@@ -394,6 +453,8 @@ call next. `download_url` is a link the person opens in their browser, signed in
 | `RENDER_MAX_SECONDS` | `600` | The longest render |
 | `RENDER_QUEUE_MAX` | `10` | Renders waiting or running at once |
 | `RENDER_BUNDLE_MAX_BYTES` | `1073741824` | The files of one posted bundle together |
+| `PUBLIC_URL` | the origin of `OIDC_SUCCESS_URL` | The origin share links start with |
+| `EMBED_ANCESTORS` | `https://prisme.facile.studio` | The origins, space or comma separated, that may frame `/embed/{token}` |
 | `OIDC_MACHINE_AUDIENCE` | `OIDC_CLIENT_ID` | The audience a Registre bearer token must carry |
 | `OIDC_CLI_AUDIENCE` | unset | `facile-cli`: mounts the CLI's device exchange |
 | `MCP_RESOURCE` | unset | The public URL of `/mcp`; turns MCP on |

@@ -47,6 +47,8 @@ cargo test --workspace --locked
 | `apps/api/tests/projects.rs`, `authorization.rs`, `directory.rs` | The `rev` rule (`409`), invalid sources (`422`), every route against every role, cross-space `404`, Registre snapshots and erasure |
 | `apps/api/tests/assets.rs`, `media.rs`, `frame.rs`, `events.rs` | Streamed uploads, names, caps, a real clip probed with a poster and a proxy (needs `ffmpeg`), `Range`, the frame's headers and signed links, the SSE streams |
 | `apps/api/tests/render_jobs.rs`, `renders.rs` | The job directory and `job.json`, status mirroring from a hand-written `status.json`, cancel, the sweep |
+| `apps/api/tests/share.rs`, `public.rs`, `public_media.rs` | Share links, the public routes, 404 for anything not live, the poster (needs `ffmpeg`), the embed framing headers |
+| `apps/api/tests/render_e2e.rs` | One real render: the API and the `worker` binary over one renders directory. Needs the binary (`check.sh` builds it), Chrome and ffmpeg; skips with a banner without them. Chrome's sandbox is off in that test's worker only |
 | `apps/api/tests/machine.rs` | `POST /api/renders` with tokens signed by a test key (`tests/testdata/idp_test_key.pem`, used nowhere else) that a fake issuer publishes |
 | `apps/api/tests/mcp.rs`, `mcp_tools.rs` | tronc's MCP conformance kit, the eleven tools, scope gates, the delete confirmation |
 | `crates/render/src/**` unit tests | The URL guard, the frame grid, the Chrome flags, the ffmpeg arguments |
