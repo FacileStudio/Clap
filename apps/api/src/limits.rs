@@ -32,11 +32,13 @@ pub struct RenderLimits {
     pub seconds: u32,
     /// `RENDER_QUEUE_MAX`: how many renders may wait or run at once, on the whole instance.
     pub queue: u32,
+    /// `RENDER_USER_MAX`: how many renders one person may have waiting or running at once.
+    pub user: u32,
 }
 
 impl Default for RenderLimits {
     fn default() -> Self {
-        RenderLimits { width: 1920, height: 1080, fps: 30, seconds: 600, queue: 10 }
+        RenderLimits { width: 1920, height: 1080, fps: 30, seconds: 600, queue: 10, user: 2 }
     }
 }
 
@@ -51,6 +53,8 @@ pub struct Limits {
     pub space_assets: u64,
     /// `RENDER_BUNDLE_MAX_BYTES`: the most bytes a posted render bundle holds.
     pub bundle: u64,
+    /// `UPLOADS_PER_USER`: how many uploads and posted bundles one person may send at once.
+    pub uploads: usize,
     /// The render caps.
     pub render: RenderLimits,
 }
@@ -78,6 +82,7 @@ impl RenderLimits {
             fps: small(vars, "RENDER_MAX_FPS", default.fps)?,
             seconds: small(vars, "RENDER_MAX_SECONDS", default.seconds)?,
             queue: small(vars, "RENDER_QUEUE_MAX", default.queue)?,
+            user: small(vars, "RENDER_USER_MAX", default.user)?,
         })
     }
 }
@@ -91,6 +96,7 @@ impl Limits {
             asset: positive(vars, "ASSET_MAX_BYTES", ASSET_MAX_BYTES)?,
             space_assets: positive(vars, "SPACE_ASSETS_MAX_BYTES", SPACE_ASSETS_MAX_BYTES)?,
             bundle: positive(vars, "RENDER_BUNDLE_MAX_BYTES", RENDER_BUNDLE_MAX_BYTES)?,
+            uploads: small(vars, "UPLOADS_PER_USER", 2)? as usize,
             render: RenderLimits::from_vars(vars)?,
         })
     }
@@ -109,7 +115,10 @@ mod tests {
         let limits = Limits::from_vars(&vars(&[])).unwrap();
         assert_eq!((limits.source, limits.asset, limits.space_assets), (512 << 10, 2 << 30, 20 << 30));
         assert_eq!(limits.bundle, 1 << 30);
-        assert_eq!(limits.render, RenderLimits { width: 1920, height: 1080, fps: 30, seconds: 600, queue: 10 });
+        assert_eq!(
+            limits.render,
+            RenderLimits { width: 1920, height: 1080, fps: 30, seconds: 600, queue: 10, user: 2 }
+        );
     }
 
     #[test]

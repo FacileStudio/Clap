@@ -30,24 +30,25 @@ async fn short(mut field: Field<'_>) -> Result<String> {
     String::from_utf8(text).map_err(|_| Error::invalid("the `name` part is not UTF-8"))
 }
 
-async fn stored(state: &AppState, mut field: Field<'_>) -> Result<Stored> {
-    let mut sink = Sink::open(&state.data_dir, state.limits.asset).await?;
+async fn stored(state: &AppState, mut field: Field<'_>, max: u64) -> Result<Stored> {
+    let mut sink = Sink::open(&state.data_dir, max).await?;
     while let Some(chunk) = field.chunk().await.map_err(invalid)? {
         sink.write(&chunk).await?;
     }
     sink.finish().await
 }
 
-/// Reads the parts of an upload. The `file` part streams to disk, never through memory; a second
+/// Reads the parts of an upload. The `file` part streams to disk, never through memory, and stops
+/// at `max` bytes; a second
 /// `file` part replaces the first, and any other part is skipped.
-pub async fn read(state: &AppState, mut multipart: Multipart) -> Result<Intake> {
+pub async fn read(state: &AppState, mut multipart: Multipart, max: u64) -> Result<Intake> {
     let mut intake = Intake::default();
     while let Some(field) = multipart.next_field().await.map_err(invalid)? {
         match field.name() {
             Some("name") => intake.name = Some(short(field).await?),
             Some("file") => {
                 let file_name = field.file_name().unwrap_or_default().to_owned();
-                intake.file = Some((file_name, stored(state, field).await?));
+                intake.file = Some((file_name, stored(state, field, max).await?));
             }
             _ => {}
         }

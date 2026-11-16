@@ -4,6 +4,7 @@ use time::OffsetDateTime;
 use tronc::{Error, Result};
 use uuid::Uuid;
 
+use super::inflight::Ask;
 use super::upload::Stored;
 use super::{files, intake, name, quota, sniff, worker};
 use crate::extract::db;
@@ -99,16 +100,28 @@ async fn insert(state: &AppState, user_id: i64, project: Uuid, name: &str, store
     .map_err(db)
 }
 
-/// `POST /projects/{id}/assets`: streams the file to disk, types it by its content, stores it
+/// An upload request: its multipart body and the length its headers declare.
+pub struct Body {
+    pub multipart: Multipart,
+    pub length: Option<u64>,
+}
+
+/// `POST /projects/{id}/assets`: signs the upload in first, so a person sends at most
+/// `UPLOADS_PER_USER` files at once and the bytes in flight never pass the space cap, then streams the file to disk, types it by its content, stores it
 /// once under the name asked for or one made from the file name, then probes it in the
 /// background. The same name again replaces the asset.
-pub async fn upload(state: &AppState, user_id: i64, project: Uuid, multipart: Multipart) -> Result<Asset> {
+pub async fn upload(state: &AppState, user_id: i64, project: Uuid, body: Body) -> Result<Asset> {
     access::check(state, user_id, project, Access::Editor).await?;
     if fetch(state, project).await?.trashed_at.is_some() {
         return Err(Error::failed("the project is in the trash"));
     }
-    quota::room(state, project, "", 1).await?;
-    let intake = intake::read(state, multipart).await?;
+    let left = state.limits.space_assets.saturating_sub(quota::held(state, project, "").await?);
+    let room = left.saturating_add(quota::replaceable(state, project).await?);
+    let space = quota::scope(state, project).await?;
+    let per_user = state.limits.uploads;
+    let ask = Ask { user: user_id, per_user, space: &space, length: body.length, file_max: state.limits.asset, room };
+    let slot = state.inflight.enter(ask)?;
+    let intake = intake::read(state, body.multipart, slot.bytes()).await?;
     let Some((file_name, stored)) = intake.file else {
         return Err(Error::invalid("the multipart body has no `file` part"));
     };

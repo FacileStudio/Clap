@@ -16,9 +16,11 @@ async fn upload(
     State(state): State<AppState>,
     who: Identity,
     Path(raw): Path<String>,
+    headers: http::HeaderMap,
     multipart: Multipart,
 ) -> Result<(StatusCode, Json<Asset>)> {
-    let asset = service::upload(&state, who.user_id, id(&raw)?, multipart).await?;
+    let length = headers.get(http::header::CONTENT_LENGTH).and_then(|value| value.to_str().ok()?.parse().ok());
+    let asset = service::upload(&state, who.user_id, id(&raw)?, service::Body { multipart, length }).await?;
     Ok((StatusCode::CREATED, Json(asset)))
 }
 

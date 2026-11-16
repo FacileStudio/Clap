@@ -30,3 +30,24 @@ pub async fn room(state: &AppState, project: Uuid, name: &str, size: u64) -> Res
         false => Ok(()),
     }
 }
+
+/// The name the in-flight book reserves bytes under for `project`: its space, or its owner.
+pub async fn scope(state: &AppState, project: Uuid) -> Result<String> {
+    sqlx::query_scalar("SELECT coalesce('space:' || space_id, 'user:' || owner_id::text) FROM projects WHERE id = $1")
+        .bind(project)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(db)?
+        .ok_or_else(|| Error::not_found("project not found"))
+}
+
+/// The largest asset of `project`: the most an upload into it may be replacing, so the most it
+/// may use past what its space has left until its name is known.
+pub async fn replaceable(state: &AppState, project: Uuid) -> Result<u64> {
+    let largest: i64 = sqlx::query_scalar("SELECT coalesce(max(size), 0)::bigint FROM assets WHERE project_id = $1")
+        .bind(project)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(db)?;
+    Ok(largest.max(0) as u64)
+}

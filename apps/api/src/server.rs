@@ -66,6 +66,7 @@ pub fn state(config: &Config, pool: PgPool, kits: &Kits) -> AppState {
         limits: config.limits,
         tools: Arc::new(config.tools.clone()),
         media: Arc::new(tokio::sync::Semaphore::new(1)),
+        inflight: Default::default(),
         confirmations: None,
         machine: kits.machine.clone(),
         public_url: Arc::from(config.public_url.as_str()),

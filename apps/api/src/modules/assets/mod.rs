@@ -3,6 +3,7 @@
 
 pub mod derive;
 pub mod files;
+pub mod inflight;
 pub mod intake;
 pub mod name;
 pub mod probe;

@@ -29,6 +29,8 @@ pub struct AppState {
     pub limits: Limits,
     /// `ffmpeg` and `ffprobe`.
     pub tools: Arc<Tools>,
+    /// The uploads and posted bundles on their way in, per person and per space.
+    pub inflight: crate::modules::assets::inflight::Inflight,
     /// One permit: the asset tasks run `ffprobe` and `ffmpeg` one at a time.
     pub media: Arc<Semaphore>,
     /// The MCP confirmation flow, when `/mcp` is on.
