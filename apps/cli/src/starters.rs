@@ -45,3 +45,17 @@ pub fn project(starter: &Starter, title: &str) -> String {
     let scene = starter.source.strip_prefix("---\n").unwrap_or(starter.source);
     format!("---\ntitle: \"{safe}\"\nsize: 1920x1080\n{scene}")
 }
+
+/// The language the person's environment asks for: `LC_ALL`, then `LC_MESSAGES`, then `LANG`.
+pub fn locale() -> String {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .find_map(|name| std::env::var(name).ok().filter(|value| !value.is_empty()))
+        .unwrap_or_default()
+}
+
+/// A whole project that begins with the welcome scene of `clap_timeline::starter`, titled `title`.
+pub fn welcome(title: &str) -> String {
+    let safe: String = title.chars().filter(|letter| !letter.is_control() && *letter != '"').collect();
+    clap_timeline::starter(&locale()).replacen("---\n", &format!("---\ntitle: \"{safe}\"\n"), 1)
+}

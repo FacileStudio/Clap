@@ -41,7 +41,7 @@ fn new_makes_a_valid_project_from_every_starter() {
 #[test]
 fn check_prints_every_problem_with_file_and_line_and_speaks_json() {
     let work = tempfile::tempdir().unwrap();
-    clap(work.path(), &["new", "demo"]);
+    clap(work.path(), &["new", "demo", "-t", "title"]);
     let file = work.path().join("demo/clap.md");
     let source = fs::read_to_string(&file).unwrap();
     fs::write(&file, source.replace("layout: raw", "colour: red") + "\n<img src=\"assets/gone.png\">\n").unwrap();
@@ -108,4 +108,22 @@ fn version_usage_errors_and_the_guide_follow_the_standard() {
     let guide = text(&clap(work.path(), &["guide"]).stdout);
     assert!(guide.starts_with("# The scene format") && guide.contains("# Clap: a video is a scene file"));
     assert!(guide.contains("## From the command line") && guide.contains("`clap edit [dir] --ops"));
+}
+
+#[test]
+fn new_without_a_template_writes_the_welcome_scene_in_the_shells_language() {
+    let work = tempfile::tempdir().unwrap();
+    let welcome = bin::command(work.path(), work.path(), &["new", "welcome"])
+        .env("LANG", "de_DE.UTF-8")
+        .env_remove("LC_ALL")
+        .env_remove("LC_MESSAGES")
+        .output()
+        .unwrap();
+    assert!(welcome.status.success());
+    let source = fs::read_to_string(work.path().join("welcome/clap.md")).unwrap();
+    assert!(
+        source.starts_with("---\ntitle: \"welcome\"\nlang: de\n") && source.contains("Ihr Video beginnt hier"),
+        "{source}"
+    );
+    assert!(clap(work.path(), &["check", "welcome"]).status.success());
 }

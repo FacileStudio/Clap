@@ -41,7 +41,7 @@ fn read_until(stream: &mut TcpStream, wanted: &str) {
 
 fn serve() -> (tempfile::TempDir, Served, String) {
     let work = tempfile::tempdir().unwrap();
-    assert!(bin::command(work.path(), work.path(), &["new", "talk"]).status().unwrap().success());
+    assert!(bin::command(work.path(), work.path(), &["new", "talk", "-t", "title"]).status().unwrap().success());
     fs::write(work.path().join("talk/.clap.json"), "{}").unwrap();
     fs::write(work.path().join("talk/assets/clip.bin"), "0123456789").unwrap();
     let mut child = bin::command(work.path(), work.path(), &["serve", "talk", "-p", "0", "--json"]);
