@@ -28,7 +28,7 @@ async fn progress(state: &AppState, id: Uuid, status: &Status) -> Result<bool, s
 }
 
 /// Closes the render `id` as `outcome` (`failed` or `cancelled`). Its job directory stays for
-/// [`sweep::RETENTION`], for whoever looks into the failure; the sweep removes it then.
+/// [`retention::RETENTION`](super::retention::RETENTION), for whoever looks into the failure; the sweep removes it then.
 pub async fn close(state: &AppState, id: Uuid, outcome: &str, error: Option<&str>) -> Result<bool, sqlx::Error> {
     let closed = sqlx::query(
         "UPDATE renders SET state = $2, error = $3, finished_at = now() WHERE id = $1 AND state IN ('queued', 'running')",

@@ -26,6 +26,18 @@ pub struct Status {
     pub frames: i64,
     #[serde(default)]
     pub error: Option<String>,
+    /// When the worker last wrote the file, RFC 3339.
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+impl Status {
+    /// How long ago the worker last wrote the status, in seconds, when it says.
+    pub fn silence(&self) -> Option<i64> {
+        let stamp = time::format_description::well_known::Rfc3339;
+        let written = time::OffsetDateTime::parse(self.updated_at.as_deref()?.trim(), &stamp).ok()?;
+        Some((time::OffsetDateTime::now_utc() - written).whole_seconds())
+    }
 }
 
 /// `DATA_DIR/outputs/<id>.mp4`: where a finished render is kept.

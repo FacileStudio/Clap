@@ -2,7 +2,7 @@ use tronc::{Error, Result};
 use uuid::Uuid;
 
 use super::bundle::{self, JobFile};
-use super::spec::{self, Spec};
+use super::spec;
 use super::status::{serving, worker_alive};
 use super::types::{Render, RenderRequest, RenderRow, Renders, WORKER_DOWN, columns, is_final};
 use crate::extract::db;
@@ -39,31 +39,6 @@ pub async fn authorized(state: &AppState, user_id: i64, id: Uuid, need: Access) 
     }
 }
 
-/// Queues one row, unless the instance already has `RENDER_QUEUE_MAX` renders waiting or
-/// running: `429`. `project` is the project and its revision, or `(None, 0)` for a posted bundle.
-pub async fn insert(state: &AppState, user_id: i64, project: (Option<Uuid>, i64), spec: &Spec) -> Result<RenderRow> {
-    let inserted = sqlx::query_as::<_, RenderRow>(concat!(
-        "INSERT INTO renders (project_id, requested_by, rev, width, height, fps, range_start, range_end, frames) \
-         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9 \
-         WHERE (SELECT count(*) FROM renders WHERE state IN ('queued', 'running')) < $10 RETURNING ",
-        columns!()
-    ))
-    .bind(project.0)
-    .bind(user_id)
-    .bind(project.1)
-    .bind(spec.width as i32)
-    .bind(spec.height as i32)
-    .bind(spec.fps as i32)
-    .bind(spec.range.map(|range| range.0))
-    .bind(spec.range.map(|range| range.1))
-    .bind(spec.frames)
-    .bind(i64::from(state.limits.render.queue))
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(db)?;
-    inserted.ok_or_else(|| Error::rate_limited("too many renders are waiting: try again when one has finished"))
-}
-
 /// Forgets a render whose job directory could not be written.
 pub async fn discard(state: &AppState, id: Uuid) {
     tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
@@ -88,7 +63,7 @@ pub async fn enqueue(
     let size = parsed.config().size;
     let spec = spec::spec(request, (size.width, size.height), parsed.duration(), &state.limits.render)?;
     let plan = bundle::plan(&parsed, &assets::catalog(state, project).await?)?;
-    let row = insert(state, user_id, (Some(project), source.rev), &spec).await?;
+    let row = super::queue::insert(state, user_id, (Some(project), source.rev), &spec).await?;
     if let Err(error) = super::stage::write(&state.data_dir, &plan, &JobFile::of(&row, &spec)).await {
         discard(state, row.id).await;
         return Err(Error::internal("failed to write a render job", error).into());
