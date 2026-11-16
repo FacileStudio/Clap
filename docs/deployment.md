@@ -53,7 +53,8 @@ The `/data` volume is created by a root container, so `docker-compose.yml` runs 
 
 `clap-render` keeps Chrome's sandbox on unless `CLAP_CHROME_SANDBOX=off`. Docker's default
 seccomp profile refuses the user namespaces that sandbox needs, so in the container Chrome
-starts only with the sandbox off or with a seccomp profile that allows them. The image sets
+exits with `No usable sandbox!` (observed on the built image) and starts only with the sandbox
+off or with a seccomp profile that allows them. The image sets
 neither. This is an open decision for the release wave: rendering untrusted HTML without the
 sandbox leaves the container as the only boundary.
 
