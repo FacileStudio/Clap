@@ -5,6 +5,7 @@ use std::io::{Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 
 use crate::Error;
+use crate::audio::{self, Track};
 use crate::job::Job;
 use crate::tools::Tools;
 
@@ -15,13 +16,22 @@ pub(crate) struct Encoder {
 }
 
 /// The argument vector for `job`. Every value is its own element: nothing is parsed by a shell,
-/// and the output is an absolute path, so ffmpeg reads it as neither an option nor a protocol.
-/// Audio inputs and their filter graph join here.
-pub(crate) fn args(job: &Job) -> Result<Vec<OsString>, Error> {
+/// and every path is absolute, so ffmpeg reads none as an option or a protocol. `tracks` are
+/// mixed into one AAC stream as long as the `frames` pictures; without a track the file has no
+/// audio stream.
+pub(crate) fn args(job: &Job, tracks: &[Track], frames: u32) -> Result<Vec<OsString>, Error> {
     let rate = job.fps.to_string();
     let mut args: Vec<OsString> = ["-hide_banner", "-loglevel", "error", "-y"].map(OsString::from).to_vec();
     args.extend(["-f", "image2pipe", "-framerate", &rate, "-c:v", "png", "-i", "pipe:0"].map(OsString::from));
-    args.extend(["-an", "-c:v", "libx264", "-preset", "medium", "-crf", "18"].map(OsString::from));
+    args.extend(audio::inputs(tracks));
+    if tracks.is_empty() {
+        args.push("-an".into());
+    } else {
+        let graph = audio::graph(tracks, f64::from(frames) / f64::from(job.fps));
+        args.extend(["-filter_complex", &graph, "-map", "0:v", "-map", "[mix]"].map(OsString::from));
+        args.extend(["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-flags:a", "+bitexact"].map(OsString::from));
+    }
+    args.extend(["-c:v", "libx264", "-preset", "medium", "-crf", "18"].map(OsString::from));
     args.extend(["-pix_fmt", "yuv420p", "-r", &rate, "-movflags", "+faststart"].map(OsString::from));
     args.extend(["-fflags", "+bitexact", "-flags:v", "+bitexact", "-map_metadata", "-1"].map(OsString::from));
     args.extend(["-f", "mp4"].map(OsString::from));
@@ -30,10 +40,10 @@ pub(crate) fn args(job: &Job) -> Result<Vec<OsString>, Error> {
 }
 
 impl Encoder {
-    /// Starts ffmpeg for `job`.
-    pub(crate) fn start(tools: &Tools, job: &Job) -> Result<Encoder, Error> {
+    /// Starts ffmpeg for `job`, to encode `frames` pictures and mix `tracks`.
+    pub(crate) fn start(tools: &Tools, job: &Job, tracks: &[Track], frames: u32) -> Result<Encoder, Error> {
         let mut child = Command::new(&tools.ffmpeg)
-            .args(args(job)?)
+            .args(args(job, tracks, frames)?)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
@@ -80,10 +90,11 @@ mod tests {
     #[test]
     fn the_output_is_absolute_and_the_rate_is_the_jobs() {
         let job = Job { fps: 24, ..Job::new("/bundle", "-out.mp4") };
-        let args = args(&job).unwrap();
+        let args = args(&job, &[], 24).unwrap();
         let text: Vec<String> = args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
         assert!(text.last().unwrap().starts_with('/'), "{text:?}");
         assert!(text.windows(2).any(|pair| pair == ["-framerate", "24"]), "{text:?}");
         assert!(text.windows(2).any(|pair| pair == ["-c:v", "libx264"]), "{text:?}");
+        assert!(text.contains(&"-an".to_owned()), "{text:?}");
     }
 }

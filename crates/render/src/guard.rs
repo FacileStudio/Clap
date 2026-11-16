@@ -40,18 +40,16 @@ impl Guard {
         allowed
     }
 
+    /// The file a `file://` URL names, canonical, when it sits inside the bundle.
+    pub(crate) fn file(&self, url: &str) -> Option<PathBuf> {
+        let url = Url::parse(url).ok().filter(|url| url.scheme() == "file")?;
+        url.to_file_path().ok()?.canonicalize().ok().filter(|path| path.starts_with(&self.root))
+    }
+
     /// Whether the page may load `url`.
     fn allows(&self, url: &str) -> bool {
-        let Ok(url) = Url::parse(url) else { return false };
-        match url.scheme() {
-            "data" | "blob" | "about" => true,
-            "file" => url
-                .to_file_path()
-                .ok()
-                .and_then(|path| path.canonicalize().ok())
-                .is_some_and(|path| path.starts_with(&self.root)),
-            _ => false,
-        }
+        let scheme = Url::parse(url).map(|url| url.scheme().to_owned()).unwrap_or_default();
+        matches!(scheme.as_str(), "data" | "blob" | "about") || self.file(url).is_some()
     }
 }
 

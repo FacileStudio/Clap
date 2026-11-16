@@ -15,3 +15,6 @@ sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 url = "2.5.8"
+
+[dev-dependencies]
+facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.1.0" }

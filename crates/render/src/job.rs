@@ -39,6 +39,9 @@ pub struct Job {
     pub output: PathBuf,
     /// How frames are captured.
     pub capture: Capture,
+    /// The most bytes the frames extracted from the scene's videos may take on disk. They sit in
+    /// a directory under `dir` for the length of the render.
+    pub frame_budget: u64,
 }
 
 impl Job {
@@ -52,6 +55,7 @@ impl Job {
             range: None,
             output: output.into(),
             capture: Capture::default(),
+            frame_budget: 8 << 30,
         }
     }
 
@@ -114,6 +118,10 @@ pub struct Report {
     pub blocked: Vec<String>,
     /// The capture path that ran.
     pub capture: Capture,
+    /// How many `<video>` elements were swapped for extracted frames.
+    pub videos: u32,
+    /// How many sound tracks were mixed. Zero gives an MP4 without an audio stream.
+    pub audio_tracks: u32,
     /// Wall time, Chrome launch to finished MP4.
     pub elapsed: Duration,
 }
