@@ -93,6 +93,7 @@ async fn every_route_answers_each_role_as_its_access_allows() {
         (&roles.outsider, None),
     ];
     for case in cases() {
+        common::render::heartbeat(&app.state.data_dir, time::OffsetDateTime::now_utc());
         assert_eq!(attempt(&app, &roles, &case, None).await, 401, "anonymous {} {}", case.method, case.path);
         for (person, have) in &people {
             let got = attempt(&app, &roles, &case, Some(person)).await;
