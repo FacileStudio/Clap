@@ -40,10 +40,11 @@ function split(source: string, op: Of<'split_clip'>): string {
 
 function element(op: Of<'add_clip'>): string {
 	const time = `data-start="${op.start}" data-duration="${op.duration}" data-track-index="${op.track}"`;
-	if (op.kind === 'video') return `<video src="${op.src}" ${time} muted playsinline></video>`;
+	if (op.kind === 'video') return `<video class="clap-fill" src="${op.src}" ${time}></video>`;
 	if (op.kind === 'audio') return `<audio src="${op.src}" ${time}></audio>`;
-	if (op.kind === 'image') return `<img src="${op.src}" ${time} alt="">`;
-	return `<div class="clip" ${time} style="position:absolute;left:120px;bottom:120px;font-size:72px;font-weight:700">${op.text ?? ''}</div>`;
+	if (op.kind === 'image') return `<img class="clap-fill" src="${op.src}" ${time} alt="">`;
+	if (op.kind === 'html') return `<div class="clap-layer" ${time}>${op.text ?? ''}</div>`;
+	return `<p class="clap-title" ${time}>${op.text ?? ''}</p>`;
 }
 
 const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
