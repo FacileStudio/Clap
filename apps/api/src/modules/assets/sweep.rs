@@ -42,6 +42,10 @@ pub async fn sweep(state: &AppState) -> Result<usize, SweepError> {
         sqlx::query_scalar("SELECT DISTINCT sha256 FROM assets").fetch_all(&state.pool).await?.into_iter().collect();
     let mut removed = 0;
     for (name, path) in files.into_iter().filter(|(name, _)| !kept.contains(name)) {
+        let refreshed = tokio::fs::metadata(&path).await?.modified()?.elapsed().unwrap_or_default() < GRACE;
+        if refreshed {
+            continue;
+        }
         tokio::fs::remove_file(&path).await?;
         tracing::info!(file = %name, "assets: removed an unreferenced file");
         removed += 1;
