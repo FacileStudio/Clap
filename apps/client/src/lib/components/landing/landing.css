@@ -1,0 +1,53 @@
+.clap-dark {
+	--ce-bg: var(--color-fc-inverse);
+	--ce-panel: color-mix(in oklab, var(--color-fc-on-inverse) 7%, var(--color-fc-inverse));
+	--ce-raise: color-mix(in oklab, var(--color-fc-on-inverse) 13%, var(--color-fc-inverse));
+	--ce-field: color-mix(in oklab, var(--color-fc-on-inverse) 20%, var(--color-fc-inverse));
+	--ce-fg: var(--color-fc-on-inverse);
+	--ce-muted: var(--color-fc-on-inverse-muted);
+	--ce-tint: 85%;
+	--ce-video: color-mix(in oklab, var(--color-fc-info) var(--ce-tint), var(--ce-panel));
+	--ce-audio: color-mix(in oklab, var(--color-fc-success) var(--ce-tint), var(--ce-panel));
+	--ce-text: color-mix(in oklab, var(--color-fc-admin) var(--ce-tint), var(--ce-panel));
+	background: var(--ce-bg);
+	color: var(--ce-fg);
+	font-family: var(--font-fc-body);
+}
+@media (prefers-color-scheme: dark) {
+	:root:not(.light) .clap-dark {
+		--ce-tint: 52%;
+	}
+}
+:root.dark .clap-dark {
+	--ce-tint: 52%;
+}
+.clap-dark code,
+.clap-mono {
+	font-family: var(--font-fc-mono);
+}
+.clap-clip {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	overflow: hidden;
+	padding: 0 9px;
+	border-radius: var(--radius-fc-md);
+	color: var(--ce-fg);
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.clap-clip[data-kind='video'] {
+	background: var(--ce-video);
+}
+.clap-clip[data-kind='audio'] {
+	background: var(--ce-audio);
+}
+.clap-clip[data-kind='text'] {
+	background: var(--ce-text);
+}
+.clap-clip > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
