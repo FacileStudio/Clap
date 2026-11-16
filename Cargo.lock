@@ -124,6 +124,7 @@ dependencies = [
  "async-trait",
  "axum",
  "base64 0.23.1",
+ "clap-render",
  "clap-timeline",
  "facile-scene",
  "futures-util",

@@ -18,6 +18,7 @@ fi
 echo "==> workspace (apps/api, apps/cli, apps/worker, crates/render, crates/timeline)"
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build -p worker --locked
 cargo test --workspace --locked
 
 echo "==> apps/client"
