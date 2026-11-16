@@ -1,2 +1,8 @@
 User-agent: *
-Allow: /
+Allow: /$
+Allow: /downloads
+Disallow: /api/
+Disallow: /projects/
+Disallow: /settings
+Disallow: /trash
+Disallow: /pending
