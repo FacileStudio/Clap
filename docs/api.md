@@ -193,6 +193,12 @@ An asset is a file of one project, named by the relative path the source writes:
   for a font.
 - **Size.** `ASSET_MAX_BYTES` per file (2 GiB) and `SPACE_ASSETS_MAX_BYTES` (20 GiB) for all
   the projects of one space, or all the personal projects of one person; past either, `413`.
+- **In flight.** A person sends at most `UPLOADS_PER_USER` (2) uploads and posted bundles at
+  once; the next one is `429`. Before a byte is read, an upload reserves its `Content-Length`
+  against what its space has left once the stored assets and the uploads in flight are counted,
+  plus the size of the project's largest asset, which it may be replacing, and 64 KiB of
+  multipart framing; it is `413` at once when it does not fit, and the stream stops at the
+  reservation. The exact cap is checked again once the name is known.
 - **Storage.** `DATA_DIR/assets/<first two hex>/<sha256>`, once per content, with the poster
   and the proxy at `DATA_DIR/derived/<first two hex>/<sha256>.poster.jpg` and `.proxy.mp4`. A
   daily sweep removes files no row names, after an hour of grace.
@@ -203,6 +209,12 @@ An asset is a file of one project, named by the relative path the source writes:
   `ready` once probed, and the proxy arrives later. A file that only looks like media is
   `failed`, with the reason in `error`. A video with no picture stream becomes `audio`. At boot,
   assets left `probing` start again.
+- **Limits on the decoders.** Every `ffprobe` and `ffmpeg` gets `-threads 2` and
+  `-max_pixels 8847360` (no picture over DCI 4K) before its input, the proxy encode
+  `-threads 2`. A proxy has a minute plus four times the video's length, at most 15 minutes. One
+  media job runs at a time, render posters included. `clap-api` itself is capped at 2 CPUs, 3 GiB
+  and 512 PIDs in `docker-compose.yml`. These decoders still run in `clap-api`: moving them into
+  the sandboxed worker is the next step (`PLAN.md`, "Next").
 - **Serving.** `ServeFile` answers `Range` with `206`. Every asset response carries
   `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'` and
   `X-Content-Type-Options: nosniff`: an SVG opened on its own runs no script.
@@ -296,7 +308,8 @@ the project as it is saved now.
 - `fps` defaults to 30 and is at most `RENDER_MAX_FPS` (30).
 - `range` lies inside the project. The rendered length is at most `RENDER_MAX_SECONDS` (600).
 - Past a cap: `400`. A source that names a file the project does not hold: `412`, listing the
-  names. More than `RENDER_QUEUE_MAX` (10) renders waiting or running on the instance: `429`.
+  names. More than `RENDER_QUEUE_MAX` (10) renders waiting or running on the instance: `429`. A
+  person with `RENDER_USER_MAX` (2) renders waiting or running: `429`, saying so.
 - The worker's heartbeat must be less than 30 s old, or the route answers `503 unavailable`
   and queues nothing. A render already waiting when the worker goes silent carries a `notice`
   in `GET /renders/{id}`.
@@ -333,10 +346,22 @@ The worker runs as its own uid, 65533, in the API's group. See `docs/rendering.m
   render), a status over 64 KiB or with an unknown state is ignored, the error text is cut at
   2000 characters.
 
-**Sweep.** At boot and every ten minutes: an unfinished render whose `job.json` is gone, or
-that waited more than six hours, is `failed` and loses its directory at once, so a worker that comes back cannot pick it up; a
-job directory or an output file no row names is removed, and so is the directory of a render
-that failed or was cancelled more than 24 hours ago.
+**Sweep.** At boot and every ten minutes:
+
+- A render whose `job.json` is gone a minute after it was queued is `failed`.
+- A `running` render whose `status.json` the worker has not rewritten for ten minutes (it writes
+  it twice a second) is `failed`, measured from the file's `updated_at`.
+- A `queued` render waits its turn while the worker's heartbeat is fresh, however long the
+  queue; it is `failed` only once it has waited six hours with the worker down.
+- A render given up loses its job directory at once, so a worker that comes back cannot pick it
+  up. Job directories and output files no row names are removed, and so is the directory of a
+  render that failed or was cancelled more than 24 hours ago.
+- **Retention.** Each project keeps its 3 newest finished renders: the newest is the one a share
+  link shows. A posted bundle's render is deleted 7 days after it finished. Their files go with
+  them.
+
+Every hour the projects trashed more than 30 days ago are deleted, and each project keeps its
+50 newest revisions in `project_revisions`.
 
 ### Posted bundles
 
@@ -362,7 +387,7 @@ to MP4. It answers `202` with the same render a project render gets, and `GET /r
 - **Paths.** The asset name rule: relative, at most 200 bytes, segments of ASCII letters,
   digits, `.`, `_` and `-` that do not start with a dot. Anything else is `400`.
 - **Caps.** The same size and frame-rate caps as a project render, the same queue cap (`429`)
-  and the same worker check (`503`). A `range` is at most `RENDER_MAX_SECONDS` long; without
+  and the same worker check (`503`), and the same per-person cap. A `range` is at most `RENDER_MAX_SECONDS` long; without
   one the worker fails a scene longer than that once it has loaded. The bundle holds at most
   `RENDER_BUNDLE_MAX_BYTES` (1 GiB, `413`) and 2000 files. It streams to disk.
 - **Ownership.** The render belongs to the account the token acts for: `project_id` is `null`,
@@ -472,6 +497,8 @@ call next. `download_url` is a link the person opens in their browser, signed in
 | `RENDER_MAX_FPS` | `30` | The highest frame rate |
 | `RENDER_MAX_SECONDS` | `600` | The longest render |
 | `RENDER_QUEUE_MAX` | `10` | Renders waiting or running at once |
+| `RENDER_USER_MAX` | `2` | Renders one person may have waiting or running |
+| `UPLOADS_PER_USER` | `2` | Uploads and posted bundles one person may send at once |
 | `RENDER_BUNDLE_MAX_BYTES` | `1073741824` | The files of one posted bundle together |
 | `PUBLIC_URL` | the origin of `OIDC_SUCCESS_URL` | The origin share links start with |
 | `EMBED_ANCESTORS` | `https://prisme.facile.studio` | The origins, space or comma separated, that may frame `/embed/{token}` |
