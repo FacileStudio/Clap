@@ -41,7 +41,7 @@ pub struct CreateIn {
 
 /// `clap_create_project`: a new project at rev 1.
 pub async fn create(ctx: Context, call: Call, input: CreateIn) -> Result<Answer<Written>, ToolError> {
-    let request = CreateRequest { title: input.title, space_id: input.space_id, source: input.source };
+    let request = CreateRequest { title: input.title, space_id: input.space_id, source: input.source, lang: None };
     let project = service::create(&ctx.state, &Author::agent(user(&call)?), request).await?;
     Ok(written(&ctx, project))
 }
