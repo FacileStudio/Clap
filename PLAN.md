@@ -30,6 +30,8 @@ Same pages and Docs files as `Diapo/PLAN.md`, read 2026-11-16.
 - Editor v1: source + preview + Bulle, and a drag-and-drop timeline. No transcript editing.
 - Free app. AI through Bulle with `ai.access`. MCP free.
 - Public repo, AGPL-3.0-only.
+- Logo (owner, 2026-11-16): the Solar glyph `solar:clapperboard-open-bold-duotone`, used for the
+  app mark, favicon, landing, Suite wall and Bulle's suite icons.
 
 ## Approach
 
@@ -60,6 +62,22 @@ the server runs; the CLI on macOS falls back to plain screenshots with a readine
 **Limits.** One render at a time (ruche has 12 cores and 122 containers), 1080p and 30 fps
 maximum, 10 minutes maximum, uploads capped at 2 GiB per file and 20 GiB per space, all env
 tunable. Renders are free in v1; the cap is there for the machine.
+
+## Render isolation (decided 2026-11-16, after wave A)
+
+Chrome's own sandbox does not start under Docker's default seccomp profile, and render Chrome
+loads HTML that users wrote. The sandbox stays on. Rendering runs in a second service,
+`clap-render`, built from the same image:
+
+- `network_mode: none`. It reaches nothing: no database, no Docker network, no internet.
+- `security_opt: seccomp=deploy/chrome-seccomp.json`, a profile that allows the user
+  namespaces Chrome's sandbox needs. `--no-sandbox` is never set in production.
+- It shares only the `/data/renders` volume with `clap-api`. The API writes
+  `/data/renders/<job id>/job.json` and `bundle/` (the compiled scene and its media); the
+  worker (`apps/worker`, binary `worker`) polls for queued jobs, renders one at a time, and
+  writes `status.json` (state, frame, frames, error) and `out.mp4` atomically. The API reads
+  `status.json`; a `cancel` file asks the worker to stop.
+- Diapo's PDF and thumbnail capture will follow the same pattern.
 
 ## Repo layout (all new)
 
@@ -143,6 +161,24 @@ Wave C:
 13. Docs, `CLAUDE.md`, `CHANGELOG.md`. Verify: `filet check .`.
 
 Wave D: release and deploy, in `Diapo/PLAN-suite-wiring.md`.
+
+## Prisme link cards (contract requested by the Prisme session, 2026-11-16)
+
+Prisme v0.24 renders rich cards for Clap links. Part of the share-link step:
+
+- `GET /oembed?url=<encoded share URL>&format=json`: oEmbed 1.0, no cookies, no auth. `200`
+  only for a live share link, `404` for anything else, so a private item never leaks.
+  JSON: `version "1.0"`, `type "rich"`, `provider_name "Clap"`, `title`, `thumbnail_url`,
+  `thumbnail_width`, `thumbnail_height`, `html` (an iframe to the embed page), `width`,
+  `height`, plus `duration_ms`.
+- `GET /embed/{token}`: read-only player, framable only by
+  `frame-ancestors 'self' https://prisme.facile.studio`. The path carries the share token,
+  never the internal id.
+- The public share page (`/v/{token}`) sets `og:title` and `og:image`.
+- Thumbnail: the poster frame, served at `/v/{token}/thumbnail.jpg`.
+
+Verify: a test fetches `/oembed` for a shared and an unshared item and gets 200 and 404; the
+embed response carries the `frame-ancestors` header above.
 
 ## Boundaries
 
