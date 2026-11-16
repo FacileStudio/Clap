@@ -124,6 +124,9 @@
 				{#if !ended(status.state)}
 					<Progress value={status.frames > 0 ? status.frame : null} max={Math.max(status.frames, 1)} />
 				{/if}
+				{#if status.notice && !ended(status.state)}
+					<Alert tone="warning">{status.notice}</Alert>
+				{/if}
 				{#if status.state === 'failed'}
 					<Alert tone="danger">{status.error || t('render.failed')}</Alert>
 				{/if}

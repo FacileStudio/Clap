@@ -84,6 +84,8 @@ export interface Render {
 	frames: number;
 	error: string | null;
 	download_url: string | null;
+	/** What the server says about a job that waits, such as a render service that went silent. */
+	notice?: string | null;
 	created_at?: string;
 }
 
