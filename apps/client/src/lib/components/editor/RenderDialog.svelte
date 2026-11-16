@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Alert, Button, Field, Input, Modal, Progress, RadioGroup, Select, icons, toast } from '@facile/muse';
-	import { backend } from '$lib/backend';
+	import { ApiError, backend } from '$lib/backend';
 	import { t } from '$lib/i18n';
 	import { RenderJob, ended, renderSize } from '$lib/project/render.svelte';
 	import type { Render } from '$lib/types';
@@ -67,7 +67,8 @@
 		try {
 			await job.start(id, { ...size, fps: Number(fps), ...part });
 		} catch (error) {
-			toast.danger(error instanceof Error && error.message ? error.message : t('render.failed'));
+			const down = error instanceof ApiError && error.status === 503;
+			toast.danger(down ? t('render.unavailable') : error instanceof Error && error.message ? error.message : t('render.failed'));
 		}
 	}
 

@@ -24,6 +24,12 @@ export const render = {
 		'Bis 1080p, 30 Bilder pro Sekunde und 10 Minuten. Es läuft immer nur ein Rendering.'
 	],
 	'render.failed': ['The render could not start', 'Le rendu n’a pas pu démarrer', 'No se pudo iniciar el render', 'Das Rendering konnte nicht starten'],
+	'render.unavailable': [
+		'The render service is unavailable. Try again in a moment.',
+		'Le service de rendu est indisponible. Réessayez dans un instant.',
+		'El servicio de render no está disponible. Inténtelo de nuevo en un momento.',
+		'Der Renderdienst ist nicht verfügbar. Versuchen Sie es gleich noch einmal.'
+	],
 	'render.history': ['Past renders', 'Rendus précédents', 'Renders anteriores', 'Frühere Renderings'],
 	'render.history.empty': ['No render yet', 'Aucun rendu', 'Ningún render', 'Noch kein Rendering'],
 	'render.state.queued': ['Queued', 'En attente', 'En cola', 'In Warteschlange'],

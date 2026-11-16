@@ -62,7 +62,7 @@
 </script>
 
 <header class="flex flex-wrap items-center gap-x-2 gap-y-1">
-	<Button variant="ghost" size="sm" icon={icons.chevronLeft} href="/" aria-label={t('projects.title')}>
+	<Button variant="ghost" size="sm" class="h-11" icon={icons.chevronLeft} href="/" aria-label={t('projects.title')}>
 		<span class="hidden sm:inline">{t('projects.title')}</span>
 	</Button>
 	<input
@@ -97,7 +97,7 @@
 		</Menu>
 		<button
 			type="button"
-			class="flex min-h-11 items-center gap-2 rounded-fc-md px-2 text-fc-sm text-fc-fg hover:bg-fc-surface
+			class="flex h-11 items-center gap-2 rounded-fc-md px-2 text-fc-sm text-fc-fg hover:bg-fc-surface
 				focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fc-ring
 				{bulleOpen ? 'bg-fc-surface' : ''}"
 			aria-pressed={bulleOpen}
@@ -108,7 +108,7 @@
 			<Blob name={assistant} size={24} />
 			<span class="hidden xl:inline">{ask}</span>
 		</button>
-		<Button size="sm" icon={logoIcon} onclick={onrender} data-testid="render-open">
+		<Button size="sm" class="h-11" icon={logoIcon} onclick={onrender} data-testid="render-open">
 			<span class="hidden sm:inline">{t('render.open')}</span>
 		</Button>
 	</div>
