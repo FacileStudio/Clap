@@ -25,7 +25,7 @@ needs nothing.
 
 | Command | Does |
 |---|---|
-| `clap new <name> [-t starter]` | Creates the folder `<name>` with a `clap.md` made from a starter (default `title`) and an empty `assets/` |
+| `clap new <name> [-t starter]` | Creates the folder `<name>` with a `clap.md` and an empty `assets/`: the welcome scene in your language, or the starter `-t` names |
 | `clap starters` | Lists the starters: name, seconds, what it is |
 | `clap serve [dir] [-p port]` | Serves a player around the project on `http://localhost:3030` and reloads it on every change |
 | `clap check [dir]` | Prints every problem as `file:line: message` and exits 1 when there is one |
@@ -71,6 +71,8 @@ clap render launch          # writes launch.mp4
 A project is a folder: `clap.md`, and its media under `assets/`. The source names a file by its
 path from the folder, such as `src="assets/shot.mp4"`.
 
+Without `--template`, `new` writes the welcome scene the API gives a new project, in the language
+of `LC_ALL`, `LC_MESSAGES` or `LANG` (French, English, German or Spanish; French otherwise).
 `clap starters` lists what `--template` takes: `title`, `lower-third`, `caption`, `chart-race`,
 `logo-reveal`. They are the files of `starters/`, built into the binary.
 
@@ -112,7 +114,8 @@ clap render launch -o launch.mp4 --width 1280 --height 720 --fps 30 --range 0:4
 
 The size defaults to the project's `size`, the rate to 30, the range to the whole project.
 `render` compiles the project into a hidden folder inside the project folder, links the files
-it names beside it, and hands that folder to `clap-render` ([rendering.md](rendering.md)): the
+it names beside it, adds Clap's stage stylesheet as the preview has it, and hands that folder to
+`clap-render` ([rendering.md](rendering.md)): the
 page loads nothing else, and the folder is removed when the render ends. A progress line shows
 the frames. Ctrl+C stops at the next frame, closes Chrome and ffmpeg, removes the partial file
 and exits 130.

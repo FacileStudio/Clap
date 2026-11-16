@@ -4,6 +4,7 @@
 mod bin;
 
 use std::fs;
+use std::path::Path;
 use std::process::Command;
 
 use clap_render::Tools;
@@ -45,7 +46,7 @@ fn render_says_which_binary_is_missing_and_how_to_name_it() {
     let run = |args: &[&str]| {
         bin::command(work.path(), work.path(), args).env("CLAP_CHROME", "/nonexistent/chrome").output().unwrap()
     };
-    assert!(run(&["new", "demo"]).status.success());
+    assert!(run(&["new", "demo", "-t", "title"]).status.success());
     let missing = run(&["render", "demo"]);
     assert_eq!(missing.status.code(), Some(1));
     let said = text(&missing.stderr);
@@ -55,4 +56,48 @@ fn render_says_which_binary_is_missing_and_how_to_name_it() {
     assert!(text(&bad.stderr).contains("write start:end in seconds"), "{}", text(&bad.stderr));
     let remote = run(&["render", "demo", "--remote"]);
     assert!(text(&remote.stderr).contains("is not linked to a project"), "{}", text(&remote.stderr));
+}
+
+fn pixels(ffmpeg: &Path, video: &Path) -> Vec<u8> {
+    let args = ["-v", "error", "-ss", "1.5", "-i"];
+    let tail = ["-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"];
+    let frame = Command::new(ffmpeg).args(args).arg(video).args(tail).output().unwrap();
+    assert!(frame.status.success(), "{}", text(&frame.stderr));
+    frame.stdout
+}
+
+fn render_added(tools: &Tools, work: &Path) {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/added");
+    fs::create_dir_all(work.join("added/assets")).unwrap();
+    fs::copy(fixture.join("clap.md"), work.join("added/clap.md")).unwrap();
+    let lavfi = ["-v", "error", "-f", "lavfi", "-i", "color=c=0x2050d0:s=640x480:r=30:d=3", "-pix_fmt", "yuv420p"];
+    assert!(
+        Command::new(&tools.ffmpeg).args(lavfi).arg(work.join("added/assets/shot.mp4")).status().unwrap().success()
+    );
+    let run = |args: &[&str]| bin::command(work, work, args).output().unwrap();
+    let ops = format!("@{}", fixture.join("ops.json").display());
+    assert!(run(&["edit", "added", "--ops", &ops]).status.success());
+    let rendered = run(&["render", "added", "-o", "added.mp4", "--width", "320", "--height", "180", "--fps", "10"]);
+    assert!(rendered.status.success(), "{}", text(&rendered.stderr));
+}
+
+#[test]
+fn a_project_made_only_of_added_clips_renders_a_full_frame_video_under_a_centered_title() {
+    let Ok(tools) = Tools::locate() else { return eprintln!("{SKIP}") };
+    let work = tempfile::tempdir().unwrap();
+    render_added(&tools, work.path());
+    let rgb = pixels(&tools.ffmpeg, &work.path().join("added.mp4"));
+    let at = |x: usize, y: usize| &rgb[(y * 320 + x) * 3..(y * 320 + x) * 3 + 3];
+    for (x, y) in [(2, 2), (317, 2), (2, 177), (317, 177), (40, 90), (280, 90)] {
+        let [red, _, blue] = [at(x, y)[0], at(x, y)[1], at(x, y)[2]];
+        assert!(blue > 150 && red < 90, "({x}, {y}) is {:?}, not the video: it must fill the frame", at(x, y));
+    }
+    let white = |x: usize, y: usize| at(x, y).iter().all(|channel| *channel > 220);
+    let centered = (70..110).flat_map(|y| (110..210).map(move |x| (x, y))).filter(|(x, y)| white(*x, *y)).count();
+    let aside =
+        (0..180).flat_map(|y| (0..60).chain(260..320).map(move |x| (x, y))).filter(|(x, y)| white(*x, *y)).count();
+    assert!(
+        centered > 80 && aside == 0,
+        "the title must sit in the middle: {centered} white pixels there, {aside} at the sides"
+    );
 }

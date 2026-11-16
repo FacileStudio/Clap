@@ -21,7 +21,7 @@ fn place(from: &Path, to: &Path) -> std::io::Result<()> {
     fs::hard_link(from, to).or_else(|_| fs::copy(from, to).map(drop))
 }
 
-/// Builds the bundle of `project` in a hidden folder inside the project folder, removed when
+/// Builds the bundle of `project`, with Clap's stage stylesheet as the preview has it, in a hidden folder inside the project folder, removed when
 /// the answer is dropped. Each file the source names is a hard link to the original, or a
 /// copy where the disk refuses links, so the renderer reads nothing outside the bundle.
 pub fn build(folder: &Folder, project: &Project) -> Outcome<TempDir> {
@@ -31,7 +31,7 @@ pub fn build(folder: &Folder, project: &Project) -> Outcome<TempDir> {
         named.borrow_mut().push(path.to_owned());
         None
     };
-    let html = scene::compile(project, &Options::new().assets(&note));
+    let html = clap_timeline::with_runtime(&scene::compile(project, &Options::new().assets(&note)));
     for path in named.into_inner() {
         let bare = decode(path.split(['?', '#']).next().unwrap_or(&path));
         let file = folder.asset(&path);

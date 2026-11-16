@@ -87,15 +87,15 @@ pub struct NewArgs {
     /// The folder to create.
     #[arg(value_name = "name", help = "Folder to create")]
     pub name: PathBuf,
-    /// The starter the project begins with.
+    /// The starter the project begins with. Without it, the welcome scene in the language of
+    /// `LC_ALL`, `LC_MESSAGES` or `LANG`.
     #[arg(
         short,
         long,
         value_name = "starter",
-        default_value = "title",
-        help = "Starter to begin with, see `clap starters`"
+        help = "Starter to begin with, see `clap starters` [default: a welcome scene in your language]"
     )]
-    pub template: String,
+    pub template: Option<String>,
 }
 
 /// A command that takes only the project folder.
