@@ -24,6 +24,13 @@ pub(crate) struct Media {
     /// `data-volume`, 1 without it.
     pub volume: f64,
     pub muted: bool,
+    /// Seconds the sound rises from silence at the start of the clip (`data-enter="fade"`).
+    pub fade_in: f64,
+    /// Seconds the sound falls to silence at the end of the clip (`data-exit="fade"`).
+    pub fade_out: f64,
+    /// Seconds a video keeps its last frame after the clip, while the next scene comes in over
+    /// it.
+    pub hold: f64,
 }
 
 /// The part of one clip a render uses.
@@ -64,6 +71,9 @@ fn one(index: usize, item: &Value, guard: &Guard) -> Result<Option<Media>, Error
         duration: number("duration"),
         offset: number("offset"),
         volume: number("volume"),
+        fade_in: number("fade_in").max(0.0),
+        fade_out: number("fade_out").max(0.0),
+        hold: number("hold").max(0.0),
         muted: item["muted"].as_bool().unwrap_or(false),
     }))
 }
@@ -91,6 +101,9 @@ mod tests {
             offset: 1.0,
             volume: 1.0,
             muted: false,
+            fade_in: 0.0,
+            fade_out: 0.0,
+            hold: 0.0,
         };
         assert_eq!(media.used(0.0, 10.0), Some(Used { delay: 2.0, seek: 1.0, length: 4.0 }));
         assert_eq!(media.used(3.0, 5.0), Some(Used { delay: 0.0, seek: 2.0, length: 2.0 }));

@@ -29,6 +29,60 @@ export interface Clip {
 	duration: number;
 	track: number;
 	media_in: number;
+	/** The stage box, null when the clip carries none and keeps the box its classes give it. */
+	frame?: Geometry | null;
+	fit?: Fit | null;
+	opacity?: number | null;
+	volume?: number | null;
+	enter?: ClipTransition | null;
+	exit?: ClipTransition | null;
+	enter_duration?: number | null;
+	exit_duration?: number | null;
+}
+
+/** A box on the stage in frame pixels from the top left, turned `rot` degrees clockwise around its centre. */
+export interface Geometry {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	rot: number;
+}
+
+/** How a video or an image fills its box (`data-fit`). */
+export type Fit = 'cover' | 'contain' | 'fill';
+
+/** How a clip comes in or goes out (`data-enter`, `data-exit`). */
+export type ClipTransition =
+	| 'fade'
+	| 'slide-left'
+	| 'slide-right'
+	| 'slide-up'
+	| 'slide-down'
+	| 'zoom-in'
+	| 'zoom-out'
+	| 'wipe-left'
+	| 'wipe-right'
+	| 'blur'
+	| 'pop';
+
+/** How a scene comes in (frontmatter `transition`). */
+export type SceneTransition = 'fade' | 'dip' | 'slide-left' | 'slide-right' | 'wipe-left' | 'wipe-right' | 'zoom';
+
+/** What `update_clip` changes: a field left out keeps its attribute, `null` removes it. */
+export interface ClipUpdate {
+	x?: number | null;
+	y?: number | null;
+	w?: number | null;
+	h?: number | null;
+	rot?: number | null;
+	fit?: Fit | null;
+	opacity?: number | null;
+	volume?: number | null;
+	enter?: ClipTransition | null;
+	exit?: ClipTransition | null;
+	enter_duration?: number | null;
+	exit_duration?: number | null;
 }
 
 /** One scene of the timeline, with its clips. */
@@ -37,11 +91,16 @@ export interface Scene {
 	duration: number;
 	layout: string;
 	clips: Clip[];
+	transition?: SceneTransition | null;
+	transition_duration?: number | null;
 }
 
 /** The model the timeline draws, as `GET /api/projects/{id}/timeline` answers it. */
 export interface Timeline {
 	scenes: Scene[];
+	/** The stage size in pixels. */
+	width?: number;
+	height?: number;
 }
 
 /** One timeline edit of `POST /api/projects/{id}/edits`, tagged by `op`. */
@@ -54,7 +113,9 @@ export type Op =
 	| { op: 'set_scene_duration'; scene: number; duration: number }
 	| { op: 'reorder_scene'; scene: number; to: number }
 	| { op: 'delete_scene'; scene: number }
-	| { op: 'add_scene'; at: number; duration: number; body: string };
+	| { op: 'add_scene'; at: number; duration: number; body: string }
+	| ({ op: 'update_clip'; clip: string } & ClipUpdate)
+	| { op: 'set_scene_transition'; scene: number; transition: SceneTransition | null; duration?: number | null };
 
 /** Where an uploaded file stands: still being probed, usable, or refused. */
 export type AssetState = 'probing' | 'ready' | 'failed' | 'deleted';

@@ -60,7 +60,12 @@ pub fn ops(raw: &[Value]) -> Result<Vec<Op>> {
 
 fn named(op: &Op) -> Vec<String> {
     match op {
-        Op::MoveClip { clip, .. } | Op::TrimClip { clip, .. } | Op::DeleteClip { clip } => vec![clip.clone()],
+        Op::MoveClip { clip, .. }
+        | Op::TrimClip { clip, .. }
+        | Op::DeleteClip { clip }
+        | Op::UpdateClip { clip, .. } => {
+            vec![clip.clone()]
+        }
         Op::SplitClip { clip, .. } => vec![clip.clone(), format!("{clip}-b")],
         _ => Vec::new(),
     }

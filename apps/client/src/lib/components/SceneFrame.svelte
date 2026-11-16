@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { stageMessage, type StageInfo, type StageState } from '$lib/project/stage';
+	import { stageBoxes, stageMessage, type StageBoxes, type StageInfo, type StageState } from '$lib/project/stage';
 
 	type Layer = { key: number; src: string; phase: 'loading' | 'seeking' | 'shown' };
 
@@ -11,7 +11,8 @@
 		playing = false,
 		lazy = false,
 		onready,
-		onstate
+		onstate,
+		onboxes
 	}: {
 		/** The URL of a compiled document. A new URL loads behind the shown one and replaces it once drawn. */
 		src: string;
@@ -23,6 +24,8 @@
 		lazy?: boolean;
 		onready?: (info: StageInfo) => void;
 		onstate?: (state: StageState) => void;
+		/** The boxes of the clips shown, in stage pixels, after every seek of the shown document. */
+		onboxes?: (boxes: StageBoxes) => void;
 	} = $props();
 
 	let layers = $state<Layer[]>([]);
@@ -58,6 +61,8 @@
 
 	function onmessage(event: MessageEvent) {
 		const layer = layers.find((known) => frames.get(known.key)?.contentWindow === event.source);
+		const boxes = layer?.phase === 'shown' ? stageBoxes(event.data) : null;
+		if (boxes) onboxes?.(boxes);
 		const message = layer ? stageMessage(event.data) : null;
 		if (!layer || !message) return;
 		if (message.type === 'scene:ready') {

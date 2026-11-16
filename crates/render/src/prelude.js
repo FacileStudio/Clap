@@ -34,7 +34,11 @@
     const left = Math.max(0, scene.duration - start);
     const duration = el.dataset.duration === undefined ? left : Math.min(Number(el.dataset.duration) || 0, left);
     const volume = el.dataset.volume === undefined ? 1 : Number(el.dataset.volume);
+    const layout = window.__clapLayout;
+    const sound = layout ? layout.sound(el) : { fade_in: 0, fade_out: 0 };
     return {
+      ...sound,
+      hold: layout ? layout.hold(el) : 0,
       at: scene.start + start,
       duration,
       offset: Math.max(0, Number(el.dataset.in) || 0),

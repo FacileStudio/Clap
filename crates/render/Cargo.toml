@@ -17,4 +17,5 @@ thiserror = "2.0.21"
 url = "2.5.8"
 
 [dev-dependencies]
-facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.1.0" }
+clap-timeline = { path = "../timeline" }
+facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.2.0" }

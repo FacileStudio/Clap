@@ -6,22 +6,41 @@ MCP edit tool both go through it, so a drag and an agent edit leave the same kin
 
 The file format itself is `facile-scene`'s; its reference is `docs/format.md` in
 `FacileStudio/Diapo`. This crate adds nothing to the format except two attributes it reads:
-`data-in` and `data-clip`.
+`data-in` and `data-clip`, the stage attributes `data-x`, `data-y`, `data-w`, `data-h`,
+`data-rot`, `data-fit`, `data-opacity`, `data-enter`, `data-exit`, `data-enter-duration` and
+`data-exit-duration`, and two scene keys, `transition` and `transition_duration`.
+
+`facile-scene` refuses frontmatter keys it does not define, so `parse` checks the two scene keys
+and hands the scene parser the source with them folded into the scene's `class` line, as
+`clap-transition-<name>` and `clap-transition-ms-<milliseconds>`, every line keeping its number.
+The compiled section carries the classes and the runtime reads the transition from them. Every
+place that parses a Clap source calls `clap_timeline::parse`, never `scene::parse`.
 
 ## The public API
 
 ```rust
 pub fn read(source: &str) -> Result<Timeline, Error>;
 pub fn apply(source: &str, ops: &[Op]) -> Result<String, Error>;
+pub fn parse(source: &str) -> Result<scene::Project, scene::Errors>;
 
 pub struct Timeline { pub title: String, pub width: u32, pub height: u32, pub duration: f64,
                       pub scenes: Vec<Scene> }
 impl Timeline { pub fn clip(&self, id: &str) -> Option<&Clip> }
 pub struct Scene { pub index: usize, pub start: f64, pub duration: f64, pub fixed_duration: bool,
-                   pub layout: String, pub lines: Span, pub clips: Vec<Clip> }
+                   pub layout: String, pub lines: Span, pub transition: Option<String>,
+                   pub transition_duration: Option<f64>, pub clips: Vec<Clip> }
 pub struct Clip { pub id: String, pub kind: Kind, pub src: Option<String>, pub start: f64,
                   pub duration: f64, pub track: i64, pub media_in: f64, pub scene: usize,
-                  pub lines: Span }
+                  pub lines: Span, pub look: Look }
+pub struct Look { pub frame: Option<Geometry>, pub fit: Option<String>, pub opacity: Option<f64>,
+                  pub volume: Option<f64>, pub enter: Option<String>, pub exit: Option<String>,
+                  pub enter_duration: Option<f64>, pub exit_duration: Option<f64> }
+pub struct Geometry { pub x: f64, pub y: f64, pub w: f64, pub h: f64, pub rot: f64 }
+pub struct Update { pub x: Option<Option<f64>>, /* and y, w, h, rot, fit, opacity, volume,
+                    enter, exit, enter_duration, exit_duration */ }
+pub const CLIP_TRANSITIONS: [&str; 11];
+pub const SCENE_TRANSITIONS: [&str; 7];
+pub const FITS: [&str; 3];
 pub struct Span { pub first: usize, pub last: usize }
 pub enum Kind { Video, Audio, Image, Text, Html }
 pub enum Error { Parse(String), UnknownClip(String), UnknownScene(usize),
@@ -50,7 +69,10 @@ is, the API serves the JSON.
   {"index": 0, "start": 0.0, "duration": 6.0, "fixed_duration": true, "layout": "raw",
    "lines": {"first": 7, "last": 22}, "clips": [
     {"id": "shot", "kind": "video", "src": "assets/shot.mp4", "start": 0.0, "duration": 4.0,
-     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12}}]}]}
+     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12},
+     "frame": {"x": 0.0, "y": 0.0, "w": 1280.0, "h": 720.0, "rot": 0.0}, "fit": "cover",
+     "opacity": null, "volume": null, "enter": "fade", "exit": null, "enter_duration": null,
+     "exit_duration": null}], "transition": null, "transition_duration": null}]}
 ```
 
 - A **clip** is an element that carries `data-start`, in any layout. Elements inside a fenced
@@ -61,6 +83,11 @@ is, the API serves the JSON.
 - `kind` is `video`, `audio` or `image` by tag; `text` for an element that holds text and no
   other element; `html` for everything else.
 - `lines` are 1-based source lines, both ends included.
+- `frame` is the box of `data-x`, `data-y`, `data-w`, `data-h` and `data-rot` in frame pixels,
+  `null` without any of them; one that is missing reads as the full frame's. `fit`, `opacity`,
+  `volume`, `enter`, `exit`, `enter_duration` and `exit_duration` are the attribute, `null`
+  without it or when the runtime would ignore its value. In Rust they sit in `clip.look`.
+- `transition` and `transition_duration` are the scene's frontmatter keys, `null` without.
 - `fixed_duration` says whether the scene's frontmatter sets `duration`. When it does not, the
   scene lasts as long as its last clip and grows with it.
 
@@ -81,11 +108,13 @@ JSON, tagged by `op`. Times are seconds.
 | `trim_clip` | `clip`, `start?`, `duration?`, `media_in?` | Sets `data-start`, `data-duration`, `data-in`. |
 | `split_clip` | `clip`, `at` | Shortens the clip to `at` and adds a copy of the element after it, from `at`, with id `<id>-b`. For a video or an audio the copy's `data-in` moves forward by the same amount. |
 | `delete_clip` | `clip` | Removes the element, and its lines when it is alone on them. |
-| `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
+| `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, which also get the full-frame box (`data-x="0" data-y="0"`, the stage size, `data-rot="0"`) and `data-fit="cover"`, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
 | `set_scene_duration` | `scene`, `duration` | Sets the `duration` key, adding the key or the frontmatter block when missing. |
 | `reorder_scene` | `scene`, `to` | Moves the scene's lines so that it sits at index `to`. |
 | `delete_scene` | `scene` | Removes the scene's lines. The last scene cannot be removed. |
 | `add_scene` | `at`, `duration`, `body` | Inserts a scene at index `at`. A body that starts with `<` gets `layout: raw`. |
+| `update_clip` | `clip`, `x?`, `y?`, `w?`, `h?`, `rot?`, `fit?`, `opacity?`, `volume?`, `enter?`, `exit?`, `enter_duration?`, `exit_duration?` | Sets each attribute given (`data-x`, ..., `data-enter-duration`); a JSON `null` removes it with the spaces before it. `w`, `h` and the durations are above 0, `opacity` and `volume` from 0 to 1, `fit` one of `FITS`, `enter` and `exit` one of `CLIP_TRANSITIONS`. |
+| `set_scene_transition` | `scene`, `transition`, `duration?` | Sets the `transition` key, and `transition_duration` when `duration` is a number. A `null` transition removes both keys, a `null` duration that one; a frontmatter block left empty goes too. `transition` is one of `SCENE_TRANSITIONS`. |
 
 ```json
 [{"op": "move_clip", "clip": "shot", "start": 1.5, "track": 2},
@@ -106,7 +135,9 @@ written.
 
 An op followed by its inverse returns the original text when the original wrote its numbers
 that way. The property tests check this for move, trim, reorder, set duration, add then delete
-a clip, and add then delete a scene. `split_clip` and `delete_clip` have no inverse op: undo
+a clip, add then delete a scene, an `update_clip` then the one that removes what it wrote, and a
+transition set then cut. The inverse of `update_clip` names the previous value of each field, or
+`null`; the inverse of `set_scene_transition` names the previous transition and duration. `split_clip` and `delete_clip` have no inverse op: undo
 them by restoring the previous source.
 
 ### The first scene and the headmatter
@@ -134,14 +165,50 @@ a track and a moment. A clip without `data-track-index` is never checked: titles
 written by hand usually have none and overlap on purpose. Sources that already overlap are
 read without complaint; the rule applies to what an op places.
 
-## The preview runtime
+## The stage runtime
 
-`facile-scene`'s runtime hides a clip outside its time but does not drive media. `RUNTIME_JS`
-does, for the preview: after each `window.__scene.seek(t)` it sets every shown `<video>` and
-`<audio>` to `data-in + (t - scene start - data-start)`, pauses the others, and applies
-`data-volume`. `with_runtime(html)` adds it to a compiled document. A parent frame posts
-`{type: "clap:playing", playing: true}` to let media play between seeks. Under the renderer the
-script does nothing: the renderer swaps frames in itself (see [Rendering](rendering.md)).
+`facile-scene`'s runtime hides a clip outside its time but neither places clips nor drives
+media. `RUNTIME_JS` wraps `window.__scene.seek` and runs after every seek, also the seeks a
+parent posts as `scene:seek`. `with_runtime(html)` adds it to a compiled document.
+
+**Layout and transitions, in the preview and under the renderer.** Each clip that carries a
+stage attribute gets an inline `position: absolute` box from `data-x`, `data-y`, `data-w` and
+`data-h` as percentages of the stage, `rotate(data-rot)`, `object-fit` from `data-fit` (`cover`
+without it) and `data-opacity`. Its enter and exit presets apply at the seek time: a progress
+`p` from 0 to 1 over the preset's duration (0.5 s without one, at most half the clip), eased
+cubic in-out, drives opacity, a translation by the clip's own size, a scale, a blur or an
+`inset()` clip path. A scene transition (0.6 s without `transition_duration`, at most the
+scene) does the same to the incoming section. `fade`, the slides, the wipes and `zoom` show the
+scene before under it: the seek first draws that scene at `start + duration - 0.0001`, then the
+asked time, and keeps the earlier section visible, so its clips stand where they ended. `dip`
+fades the scene before out over the last half of the duration and this one in over the first
+half, over a black stage. Nothing depends on a clock, so a scrub and a frame-by-frame render
+show the same frame.
+
+**Media, in the preview only.** Every shown `<video>` and `<audio>` goes to
+`data-in + (t - scene start - data-start)`, the others pause, `data-volume` applies, multiplied
+by a linear ramp for `data-enter="fade"` and `data-exit="fade"`. The video of a scene held under
+a transition stays on its last frame. A parent posts `{type: "clap:playing", playing}` to let
+media play between seeks. Under the renderer the renderer swaps frames in itself and reads
+`window.__clapLayout.sound(el)` and `.hold(el)` for the fades and the held frames (see
+[Rendering](rendering.md)).
+
+**Messages to the editor, in the preview only.** After every seek the document posts to its
+parent
+
+```json
+{"type": "clap:boxes", "t": 2.5, "clips": [
+  {"id": "image-1", "kind": "image", "x": 100, "y": 100, "w": 200, "h": 200, "rot": 0}]}
+```
+
+with each clip shown at `t` (not hidden by its time, not an `<audio>`): `kind` is `video`,
+`image`, `text` or `html`; the box is the clip's attributes in stage pixels, unanimated, or for
+a clip without any, its measured bounding box with `rot` 0. Ids follow the rules of "Clip ids".
+The parent may post `{type: "clap:ghost", id, x, y, w, h, rot}` to draw one clip at a temporary
+box during a drag; it lasts until the next `clap:ghost`, and one without a valid box (`w` and
+`h` above 0, every value finite) clears it. Each ghost redraws and posts `clap:boxes` again.
+The client reads `clap:boxes` with `stageBoxes` (`apps/client/src/lib/project/stage.ts`), which
+treats the frame as untrusted.
 
 ## The stage
 

@@ -67,7 +67,7 @@ fn an_added_clip_is_deleted_back_to_the_same_text() {
         text: text.map(str::to_owned),
     };
     let added = apply(LAUNCH, &[add(Kind::Video, Some("assets/b.mp4"), None)]).unwrap();
-    let line = "Today, everywhere.</p>\n<video class=\"clap-fill\" data-clip=\"video-1\" src=\"assets/b.mp4\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\"></video>\n";
+    let line = "Today, everywhere.</p>\n<video class=\"clap-fill\" data-clip=\"video-1\" src=\"assets/b.mp4\" data-start=\"4\" data-duration=\"2\" data-track-index=\"0\" data-x=\"0\" data-y=\"0\" data-w=\"1280\" data-h=\"720\" data-rot=\"0\" data-fit=\"cover\"></video>\n";
     assert_eq!(added, LAUNCH.replace("Today, everywhere.</p>\n", line));
     assert_eq!(apply(&added, &[Op::DeleteClip { clip: id("video-1") }]).unwrap(), LAUNCH);
     let text = apply(LAUNCH, &[add(Kind::Text, None, Some("a < b"))]).unwrap();

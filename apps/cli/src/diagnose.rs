@@ -71,7 +71,7 @@ fn lost(source: &str, path: &str) -> Diagnostic {
 /// Reads and checks the project of `folder`.
 pub fn inspect(folder: &Folder) -> Outcome<Report> {
     let source = folder.source()?;
-    Ok(match scene::parse(&source) {
+    Ok(match clap_timeline::parse(&source) {
         Ok(project) => {
             let problems = missing_assets(folder, &source, &project);
             Report { source, project: Some(project), problems }

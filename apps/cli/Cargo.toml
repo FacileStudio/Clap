@@ -18,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 clap-render = { path = "../../crates/render" }
 clap-timeline = { path = "../../crates/timeline" }
-facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.1.0" }
+facile-scene = { git = "https://github.com/FacileStudio/Diapo", tag = "v0.2.0" }
 clap = { version = "4.6.7", features = ["derive"] }
 ctrlc = "3.5.1"
 notify = "8.2.0"

@@ -33,7 +33,7 @@ struct FrameQuery {
 
 async fn compiled(state: &AppState, id: Uuid, only: Option<usize>) -> Result<String, ProjectError> {
     let row = fetch(state, id).await?;
-    let parsed = scene::parse(&row.source).map_err(ProjectError::Invalid)?;
+    let parsed = clap_timeline::parse(&row.source).map_err(ProjectError::Invalid)?;
     let catalog = assets::catalog(state, id).await?;
     let proxied: HashMap<&str, bool> = catalog.iter().map(|asset| (asset.name.as_str(), asset.has_proxy)).collect();
     let token = state.frame_key.token(id, now() + TTL.as_secs());

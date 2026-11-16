@@ -1,10 +1,11 @@
-//! What Clap adds to a compiled scene document: a stage for clips, and media that follows `seek`.
+//! What Clap adds to a compiled scene document: a stage that lays clips out and transitions
+//! them at every `seek`, and media that follows it.
 
-/// A script for the preview. `facile-scene`'s runtime hides a clip outside its time, but it does
-/// not drive media: after every `window.__scene.seek(t)`, this sets each shown `<video>` and
-/// `<audio>` to `data-in + (t - scene start - data-start)` and applies `data-volume`. A parent
-/// frame posts `{type: "clap:playing", playing}` to let media play between seeks. The renderer
-/// sets `window.__clapRender` and the script then does nothing: a render swaps frames in itself.
+/// The stage runtime, wrapped around `window.__scene.seek`. After every seek it lays out each
+/// clip from its stage attributes and applies the clip and scene transitions at that time, in
+/// the preview and under the renderer alike. In the preview only, it also keeps each shown
+/// `<video>` and `<audio>` at `data-in + (t - scene start - data-start)` with its volume, posts
+/// `clap:boxes` to the parent and draws a `clap:ghost`. `docs/timeline.md` has the messages.
 pub const RUNTIME_JS: &str = include_str!("runtime.js");
 
 /// The stage stylesheet. A raw scene is a black stage with light text, and every element that

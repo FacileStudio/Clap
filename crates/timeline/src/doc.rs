@@ -1,7 +1,8 @@
 //! A source file as the lines of its scenes, so that a scene can move without a byte of it
 //! changing.
 
-use crate::lines::{key, scene_key, text};
+use crate::lines::{key, scene_key, text, unquoted};
+use crate::model::{Scene, Span};
 
 /// The frontmatter block of one scene.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,6 +38,23 @@ pub(crate) struct Doc {
 }
 
 impl Unit {
+    /// The scene this unit holds, its clips left empty, from what the scene parser read of it.
+    pub(crate) fn scene(&self, index: usize, start: f64, parsed: &scene::Scene) -> Scene {
+        let lines = self.front.iter().flat_map(|front| &front.lines);
+        let value = |name: &str| lines.clone().find(|line| key(line) == Some(name)).map(|line| unquoted(line));
+        Scene {
+            index,
+            start,
+            duration: parsed.duration,
+            fixed_duration: value("duration").is_some(),
+            layout: parsed.layout.name().to_owned(),
+            lines: Span { first: self.line, last: (self.line + self.body.len()).saturating_sub(1).max(self.line) },
+            transition: value("transition").map(str::to_owned),
+            transition_duration: value("transition_duration").and_then(|text| text.parse().ok()),
+            clips: Vec::new(),
+        }
+    }
+
     pub(crate) fn all(self) -> Vec<String> {
         let front = self.front.map(|front| [front.lines, vec![front.close]].concat()).unwrap_or_default();
         [self.sep.into_iter().collect(), front, self.body].concat()

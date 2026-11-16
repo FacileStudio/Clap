@@ -39,6 +39,12 @@ pub struct Scene {
     pub layout: String,
     /// The source lines of the scene body.
     pub lines: Span,
+    /// The frontmatter `transition`: how the scene comes in, one of [`SCENE_TRANSITIONS`].
+    ///
+    /// [`SCENE_TRANSITIONS`]: crate::SCENE_TRANSITIONS
+    pub transition: Option<String>,
+    /// The frontmatter `transition_duration`, in seconds. Without it a transition lasts 0.6 s.
+    pub transition_duration: Option<f64>,
     /// The clips, in source order.
     pub clips: Vec<Clip>,
 }
@@ -66,6 +72,53 @@ pub struct Clip {
     pub scene: usize,
     /// The source lines of the element, start tag to end tag.
     pub lines: Span,
+    /// Where the clip sits on the stage and how it comes and goes. In JSON its fields sit on the
+    /// clip itself.
+    #[serde(flatten)]
+    pub look: Look,
+}
+
+/// A box on the stage, in frame pixels from the top left corner, turned `rot` degrees clockwise
+/// around its centre.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Geometry {
+    /// `data-x`.
+    pub x: f64,
+    /// `data-y`.
+    pub y: f64,
+    /// `data-w`.
+    pub w: f64,
+    /// `data-h`.
+    pub h: f64,
+    /// `data-rot`, in degrees.
+    pub rot: f64,
+}
+
+/// The stage attributes of a clip. Each one is `None` when the element does not carry it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct Look {
+    /// The box from `data-x`, `data-y`, `data-w`, `data-h` and `data-rot`, when the element
+    /// carries at least one of them; a missing one is the full frame's (0, 0, the stage size, 0).
+    /// Without any, the clip keeps the box its classes give it.
+    pub frame: Option<Geometry>,
+    /// `data-fit`: `cover`, `contain` or `fill`.
+    pub fit: Option<String>,
+    /// `data-opacity`, from 0 to 1.
+    pub opacity: Option<f64>,
+    /// `data-volume`, from 0 to 1.
+    pub volume: Option<f64>,
+    /// `data-enter`: one of [`CLIP_TRANSITIONS`].
+    ///
+    /// [`CLIP_TRANSITIONS`]: crate::CLIP_TRANSITIONS
+    pub enter: Option<String>,
+    /// `data-exit`: one of [`CLIP_TRANSITIONS`].
+    ///
+    /// [`CLIP_TRANSITIONS`]: crate::CLIP_TRANSITIONS
+    pub exit: Option<String>,
+    /// `data-enter-duration`, in seconds.
+    pub enter_duration: Option<f64>,
+    /// `data-exit-duration`, in seconds.
+    pub exit_duration: Option<f64>,
 }
 
 /// 1-based source lines, both ends included.

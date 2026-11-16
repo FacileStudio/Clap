@@ -144,8 +144,11 @@ ready, so the renderer takes decoding away from it, as the article describes.
    Nothing is copied from one element to another at capture time.
 2. Once the scene is loaded, `window.__clap.scan()` answers each media element with its place
    on the project timeline: the start of its scene plus `data-start`, its length cut at the
-   end of its scene, `data-in` and `data-volume`. A source that does not resolve to a file
-   inside the bundle fails the render.
+   end of its scene, `data-in` and `data-volume`, the fades of its sound (`fade_in`,
+   `fade_out`) and how long it holds its last frame under the next scene's transition (`hold`).
+   The last three come from `window.__clapLayout`, the stage runtime of
+   `clap_timeline::RUNTIME_JS`, so the render reads them where the preview does. A source that
+   does not resolve to a file inside the bundle fails the render.
 3. `src/stock.rs` runs one ffmpeg per video, for the frames the render will show and no
    others: `-ss <data-in + offset> -i <file> -vf fps=<fps> -frames:v <count> -q:v 2`, into
    `<bundle>/.clap-frames-XXXXXX/<n>/%06d.jpg`. The directory is inside the bundle, so the
@@ -155,7 +158,15 @@ ready, so the renderer takes decoding away from it, as the article describes.
 4. In the capture loop, between `seek` and the shot, `window.__clap.show` sets the `src` of
    each active `<img>` to the still for that frame and resolves when every `load` event has
    fired. With `--disable-checker-imaging` the still is decoded before the frame is drawn.
-   A file shorter than its clip holds its last frame.
+   A file shorter than its clip holds its last frame, and so does a video for its `hold`, while
+   the next scene crossfades, slides or wipes in over it.
+
+The stage runtime runs under the renderer too: every `window.__scene.seek(t)` lays out the clips
+from `data-x`, `data-y`, `data-w`, `data-h` and `data-rot`, and applies `data-fit`,
+`data-opacity` and the clip and scene transitions at `t`, from `t` alone. During a transition
+that shows the scene before, the seek first draws that scene at its last instant, then the one
+asked, so its clips and timelines stand where they ended. `crates/render/tests/stage.rs`
+checks a placed picture pixel by pixel, a fade, a dip and a crossfade.
 
 Two limits follow from the swap. A CSS or timeline selector that names the tag (`video { … }`,
 `tl.to("video", …)`) does not reach the `<img>`: select a video clip by id or class. A
@@ -167,7 +178,10 @@ the removed `<video>`.
 Every `<audio>` and every `<video>` with a sound stream is one input of a single ffmpeg filter
 graph, in the same ffmpeg process that encodes the picture (`src/audio.rs`). Each input is
 opened at its media offset for its length (`-ss`, `-t`), brought to 48 kHz stereo, scaled by
-`data-volume` (1 without it, above 1 amplifies), delayed to its place with `adelay` in samples,
+`data-volume` (1 without it, above 1 amplifies), ramped from and to silence over its
+`data-enter-duration` or `data-exit-duration` when `data-enter` or `data-exit` is `fade` (a
+`volume` expression of the time, linear, evaluated per audio frame like the preview evaluates
+it per seek), delayed to its place with `adelay` in samples,
 and all are summed with `amix=normalize=0`. The mix is padded and cut to exactly the length of
 the picture and encoded as AAC at 192 kb/s. An element with the `muted` attribute or a volume
 of 0 is left out. A scene with no sound gives an MP4 with no audio stream. Whether a file has

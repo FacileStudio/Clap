@@ -1,47 +1,11 @@
 //! Properties over generated sources: an op then its inverse returns the original text, and
 //! whatever an op answers still parses.
 
-use clap_timeline::{Kind, Op, apply, read};
+mod support;
+
+use clap_timeline::{Kind, Op, Update, apply, read};
 use proptest::prelude::*;
-
-/// One generated clip: start and duration in quarter seconds, and which element it is.
-type ClipSpec = (u32, u32, u8);
-
-fn quarter(n: u32) -> f64 {
-    f64::from(n) / 4.0
-}
-
-fn element(scene: usize, nth: usize, (start, duration, kind): ClipSpec) -> String {
-    let timing = format!(
-        "data-start=\"{}\" data-duration=\"{}\" data-track-index=\"{nth}\"",
-        quarter(start),
-        quarter(duration + 1)
-    );
-    match kind % 3 {
-        0 => format!("  <p id=\"c{scene}x{nth}\" {timing}>Line {nth}</p>\n"),
-        1 => {
-            format!("<video data-clip=\"c{scene}x{nth}\" src=\"assets/v{nth}.mp4\" {timing} data-in=\"0.5\"></video>\n")
-        }
-        _ => format!("<div class=\"clip\" id=\"c{scene}x{nth}\" {timing}>\n  <b>Bold</b>\n</div>\n"),
-    }
-}
-
-fn source(scenes: &[(u32, Vec<ClipSpec>)]) -> String {
-    let mut out = String::from("---\ntitle: Generated\nsize: 1280x720\n");
-    for (index, (duration, clips)) in scenes.iter().enumerate() {
-        let open = if index == 0 { "" } else { "---\n" };
-        out.push_str(&format!("{open}layout: raw\nduration: {}\n---\n\n<!-- scene {index} -->\n", duration + 4));
-        let elements: Vec<String> = clips.iter().enumerate().map(|(nth, clip)| element(index, nth, *clip)).collect();
-        out.push_str(&elements.concat());
-        out.push_str("<script>\n  const tag = '<p data-start=\"9\">';\n</script>\n\n");
-    }
-    out
-}
-
-fn scenes() -> impl Strategy<Value = Vec<(u32, Vec<ClipSpec>)>> {
-    let clip = (0u32..8, 0u32..8, 0u8..3);
-    prop::collection::vec((0u32..8, prop::collection::vec(clip, 0..4)), 1..4)
-}
+use support::{quarter, scenes, source};
 
 fn any_op() -> impl Strategy<Value = Op> {
     let clip = (0usize..3, 0usize..4).prop_map(|(scene, nth)| format!("c{scene}x{nth}"));
@@ -123,5 +87,30 @@ proptest! {
         let clip = Op::AddClip { scene: from, kind: Kind::Audio, src: Some("assets/a.mp3".into()), start: 0.0, duration: 1.0, track: 99, text: None };
         let with_clip = apply(&original, &[clip]).unwrap();
         prop_assert_eq!(apply(&with_clip, &[Op::DeleteClip { clip: "audio-1".into() }]).unwrap(), original);
+    }
+
+    #[test]
+    fn stage_ops_undo_to_the_same_text(spec in scenes(), pick in 0usize..16, x in -40i32..400, side in 1u32..400, scene in 0usize..3, which in 0usize..7) {
+        let original = source(&spec);
+        let timeline = read(&original).unwrap();
+        let clips: Vec<_> = timeline.scenes.iter().flat_map(|scene| &scene.clips).collect();
+        prop_assume!(!clips.is_empty());
+        let clip = clips[pick % clips.len()];
+        let some = |value: f64| Some(Some(value));
+        let update = Update { x: some(f64::from(x)), y: some(0.5), w: some(f64::from(side)), h: some(f64::from(side) / 2.0),
+            rot: some(-12.5), fit: Some(Some("contain".into())), opacity: some(0.25), enter: Some(Some("pop".into())),
+            exit_duration: some(0.75), ..Update::default() };
+        let placed = apply(&original, &[Op::UpdateClip { clip: clip.id.clone(), update }]).unwrap();
+        let undo = Update { x: Some(None), y: Some(None), w: Some(None), h: Some(None), rot: Some(None), fit: Some(None),
+            opacity: Some(None), enter: Some(None), exit_duration: Some(None), ..Update::default() };
+        prop_assert_eq!(apply(&placed, &[Op::UpdateClip { clip: clip.id.clone(), update: undo }]).unwrap(), original.clone());
+        let index = scene % spec.len();
+        let kind = clap_timeline::SCENE_TRANSITIONS[which].to_owned();
+        let set = Op::SetSceneTransition { scene: index, transition: Some(kind), duration: Some(Some(quarter(side % 8 + 1))) };
+        let cut = Op::SetSceneTransition { scene: index, transition: None, duration: None };
+        let with = apply(&original, &[set]).unwrap();
+        let written = read(&with).unwrap().scenes[index].transition.clone();
+        prop_assert_eq!(written.as_deref(), Some(clap_timeline::SCENE_TRANSITIONS[which]));
+        prop_assert_eq!(apply(&with, &[cut]).unwrap(), original);
     }
 }

@@ -94,7 +94,7 @@ pub async fn get(ctx: Context, call: Call, input: GetIn) -> Result<Answer<GetOut
     let project = service::read(&ctx.state, user(&call)?, project_id).await.map_err(ProjectError::Api)?;
     let catalog = assets::catalog(&ctx.state, project_id).await.map_err(ProjectError::Api)?;
     let names: Vec<String> = catalog.into_iter().map(|asset| asset.name).collect();
-    let parsed = scene::parse(&project.source).ok();
+    let parsed = clap_timeline::parse(&project.source).ok();
     let (source, truncated) = clip(&project.source, RESULT_BUDGET);
     let out = GetOut {
         id: project.id.to_string(),

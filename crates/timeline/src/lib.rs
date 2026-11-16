@@ -21,6 +21,7 @@ mod clips;
 mod cut;
 mod doc;
 mod error;
+mod geometry;
 mod guide;
 mod html;
 mod lines;
@@ -32,14 +33,18 @@ mod runtime;
 mod scan;
 mod scenes;
 mod starter;
+mod transition;
 mod tree;
+mod update;
 
 pub use error::Error;
+pub use geometry::{CLIP_TRANSITIONS, FITS, SCENE_TRANSITIONS};
 pub use guide::{CLAP_GUIDE, format_guide};
-pub use model::{Clip, Kind, Scene, Span, Timeline};
-pub use op::Op;
+pub use model::{Clip, Geometry, Kind, Look, Scene, Span, Timeline};
+pub use op::{Op, Update};
 pub use runtime::{RUNTIME_JS, STAGE_CSS, with_runtime};
 pub use starter::{starter, starter_language};
+pub use transition::parse;
 
 use clips::Trim;
 use scan::{Sketch, sketch};
@@ -74,6 +79,10 @@ fn edit(source: &str, sketch: &Sketch, op: &Op) -> Result<String, Error> {
         Op::ReorderScene { scene, to } => return scenes::reorder(sketch, *scene, *to),
         Op::DeleteScene { scene } => return scenes::delete(sketch, *scene),
         Op::AddScene { at, duration, body } => return scenes::add(sketch, *at, *duration, body),
+        Op::UpdateClip { clip, update } => update::update(source, sketch, clip, update)?,
+        Op::SetSceneTransition { scene, transition, duration } => {
+            return transition::set(sketch, *scene, transition.as_deref(), *duration);
+        }
     };
     Ok(patch::patched(source, 0..source.len(), patches))
 }
@@ -87,7 +96,7 @@ pub fn apply(source: &str, ops: &[Op]) -> Result<String, Error> {
         let after = edit(&text, &before, op)?;
         let grown = usize::from(matches!(op, Op::AddScene { .. }));
         let shrunk = usize::from(matches!(op, Op::DeleteScene { .. }));
-        let scenes = scene::parse(&after).map_err(|errors| Error::InvalidResult(errors.to_string()))?.scenes().len();
+        let scenes = parse(&after).map_err(|errors| Error::InvalidResult(errors.to_string()))?.scenes().len();
         if scenes + shrunk != before.stages.len() + grown {
             return Err(Error::InvalidResult(format!(
                 "the edit left {scenes} scenes: a body may not hold a `---` line"

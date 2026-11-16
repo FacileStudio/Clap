@@ -6,6 +6,7 @@ use std::ops::Range;
 use crate::Error;
 use crate::cut::cut;
 use crate::doc::Doc;
+use crate::geometry::look;
 use crate::lines::fenced;
 use crate::model::{Clip, Kind, Scene, Span};
 use crate::tree::{Element, elements};
@@ -77,6 +78,7 @@ fn masked(lines: &[String]) -> String {
 
 struct Reading<'a> {
     source: &'a str,
+    size: (u32, u32),
     starts: Vec<usize>,
     seen: HashSet<String>,
 }
@@ -113,6 +115,7 @@ impl Reading<'_> {
             media_in: number("data-in").unwrap_or(0.0).max(0.0),
             scene: scene.index,
             lines: self.span(element.tag.span.start..element.end),
+            look: look(&element, self.source, self.size),
         };
         Located { clip, tracked: element.attr("data-track-index").is_some(), element }
     }
@@ -120,22 +123,19 @@ impl Reading<'_> {
 
 /// Reads `source` into located scenes and clips.
 pub(crate) fn sketch(source: &str) -> Result<Sketch, Error> {
-    let project = scene::parse(source).map_err(|errors| Error::Parse(errors.to_string()))?;
+    let project = crate::parse(source).map_err(|errors| Error::Parse(errors.to_string()))?;
     let doc = cut(source);
     let agree = doc.units.len() == project.scenes().len();
     if !agree || doc.units.iter().zip(project.scenes()).any(|(unit, scene)| unit.line != scene.line) {
         return Err(Error::Parse("the timeline and the scene parser disagree on where the scenes are".to_owned()));
     }
     let starts = std::iter::once(0).chain(source.match_indices('\n').map(|(at, _)| at + 1)).collect();
-    let mut reading = Reading { source, starts, seen: HashSet::new() };
+    let size = (project.config().size.width, project.config().size.height);
+    let mut reading = Reading { source, size, starts, seen: HashSet::new() };
     let mut stages = Vec::new();
     let mut start = 0.0;
     for (index, (unit, parsed)) in doc.units.iter().zip(project.scenes()).enumerate() {
-        let fixed_duration =
-            unit.front.iter().flat_map(|front| &front.lines).any(|line| crate::lines::key(line) == Some("duration"));
-        let lines = Span { first: unit.line, last: (unit.line + unit.body.len()).saturating_sub(1).max(unit.line) };
-        let layout = parsed.layout.name().to_owned();
-        let scene = Scene { index, start, duration: parsed.duration, fixed_duration, layout, lines, clips: Vec::new() };
+        let scene = unit.scene(index, start, parsed);
         let text = if parsed.layout == scene::Layout::Raw { unit.body.concat() } else { masked(&unit.body) };
         let text = &text[..text.len().min(source.len() - unit.at)];
         let timed = elements(text, unit.at).into_iter().filter(|element| element.attr("data-start").is_some());

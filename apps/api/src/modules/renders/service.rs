@@ -59,7 +59,7 @@ pub async fn enqueue(
         return Err(Error::failed("the project is in the trash").into());
     }
     serving(state).await?;
-    let parsed = scene::parse(&source.source).map_err(ProjectError::Invalid)?;
+    let parsed = clap_timeline::parse(&source.source).map_err(ProjectError::Invalid)?;
     let size = parsed.config().size;
     let spec = spec::spec(request, (size.width, size.height), parsed.duration(), &state.limits.render)?;
     let plan = bundle::plan(&parsed, &assets::catalog(state, project).await?)?;
