@@ -14,12 +14,15 @@
 pub mod bundle;
 mod events;
 mod handlers;
+pub mod jobfs;
 pub mod mirror;
+pub mod output;
 pub mod posted;
 mod router;
 mod serve;
 pub mod service;
 pub mod spec;
+pub mod stage;
 pub mod status;
 pub mod sweep;
 pub mod types;
