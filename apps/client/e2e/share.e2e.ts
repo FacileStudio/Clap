@@ -10,6 +10,7 @@ const scratch = mkdtempSync(join(tmpdir(), 'clap-share-'));
 const clip = join(scratch, 'out.mp4');
 const ffmpeg = Bun.which('ffmpeg');
 const TITLE = 'Partage e2e';
+const SECONDS = 4;
 
 let stack: Stack;
 let browser: Browser;
@@ -18,7 +19,7 @@ let id = '';
 let url = '';
 
 function makeClip(): boolean {
-	const video = ['-f', 'lavfi', '-i', 'testsrc=duration=1:size=320x180:rate=15', '-c:v', 'libx264', '-pix_fmt', 'yuv420p'];
+	const video = ['-f', 'lavfi', '-i', `testsrc=duration=${SECONDS}:size=320x180:rate=15`, '-c:v', 'libx264', '-pix_fmt', 'yuv420p'];
 	return Bun.spawnSync([ffmpeg ?? 'ffmpeg', '-v', 'error', '-y', ...video, clip]).exitCode === 0;
 }
 
@@ -29,6 +30,15 @@ async function finished(render: string): Promise<void> {
 		await Bun.sleep(250);
 	}
 	throw new Error(`render ${render} never finished`);
+}
+
+async function pictured(token: string): Promise<void> {
+	for (let attempt = 0; attempt < 40; attempt += 1) {
+		const answer = await fetch(`${stack.base}/api/public/renders/${token}`);
+		if (answer.ok && ((await answer.json()) as { poster: string | null }).poster) return;
+		await Bun.sleep(250);
+	}
+	throw new Error('the shared render never got a poster');
 }
 
 const confirmIn = (page: Page, title: string, button: string) =>
@@ -79,6 +89,7 @@ test('once a render is done, the link is shown once with its embed code', async 
 test('a visitor without a session watches it, as a page and as an embed, through the public API only', async () => {
 	if (!url) return;
 	const token = url.split('/v/')[1];
+	await pictured(token);
 	const context = await browser.newContext({ locale: 'fr-FR', viewport: { width: 1280, height: 720 } });
 	const visitor = await context.newPage();
 	const calls: string[] = [];
@@ -86,6 +97,7 @@ test('a visitor without a session watches it, as a page and as an embed, through
 	await visitor.goto(url);
 	expect(await visitor.getByTestId('player-title').textContent()).toBe(TITLE);
 	expect(await visitor.getByTestId('made-with').getAttribute('href')).toBe('/');
+	expect(await visitor.getByTestId('player-video').getAttribute('poster')).toMatch(/thumbnail|poster/);
 	await visitor.waitForFunction(() => (document.querySelector('video')?.readyState ?? 0) >= 1, null, { timeout: 15_000 });
 	await visitor.keyboard.press('Space');
 	await waitData(visitor, 'player', 'playing', 'true');
