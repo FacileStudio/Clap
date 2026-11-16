@@ -1,16 +1,15 @@
+/*
+ * The Solar mark of Clap, frozen from the Solar icon set so nothing is fetched at runtime.
+ * Solar by 480 Design, CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+ */
 import { registerIcons } from '@facile/muse';
 
-/** The brand mark of Clap: a clapperboard, drawn in the linear style of the suite's icons. */
-export const logoIcon = 'clap:logo';
-
-const stroke = 'fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"';
-const slate = 'M3.5 10.5h17v6c0 2.400-1.100 3.500-3.500 3.500H7c-2.400 0-3.500-1.100-3.500-3.500Z';
-const arm = 'm3.500 10.500-.8-3.400c-.3-1.300.4-2.500 1.700-2.800l12.200-2.800c1.300-.3 2.500.4 2.800 1.700l.4 1.700Z';
-const stripes = 'm8.200 4.900 2.900 3.800M13.200 3.800l2.900 3.800';
+/** The brand mark of Clap: the Solar open clapperboard, matching the suite catalog. */
+export const logoIcon = 'solar:clapperboard-open-bold-duotone';
 
 registerIcons({
 	[logoIcon]: {
-		body: `<g ${stroke}><path d="${slate}"/><path d="${arm}"/><path d="${stripes}"/></g>`,
+		body: '<path fill="currentColor" d="M4 11H16C17.8856 11 18.8284 11 19.4142 11.5858C20 12.1716 20 13.1144 20 15V16C20 18.8284 20 20.2426 19.1213 21.1213C18.2426 22 16.8284 22 14 22H10C7.17157 22 5.75736 22 4.87868 21.1213C4 20.2426 4 18.8284 4 16V11Z" opacity=".5"/><path fill="currentColor" d="M13.3176 8.19993L13.9179 3.16598L9.20718 4.42823L9.16624 4.71262L8.56217 9.77744L13.2808 8.51307L13.3176 8.19993Z"/><path fill="currentColor" d="M3.48316 7.51489C3.2751 8.29135 3.517 9.19412 4.00079 10.9997L7 10.196L7.03904 9.88225L7.63943 4.84831L7.53633 4.87593C5.73079 5.35973 4.82802 5.60162 4.25961 6.17003C3.88724 6.5424 3.61945 7.00623 3.48316 7.51489Z"/><path fill="currentColor" d="M18.2482 7.18208L14.8407 8.09511L15.4448 3.0303L15.5 2.75802C15.6288 2.73232 15.739 2.71646 15.844 2.70958C17.0548 2.63022 18.1941 3.28804 18.7308 4.37629C18.8615 4.64129 18.9517 4.97791 19.1321 5.65114C19.1922 5.87556 19.2223 5.98776 19.2287 6.08604C19.2552 6.48964 19.0359 6.86943 18.6732 7.04832C18.5848 7.09188 18.4726 7.12195 18.2482 7.18208Z"/>',
 		width: 24,
 		height: 24
 	}
