@@ -53,20 +53,23 @@ async fn done(state: &AppState, id: Uuid, status: &Status) -> Result<bool, sqlx:
         tracing::error!(render = %id, %error, "renders: could not keep a finished file");
         return close(state, id, "failed", Some("the finished file could not be stored")).await;
     }
-    let stored = sqlx::query(
+    let stored = sqlx::query_as(
         "UPDATE renders SET state = 'done', frame = greatest($2, frame), frames = greatest($2, frames), error = NULL, \
          output = $3, size = $4, started_at = coalesce(started_at, now()), finished_at = now() \
-         WHERE id = $1 AND state IN ('queued', 'running')",
+         WHERE id = $1 AND state IN ('queued', 'running') RETURNING frames, fps",
     );
     let stored = stored.bind(id).bind(status.frames).bind(format!("outputs/{id}.mp4")).bind(size as i64);
-    let stored = stored.execute(&state.pool).await?;
+    let kept: Option<(i64, i32)> = stored.fetch_optional(&state.pool).await?;
     tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
-    Ok(stored.rows_affected() > 0)
+    if let Some((frames, fps)) = kept {
+        crate::modules::public::poster::make(state, id, frames * 1000 / i64::from(fps.max(1))).await;
+    }
+    Ok(kept.is_some())
 }
 
 /// Mirrors the status file of the unfinished render `id`, and answers whether its row moved. On
-/// `done` the file moves to durable storage and the job directory goes: the worker never
-/// deletes one.
+/// `done` the file moves to durable storage, the job directory goes (the worker never deletes
+/// one) and the poster is made beside the file.
 pub async fn mirror(state: &AppState, id: Uuid) -> Result<bool, sqlx::Error> {
     let Some(status) = status(&bundle::dir(&state.data_dir, id)).await else { return Ok(false) };
     let moved = match status.state.as_str() {

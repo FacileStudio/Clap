@@ -3,7 +3,7 @@ use axum::routing::get;
 use tronc::health::{self, Check};
 
 use crate::auth::{self, Kits};
-use crate::modules::{assets, assistant, events, frame, pending, projects, renders, spaces};
+use crate::modules::{assets, assistant, events, frame, pending, projects, public, renders, share, spaces};
 use crate::state::AppState;
 
 async fn api_not_found() -> tronc::Error {
@@ -16,6 +16,7 @@ fn protected(kits: &Kits, state: &AppState) -> Router<AppState> {
         .merge(projects::routes())
         .merge(events::routes())
         .merge(renders::routes())
+        .merge(share::routes())
         .merge(pending::routes(state.confirmations.clone()))
         .merge(assistant::routes())
         .route_layer(kits.sessions.require_auth())
@@ -27,7 +28,8 @@ fn api(kits: &Kits, state: &AppState) -> Router<AppState> {
         .merge(protected(kits, state))
         .merge(assets::routes(&kits.sessions))
         .merge(frame::routes(&kits.sessions))
-        .route("/renders", renders::posted_route());
+        .route("/renders", renders::posted_route())
+        .merge(public::api_routes());
     if let Some(syncer) = &kits.syncer {
         api = api.route("/registre/sync", syncer.nudge_route());
     }
@@ -38,12 +40,13 @@ fn api(kits: &Kits, state: &AppState) -> Router<AppState> {
 }
 
 /// The whole HTTP tree, before tronc's layers: probes, `/version`, `/docs`, `/mcp` when
-/// `mcp` is given, `/api`, then the SPA.
+/// `mcp` is given, `/api`, the public share pages, then the SPA.
 pub fn build_router(state: AppState, kits: &Kits, mcp: Option<tronc::mcp::App>) -> Result<Router, String> {
     let pool = state.pool.clone();
     let mut root = health::routes(vec![Check::db(pool)])
         .route("/version", get(crate::version::handler))
         .nest("/api", api(kits, &state))
+        .merge(public::root_routes(&state.embed_ancestors)?)
         .with_state(state.clone())
         .merge(tronc::apiref::routes(&crate::apiref::config(), crate::apiref::document())?);
     if let Some(app) = mcp {

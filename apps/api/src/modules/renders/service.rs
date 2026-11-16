@@ -125,6 +125,7 @@ pub async fn cancel(state: &AppState, user_id: i64, id: Uuid) -> Result<Option<R
     }
     sqlx::query("DELETE FROM renders WHERE id = $1").bind(id).execute(&state.pool).await.map_err(db)?;
     tokio::fs::remove_file(super::status::output(&state.data_dir, id)).await.ok();
+    tokio::fs::remove_file(crate::modules::public::poster::path(&state.data_dir, id)).await.ok();
     tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
     Ok(None)
 }
