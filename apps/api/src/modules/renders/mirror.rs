@@ -70,7 +70,8 @@ async fn done(state: &AppState, id: Uuid, status: &Status) -> Result<bool, sqlx:
     let kept: Option<(i64, i32)> = stored.fetch_optional(&state.pool).await?;
     tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
     if let Some((frames, fps)) = kept {
-        crate::modules::public::poster::make(state, id, frames * 1000 / i64::from(fps.max(1))).await;
+        let (state, duration_ms) = (state.clone(), frames * 1000 / i64::from(fps.max(1)));
+        tokio::spawn(async move { crate::modules::public::poster::make(&state, id, duration_ms).await });
     }
     Ok(kept.is_some())
 }
