@@ -31,6 +31,11 @@ function frameUrl(id: string, query: FrameQuery = {}): string {
 	return `${API}${project(id, '/frame')}${text ? `?${text}` : ''}`;
 }
 
+/** `asset` with a picture to show for it: its poster, or the file itself when it is an image. */
+export function pictured(asset: Asset): Asset {
+	return { ...asset, poster_url: asset.poster_url ?? (asset.kind === 'image' ? asset.url : null) };
+}
+
 /** Every call the client makes, one method per route. */
 export const backend = {
 	session: () => request<{ user: SessionUser | null; bulle_url?: string }>('/auth/session'),
@@ -46,11 +51,11 @@ export const backend = {
 	trash: (id: string, trashed: boolean) => request<ProjectSummary>(project(id), send('PATCH', { trashed })),
 	destroy: (id: string) => request<void>(project(id), send('DELETE')),
 	edit: (id: string, rev: number, ops: Op[]) =>
-		request<{ source: string; rev: number }>(project(id, '/edits'), send('POST', { rev, ops })),
+		request<{ source: string; rev: number; timeline?: Timeline }>(project(id, '/edits'), send('POST', { rev, ops })),
 	timeline: (id: string) => request<Timeline>(project(id, '/timeline')),
 	eventsUrl: (id: string) => `${API}${project(id, '/events')}`,
 	frameUrl,
-	assets: (id: string) => request<{ assets: Asset[] }>(project(id, '/assets')).then((found) => found.assets),
+	assets: (id: string) => request<{ assets: Asset[] }>(project(id, '/assets')).then((found) => found.assets.map(pictured)),
 	upload: (id: string, file: File, onprogress: (fraction: number) => void) =>
 		uploadAsset(`${API}${project(id, '/assets')}`, file, onprogress),
 	removeAsset: (id: string, name: string) =>

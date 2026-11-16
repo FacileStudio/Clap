@@ -41,6 +41,7 @@
 	const rows = $derived(trackRows(engine.timeline));
 	const starts = $derived(sceneStarts(engine.timeline));
 	const length = $derived(total(engine.timeline));
+	const clipCount = $derived(engine.timeline.scenes.reduce((sum, scene) => sum + scene.clips.length, 0));
 	const posters = $derived(new Map(assets.flatMap((asset) => (asset.poster_url ? [[asset.name, asset.poster_url]] : []))));
 
 	const host: GestureHost = {
@@ -119,7 +120,7 @@
 	aria-label={t('timeline.title')}
 	data-testid="timeline"
 	data-busy={engine.busy}
-	data-clips={engine.timeline.scenes.reduce((sum, scene) => sum + scene.clips.length, 0)}
+	data-clips={clipCount}
 >
 	{#if !readonly}
 		<TimelineToolbar
@@ -159,6 +160,9 @@
 						<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {posters} {readonly} {nodes} />
 					{/each}
 				</div>
+				{#if clipCount === 0 && !readonly}
+					<p class="pointer-events-none absolute top-24 left-4 text-fc-sm text-fc-fg-muted">{t('timeline.empty')}</p>
+				{/if}
 				{#if guide !== null}
 					<div class="pointer-events-none absolute inset-y-0 z-10 w-px bg-fc-warning" style="left: {guide * zoom}px"></div>
 				{/if}

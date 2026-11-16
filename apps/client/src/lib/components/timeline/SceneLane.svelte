@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Icon } from '@facile/muse';
+	import { icons } from '$lib/icons';
 	import { t } from '$lib/i18n';
 	import { FPS, shortTime } from '$lib/project/timecode';
 	import { clipGesture, type Grip } from '$lib/timeline/clip-gesture';
@@ -101,7 +103,7 @@
 >
 	<div class="absolute inset-y-0 right-px left-px overflow-hidden rounded-fc-md bg-fc-component">
 		<div
-			class="flex touch-none items-center gap-2 bg-fc-surface px-2.5 text-fc-xs whitespace-nowrap text-fc-fg-muted select-none
+			class="group/head flex touch-none items-center gap-2 bg-fc-surface px-2.5 text-fc-xs whitespace-nowrap text-fc-fg-muted select-none
 				focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-fc-ring
 				{locked ? '' : 'cursor-grab active:cursor-grabbing'}"
 			style="height: {HEAD}px"
@@ -114,6 +116,20 @@
 		>
 			<span class="font-semibold text-fc-fg">{t('timeline.scene', { scene: scene.index + 1 })}</span>
 			<span class="tabular-nums">{shortTime(scene.duration)}</span>
+			{#if !readonly && count > 1}
+				<button
+					type="button"
+					class="ml-auto flex size-5 items-center justify-center rounded-fc-sm opacity-0 group-hover/head:opacity-100
+						hover:bg-fc-field focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-fc-ring"
+					aria-label={t('timeline.scene.delete', { scene: scene.index + 1 })}
+					disabled={locked}
+					data-testid="scene-delete"
+					onpointerdown={(event) => event.stopPropagation()}
+					onclick={() => host.commit([{ op: 'delete_scene', scene: scene.index }])}
+				>
+					<Icon icon={icons.close} size={12} />
+				</button>
+			{/if}
 		</div>
 		<div class="relative" style="height: {rows.length * ROW}px">
 			{#each rows as track, row (track)}

@@ -77,6 +77,16 @@ describe('backend', () => {
 		expect([backend.eventsUrl('p'), backend.renderEventsUrl('r')]).toEqual(['/api/projects/p/events', '/api/renders/r/events']);
 	});
 
+	it('lists assets by their source path and shows an image as its own poster', async () => {
+		const video = { name: 'assets/a.mp4', kind: 'video', url: '/v', poster_url: '/v?variant=poster' };
+		const image = { name: 'assets/logo.png', kind: 'image', url: '/i', poster_url: null };
+		const fetch = stub(Response.json({ assets: [video, image] }));
+		expect((await backend.assets('p')).map((asset) => asset.poster_url)).toEqual(['/v?variant=poster', '/i']);
+		fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+		await backend.removeAsset('p', 'assets/my clip.mp4');
+		expect((fetch.mock.calls[1] as unknown as [string])[0]).toBe('/api/projects/p/assets/assets/my%20clip.mp4');
+	});
+
 	it('starts a render with its size, rate and range', async () => {
 		const fetch = stub(Response.json({ id: 'r1' }, { status: 201 }));
 		await backend.startRender('p', { width: 1280, height: 720, fps: 30, range: [1, 4] });
