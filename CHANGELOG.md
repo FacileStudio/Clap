@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-16
+
 ### Security
 
 - Uploads are decoded in the render worker's sandbox, never in `clap-api`, which holds the
