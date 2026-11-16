@@ -22,6 +22,7 @@
 	import MediaBin from './MediaBin.svelte';
 	import PreviewPane from './PreviewPane.svelte';
 	import RenderDialog from './RenderDialog.svelte';
+	import ShareDialog from './ShareDialog.svelte';
 	import SourceEditor from './SourceEditor.svelte';
 	import Splitter from './Splitter.svelte';
 
@@ -43,6 +44,7 @@
 	let panes = $state(loadPanes());
 	let compact = $state(!wide.matches);
 	let renderOpen = $state(false);
+	let shareOpen = $state(false);
 	let assistant = $state(DEFAULT_ASSISTANT.name);
 	let bulleOpen = $state(sidebarOpen(owner));
 
@@ -87,7 +89,7 @@
 	});
 
 	function onkeydown(event: KeyboardEvent) {
-		const command = claimed(event) || renderOpen ? null : commandOf(event);
+		const command = claimed(event) || renderOpen || shareOpen ? null : commandOf(event);
 		if (!command || (compact && EDITS.has(command))) return;
 		event.preventDefault();
 		runCommand(command, engine, transport);
@@ -154,6 +156,7 @@
 		{bulleOpen}
 		onrename={(next) => void desk.rename(next).catch(failed)}
 		onrender={() => (renderOpen = true)}
+		onshare={() => (shareOpen = true)}
 		ontogglebulle={() => (bulleOpen = !bulleOpen)}
 	/>
 	{#if saver.status === 'conflict'}
@@ -182,6 +185,14 @@
 	{/if}
 </div>
 
+<ShareDialog
+	bind:open={shareOpen}
+	id={desk.id}
+	title={desk.title}
+	width={size.width}
+	height={size.height}
+	onrender={() => (renderOpen = true)}
+/>
 <RenderDialog
 	bind:open={renderOpen}
 	id={desk.id}

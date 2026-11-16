@@ -21,6 +21,7 @@ registerIcons({
 	'clap:safe': line('<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="7" y="8.5" width="10" height="7" rx="1" stroke-dasharray="2 2"/>'),
 	'clap:video': line('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 5v14M16 5v14M3 10h5M3 14h5M16 10h5M16 14h5"/>'),
 	'clap:audio': line('<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.500" cy="16" r="2.5"/>'),
+	'clap:share': line('<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/>'),
 	'clap:image': line('<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="8.500" cy="9.500" r="1.500"/><path d="m4 17 5-5 4 4 3-3 4 4"/>')
 });
 
@@ -39,7 +40,8 @@ export const icons = {
 	safe: 'clap:safe',
 	video: 'clap:video',
 	audio: 'clap:audio',
-	image: 'clap:image'
+	image: 'clap:image',
+	share: 'clap:share'
 } as const;
 
 /** The icon of each clip kind. */
