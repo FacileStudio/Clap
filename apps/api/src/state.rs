@@ -33,6 +33,8 @@ pub struct AppState {
     pub media: Arc<Semaphore>,
     /// The MCP confirmation flow, when `/mcp` is on.
     pub confirmations: Option<Confirmations>,
+    /// Verifies the bearer of `POST /api/renders`; `None` without Registre.
+    pub machine: Option<Arc<porte::mcpauth::Verifier>>,
     /// Mints the person's tokens for other suite apps; `None` without Registre.
     pub exchanger: Option<Exchanger>,
     /// Where the person's assistant lives.

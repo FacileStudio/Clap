@@ -6,6 +6,9 @@ use crate::limits::Limits;
 use crate::modules::assets::tools::Tools;
 use crate::modules::assistant::Bulle;
 
+/// The prefix of the app's two scopes, `clap.read` and `clap.write`, on MCP and bearer tokens.
+pub const SCOPE_PREFIX: &str = "clap";
+
 /// Everything the binary reads from its environment.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -40,7 +43,8 @@ impl Config {
     pub fn from_vars(vars: &Vars) -> Result<Self, EnvError> {
         let core = Core::from_vars(vars, true)?;
         let text = |key: &str| vars.string(key, "").trim().to_owned();
-        let porte = porte::Config { app_name: "Clap".to_owned(), sso_only: true, ..porte::Config::from_vars(vars)? };
+        let porte =
+            machine(porte::Config { app_name: "Clap".to_owned(), sso_only: true, ..porte::Config::from_vars(vars)? });
         let config = Config {
             porte,
             token_key: text("PORTE_TOKEN_KEY"),
@@ -70,6 +74,18 @@ impl Config {
     }
 }
 
+/// Arms porte's bearer-JWT path when Registre is configured: a token Registre issued for this
+/// app (`OIDC_MACHINE_AUDIENCE`, the app's own client id unless set) opens the API within its
+/// `clap.read` and `clap.write` scopes. The scope prefix is fixed, as the MCP scopes are.
+fn machine(porte: porte::Config) -> porte::Config {
+    if !porte.enabled() {
+        return porte;
+    }
+    let audience =
+        if porte.machine_audience.is_empty() { porte.client_id.clone() } else { porte.machine_audience.clone() };
+    porte::Config { machine_audience: audience, scope_prefix: SCOPE_PREFIX.to_owned(), ..porte }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,15 +97,28 @@ mod tests {
     }
 
     #[test]
-    fn production_needs_the_issuer() {
+    fn production_needs_the_issuer_and_mcp_a_state_key() {
         let error = Config::from_vars(&vars(&[("APP_ENV", "production")])).unwrap_err();
         assert!(error.0.contains("OIDC_ISSUER"), "{error}");
+        let error = Config::from_vars(&vars(&[("MCP_RESOURCE", "https://clap.test/mcp")])).unwrap_err();
+        assert!(error.0.contains("MCP_STATE_KEY"), "{error}");
     }
 
     #[test]
-    fn mcp_needs_a_state_key() {
-        let error = Config::from_vars(&vars(&[("MCP_RESOURCE", "https://clap.test/mcp")])).unwrap_err();
-        assert!(error.0.contains("MCP_STATE_KEY"), "{error}");
+    fn registre_arms_the_bearer_path_for_the_apps_own_audience_and_scopes() {
+        let registre = [
+            ("OIDC_ISSUER", "https://sso.test"),
+            ("OIDC_CLIENT_ID", "clap"),
+            ("OIDC_CLIENT_SECRET", "s"),
+            ("OIDC_REDIRECT_URL", "https://clap.test/api/auth/oidc/callback"),
+            ("OIDC_SUCCESS_URL", "https://clap.test/"),
+            ("OIDC_CLI_AUDIENCE", "facile-cli"),
+        ];
+        let config = Config::from_vars(&vars(&registre)).unwrap();
+        assert_eq!((config.porte.machine_audience.as_str(), config.porte.scope_prefix.as_str()), ("clap", "clap"));
+        assert_eq!(config.porte.cli_audience, "facile-cli");
+        let bare = Config::from_vars(&vars(&[])).unwrap();
+        assert!(bare.porte.machine_audience.is_empty() && bare.porte.scope_prefix.is_empty());
     }
 
     #[test]

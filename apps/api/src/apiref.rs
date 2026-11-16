@@ -34,7 +34,8 @@ const ROUTES: &[Row] = &[
         "Saves {source, rev}; 409 on a stale rev, 422 on an invalid source",
         "200",
     ),
-    ("POST", "/projects/{id}/edits", "projects", "Applies timeline ops {rev, ops}; 503 until the engine ships", "200"),
+    ("POST", "/projects/{id}/edits", "projects", "Applies timeline ops {rev, ops}; 422 names the op error", "200"),
+    ("GET", "/projects/{id}/timeline", "projects", "The scenes and clips of the saved source, with its rev", "200"),
     ("GET", "/projects/{id}/events", "projects", "Server-sent events: changed {rev}, asset {name, state}", "200"),
     ("GET", "/projects/{id}/frame", "frame", "The compiled HTML, sandboxed (?scene=n, from 0)", "200"),
     ("GET", "/projects/{id}/assets", "assets", "The assets of a project", "200"),
@@ -55,6 +56,7 @@ const ROUTES: &[Row] = &[
     ("DELETE", "/projects/{id}/assets/{name}", "assets", "Deletes an asset", "204"),
     ("GET", "/projects/{id}/renders", "renders", "The renders of a project, newest first", "200"),
     ("POST", "/projects/{id}/renders", "renders", "Queues a render {width?, height?, fps?, range?}", "202"),
+    ("POST", "/renders", "renders", "Queues a render of a posted bundle (bearer, scope clap.write)", "202"),
     ("GET", "/renders/{id}", "renders", "One render: state, progress and download_url", "200"),
     (
         "DELETE",

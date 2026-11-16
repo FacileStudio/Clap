@@ -15,6 +15,7 @@ pub mod bundle;
 mod events;
 mod handlers;
 pub mod mirror;
+pub mod posted;
 mod router;
 mod serve;
 pub mod service;
@@ -23,4 +24,5 @@ pub mod status;
 pub mod sweep;
 pub mod types;
 
+pub use handlers::posted as posted_route;
 pub use router::routes;

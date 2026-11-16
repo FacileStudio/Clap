@@ -39,6 +39,9 @@ pub struct Kits {
     pub mcp: Option<Arc<mcpauth::Verifier>>,
     /// Token exchange to other suite apps, when Registre is configured.
     pub exchanger: Option<Exchanger>,
+    /// Verifies the bearer of `POST /api/renders` and creates the account on a first call, when
+    /// Registre is configured.
+    pub machine: Option<Arc<mcpauth::Verifier>>,
 }
 
 type BootError = Box<dyn std::error::Error + Send + Sync>;
@@ -46,6 +49,11 @@ type BootError = Box<dyn std::error::Error + Send + Sync>;
 impl Kits {
     /// Builds the kits. A wrong issuer fails here, so the boot fails.
     pub async fn new(cfg: &Config, pool: &PgPool) -> Result<Kits, BootError> {
+        Kits::over(cfg, pool, HttpClient::new()).await
+    }
+
+    /// [`Kits::new`] with the outbound HTTP given: a test answers for a fake issuer.
+    pub async fn over(cfg: &Config, pool: &PgPool, http: HttpClient) -> Result<Kits, BootError> {
         let store = pg::Store::new(pool.clone()).with_token_sealer(pg::TokenSealer::parse(&cfg.token_key)?);
         let sessions = Manager::new(&cfg.porte, session::Deps { sessions: store.sessions(), now: None });
         let deps = oidc::Deps {
@@ -54,17 +62,21 @@ impl Kits {
             codes: store.login_codes(),
             sessions: sessions.clone(),
             config_extra: None,
-            http: None,
+            http: Some(http.clone()),
             now: None,
         };
         let oidc = Kit::new(&cfg.porte, deps).await?;
-        let mut kits = Kits { sessions, oidc, syncer: None, deletions: None, mcp: None, exchanger: None };
+        let mut kits =
+            Kits { sessions, oidc, syncer: None, deletions: None, mcp: None, exchanger: None, machine: None };
         if cfg.porte.enabled() {
             kits.exchanger = Some(Exchanger::new(exchange::Config::from_porte(&cfg.porte, store.identities()))?);
             kits.directory(cfg, pool, store.clone());
+            let resource = machine_resource(cfg);
+            kits.machine = Some(Arc::new(verifier(cfg, &store, &kits.oidc, (resource, http.clone())).await?));
         }
         if !cfg.mcp_resource.is_empty() {
-            kits.mcp = Some(Arc::new(mcp_verifier(cfg, &store, &kits.oidc).await?));
+            let resource = cfg.mcp_resource.clone();
+            kits.mcp = Some(Arc::new(verifier(cfg, &store, &kits.oidc, (resource, http)).await?));
         }
         Ok(kits)
     }
@@ -87,16 +99,37 @@ impl Kits {
     }
 }
 
-async fn mcp_verifier(cfg: &Config, store: &pg::Store, oidc: &Kit) -> Result<mcpauth::Verifier, BootError> {
+/// The resource a bearer of `POST /api/renders` may name besides the app's audience: the MCP
+/// resource, or the URL it would have under the sign-in redirect's origin.
+fn machine_resource(cfg: &Config) -> String {
+    if !cfg.mcp_resource.is_empty() {
+        return cfg.mcp_resource.clone();
+    }
+    let origin = url::Url::parse(&cfg.porte.redirect_url).map(|url| url.origin().ascii_serialization());
+    format!("{}/mcp", origin.unwrap_or_else(|_| cfg.porte.issuer.clone()))
+}
+
+type Checked = (String, HttpClient);
+
+async fn verifier(
+    cfg: &Config,
+    store: &pg::Store,
+    oidc: &Kit,
+    checked: Checked,
+) -> Result<mcpauth::Verifier, BootError> {
+    let audience = match cfg.porte.machine_audience.is_empty() {
+        true => cfg.porte.client_id.clone(),
+        false => cfg.porte.machine_audience.clone(),
+    };
     let config = mcpauth::Config {
         issuer: cfg.porte.issuer.clone(),
-        resource: cfg.mcp_resource.clone(),
-        scope_prefix: "clap".to_owned(),
-        audience: cfg.porte.client_id.clone(),
+        resource: checked.0,
+        scope_prefix: crate::env::SCOPE_PREFIX.to_owned(),
+        audience,
         identities: store.identities(),
         provision: true,
         accounts: Some(oidc.clone()),
-        http: HttpClient::new(),
+        http: checked.1,
     };
     Ok(mcpauth::Verifier::new(config).await?)
 }

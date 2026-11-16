@@ -26,6 +26,11 @@ async fn erase(tx: &mut PgConnection, users: &[i64], subject: &str) -> Result<()
         .execute(&mut *tx)
         .await
         .map_err(failed)?;
+    sqlx::query("DELETE FROM renders WHERE project_id IS NULL AND requested_by = ANY($1)")
+        .bind(users)
+        .execute(&mut *tx)
+        .await
+        .map_err(failed)?;
     let names: Vec<String> = users.iter().map(i64::to_string).collect();
     erase_pending(&mut *tx, &names).await.map_err(|error| DirectoryError::Failed(error.to_string()))?;
     sqlx::query("DELETE FROM space_members WHERE subject = $1")

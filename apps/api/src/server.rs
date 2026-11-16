@@ -67,6 +67,7 @@ pub fn state(config: &Config, pool: PgPool, kits: &Kits) -> AppState {
         tools: Arc::new(config.tools.clone()),
         media: Arc::new(tokio::sync::Semaphore::new(1)),
         confirmations: None,
+        machine: kits.machine.clone(),
         exchanger: kits.exchanger.clone(),
         bulle: config.bulle.clone(),
     }

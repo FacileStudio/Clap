@@ -26,7 +26,8 @@ fn api(kits: &Kits, state: &AppState) -> Router<AppState> {
         .merge(auth::routes(kits))
         .merge(protected(kits, state))
         .merge(assets::routes(&kits.sessions))
-        .merge(frame::routes(&kits.sessions));
+        .merge(frame::routes(&kits.sessions))
+        .route("/renders", renders::posted_route());
     if let Some(syncer) = &kits.syncer {
         api = api.route("/registre/sync", syncer.nudge_route());
     }
