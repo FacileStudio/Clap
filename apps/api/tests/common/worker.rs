@@ -1,5 +1,11 @@
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+
+use serde_json::Value;
+
+use super::render::mirrored;
+use super::{App, Person};
 
 pub struct Worker(Child);
 
@@ -37,4 +43,26 @@ pub fn start(binary: &Path, chrome: &Path, renders: &Path) -> Worker {
         .spawn()
         .unwrap();
     Worker(child)
+}
+
+pub async fn alive(app: &App) {
+    let heartbeat = app.state.data_dir.join("renders/.worker");
+    std::fs::remove_file(&heartbeat).ok();
+    let started = Instant::now();
+    while !heartbeat.is_file() {
+        assert!(started.elapsed() < Duration::from_secs(30), "the worker wrote no heartbeat in 30 s");
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
+pub async fn settled(app: &App, who: &Person, render: &Value) -> Value {
+    let started = Instant::now();
+    loop {
+        let seen = mirrored(app, who, render).await;
+        if ["done", "failed", "cancelled"].contains(&seen["state"].as_str().unwrap_or_default()) {
+            return seen;
+        }
+        assert!(started.elapsed() < Duration::from_secs(300), "the render did not finish in 5 minutes: {seen}");
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
 }

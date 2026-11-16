@@ -5,38 +5,14 @@
 
 mod common;
 
-use std::time::{Duration, Instant};
-
-use common::render::{mirrored, queued};
-use common::{App, Person};
-use serde_json::{Value, json};
+use common::render::queued;
+use common::worker::{alive, settled};
+use serde_json::json;
 
 const SOURCE: &str = "---\ntitle: One second\nsize: 320x180\nlayout: raw\nduration: 1\n---\n\n\
 <img id=\"dot\" src=\"assets/dot.png\" data-start=\"0\" data-duration=\"1\" data-track-index=\"0\">\n\
 <h1 id=\"title\" data-start=\"0\" data-duration=\"1\" data-track-index=\"1\">Hello</h1>\n\
 <script>\n  scene.timeline((tl) => tl.from(\"#title\", { opacity: 0, duration: 0.5 }));\n</script>\n";
-
-async fn alive(app: &App) {
-    let heartbeat = app.state.data_dir.join("renders/.worker");
-    std::fs::remove_file(&heartbeat).ok();
-    let started = Instant::now();
-    while !heartbeat.is_file() {
-        assert!(started.elapsed() < Duration::from_secs(30), "the worker wrote no heartbeat in 30 s");
-        tokio::time::sleep(Duration::from_millis(200)).await;
-    }
-}
-
-async fn settled(app: &App, who: &Person, render: &Value) -> Value {
-    let started = Instant::now();
-    loop {
-        let seen = mirrored(app, who, render).await;
-        if ["done", "failed", "cancelled"].contains(&seen["state"].as_str().unwrap_or_default()) {
-            return seen;
-        }
-        assert!(started.elapsed() < Duration::from_secs(300), "the render did not finish in 5 minutes: {seen}");
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
-}
 
 #[tokio::test]
 async fn the_api_and_the_worker_render_one_second_to_an_mp4_the_api_serves() {
