@@ -68,6 +68,9 @@ pub fn state(config: &Config, pool: PgPool, kits: &Kits) -> AppState {
         media: Arc::new(tokio::sync::Semaphore::new(1)),
         confirmations: None,
         machine: kits.machine.clone(),
+        public_url: Arc::from(config.public_url.as_str()),
+        embed_ancestors: config.embed_ancestors.clone().into(),
+        client_dir: Arc::new(tronc::spa::dir_from_env()),
         exchanger: kits.exchanger.clone(),
         bulle: config.bulle.clone(),
     }

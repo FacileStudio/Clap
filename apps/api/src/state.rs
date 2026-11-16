@@ -35,6 +35,12 @@ pub struct AppState {
     pub confirmations: Option<Confirmations>,
     /// Verifies the bearer of `POST /api/renders`; `None` without Registre.
     pub machine: Option<Arc<porte::mcpauth::Verifier>>,
+    /// The origin share links start with, such as `https://clap.facile.studio`.
+    pub public_url: Arc<str>,
+    /// The origins besides the app that may frame `/embed/{token}`.
+    pub embed_ancestors: Arc<[String]>,
+    /// The built client, whose `index.html` the public pages are drawn from.
+    pub client_dir: Arc<PathBuf>,
     /// Mints the person's tokens for other suite apps; `None` without Registre.
     pub exchanger: Option<Exchanger>,
     /// Where the person's assistant lives.

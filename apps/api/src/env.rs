@@ -5,6 +5,7 @@ use tronc::env::{Core, EnvError, Vars};
 use crate::limits::Limits;
 use crate::modules::assets::tools::Tools;
 use crate::modules::assistant::Bulle;
+use crate::origin::{ancestors, public_url};
 
 /// The prefix of the app's two scopes, `clap.read` and `clap.write`, on MCP and bearer tokens.
 pub const SCOPE_PREFIX: &str = "clap";
@@ -31,6 +32,12 @@ pub struct Config {
     pub tools: Tools,
     /// `BULLE_URL` and `BULLE_CLIENT_ID`: where the person's assistant lives.
     pub bulle: Bulle,
+    /// `PUBLIC_URL`: the origin share links start with. Default: the origin of
+    /// `OIDC_SUCCESS_URL`, else `http://localhost:<PORT>`.
+    pub public_url: String,
+    /// `EMBED_ANCESTORS`: the origins that may frame `/embed/{token}`, separated by spaces or
+    /// commas. Default: `https://prisme.facile.studio`.
+    pub embed_ancestors: Vec<String>,
 }
 
 impl Config {
@@ -45,7 +52,10 @@ impl Config {
         let text = |key: &str| vars.string(key, "").trim().to_owned();
         let porte =
             machine(porte::Config { app_name: "Clap".to_owned(), sso_only: true, ..porte::Config::from_vars(vars)? });
+        let public_url = public_url(vars, &core, &porte)?;
         let config = Config {
+            public_url,
+            embed_ancestors: ancestors(vars)?,
             porte,
             token_key: text("PORTE_TOKEN_KEY"),
             data_dir: PathBuf::from(vars.string("DATA_DIR", "/data")),
