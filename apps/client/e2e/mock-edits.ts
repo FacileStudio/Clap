@@ -1,0 +1,72 @@
+import { outline, type ClipSpan } from '../src/lib/timeline/outline';
+import type { Op } from '../src/lib/types';
+import { restage } from './mock-scenes';
+
+type Of<K extends Op['op']> = Extract<Op, { op: K }>;
+
+function setAttr(tag: string, name: string, value: number | undefined): string {
+	if (value === undefined) return tag;
+	const pattern = new RegExp(`(\\s${name}\\s*=\\s*")[^"]*(")`);
+	if (pattern.test(tag)) return tag.replace(pattern, `$1${value}$2`);
+	return tag.replace(/(\s*\/?>)$/, ` ${name}="${value}"$1`);
+}
+
+function clipOf(source: string, id: string): ClipSpan {
+	const found = outline(source).scenes.flatMap((scene) => scene.clips).find((clip) => clip.id === id);
+	if (!found) throw new Error(`no clip ${id}`);
+	return found;
+}
+
+function retag(source: string, clip: ClipSpan, attrs: Record<string, number | undefined>): string {
+	let tag = source.slice(clip.open[0], clip.open[1]);
+	for (const [name, value] of Object.entries(attrs)) tag = setAttr(tag, name, value);
+	return source.slice(0, clip.open[0]) + tag + source.slice(clip.open[1]);
+}
+
+function split(source: string, op: Of<'split_clip'>): string {
+	const clip = clipOf(source, op.clip);
+	const head = op.at - clip.start;
+	const media = clip.kind === 'video' || clip.kind === 'audio' ? clip.media_in + head : undefined;
+	const element = source.slice(clip.open[0], clip.end);
+	const tail = retag(element, { ...clip, open: [0, clip.open[1] - clip.open[0]] }, {
+		'data-start': op.at,
+		'data-duration': clip.duration - head,
+		'data-in': media
+	});
+	const first = retag(source, clip, { 'data-duration': head });
+	const at = clip.end + (first.length - source.length);
+	return `${first.slice(0, at)}\n${tail}${first.slice(at)}`;
+}
+
+function element(op: Of<'add_clip'>): string {
+	const time = `data-start="${op.start}" data-duration="${op.duration}" data-track-index="${op.track}"`;
+	if (op.kind === 'video') return `<video src="${op.src}" ${time} muted playsinline></video>`;
+	if (op.kind === 'audio') return `<audio src="${op.src}" ${time}></audio>`;
+	if (op.kind === 'image') return `<img src="${op.src}" ${time} alt="">`;
+	return `<div class="clip" ${time} style="position:absolute;left:120px;bottom:120px;font-size:72px;font-weight:700">${op.text ?? ''}</div>`;
+}
+
+const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
+	move_clip: (source, op) => retag(source, clipOf(source, op.clip), { 'data-start': op.start, 'data-track-index': op.track }),
+	trim_clip: (source, op) =>
+		retag(source, clipOf(source, op.clip), { 'data-start': op.start, 'data-duration': op.duration, 'data-in': op.media_in }),
+	split_clip: split,
+	delete_clip: (source, op) => {
+		const clip = clipOf(source, op.clip);
+		return source.slice(0, clip.open[0]) + source.slice(clip.end).replace(/^\n/, '');
+	},
+	add_clip: (source, op) => restage(source, (scenes) => void scenes[op.scene].body.push(element(op), '')),
+	set_scene_duration: (source, op) => restage(source, (scenes) => void (scenes[op.scene].meta.duration = String(op.duration))),
+	reorder_scene: (source, op) => restage(source, (scenes) => void scenes.splice(op.to, 0, ...scenes.splice(op.scene, 1))),
+	delete_scene: (source, op) => restage(source, (scenes) => void scenes.splice(op.scene, 1)),
+	add_scene: (source, op) =>
+		restage(source, (scenes) => {
+			const meta = { layout: 'raw', duration: String(op.duration) };
+			scenes.splice(op.at, 0, { meta, body: ['', ...op.body.split('\n'), ''] });
+		})
+};
+
+/** `source` after `ops`, the way the mock API patches the text. Throws when an op names a clip that is not there. */
+export function applyEdits(source: string, ops: Op[]): string {
+	return ops.reduce((text, op) => (HANDLERS[op.op] as (source: string, op: Op) => string)(text, op), source);
+}

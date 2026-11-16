@@ -30,4 +30,9 @@ echo "==> apps/client"
 )
 
 echo "==> e2e"
-(cd apps/client && sh e2e/landing.sh)
+if [ -n "${SKIP_E2E:-}" ]; then
+  echo "check: SKIP_E2E is set, skipping the browser run" >&2
+else
+  (cd apps/client && sh e2e/landing.sh)
+  E2E_SKIP_BUILD=1 sh apps/client/e2e/run.sh
+fi
