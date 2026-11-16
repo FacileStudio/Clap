@@ -22,3 +22,8 @@ All notable changes to Clap. Versions follow SemVer.
   the `renders` directory of the `clap_data` volume; the contract is in `docs/rendering.md`.
 - Motion starters (`starters/`): five ready-made raw scenes (title, lower third, caption, chart
   race, logo reveal), each rendered by a test.
+- The `clap` command line (`apps/cli`): `new`, `starters`, `serve` with a player, `check`,
+  `guide`, `timeline`, `edit`, `render` here or on the server, `login`, `logout`, `whoami`,
+  `list`, `pull`, `push`, `open`. It mirrors Diapo's `diapo`. Reference: `docs/cli.md`.
+- `clap_timeline::CLAP_GUIDE` and `format_guide()`: Clap's section of the format guide, shared
+  by the command line and the API.

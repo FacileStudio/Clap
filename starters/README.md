@@ -13,7 +13,8 @@ one project.
 | `chart-race.md` | 6 | Four bars that grow, then change length and rank. |
 | `logo-reveal.md` | 3 | A mark that spins in, then the name. |
 
-To start a project from one, put a headmatter above it or use the file as it is. To insert one
+`clap starters` lists them and `clap new <name> --template <starter>` starts a project from one.
+By hand: put a headmatter above the file, or use it as it is. To insert one
 into a project, pass everything after its frontmatter as the `body` of an `add_scene` op with
 the file's `duration`.
 

@@ -18,6 +18,9 @@ in `crates/render`, the timeline model in `crates/timeline`, the SvelteKit clien
   minimal text patches. Read `docs/timeline.md` before changing it
 - **Worker** (`apps/worker`, binary `worker`): the isolated render service. No network, no
   database, one shared directory
+- **CLI** (`apps/cli`, package `clap-cli`, binary `clap`): the sibling of Diapo's `diapo`, same
+  config, sign-in, output and sync rules. Every HTTP call is in `src/api`. Read `docs/cli.md`
+  and the suite CLI standard before changing it
 - **Client** (`apps/client`): SvelteKit 2, Svelte 5 runes, Tailwind 4, `@facile/muse`
 
 ## Commands
@@ -31,6 +34,7 @@ mise run dev                # the API on :4000 against the local database
 cargo run -p api -- migrate status
 cargo test -p clap-render   # real renders; needs Chrome and ffmpeg
 cargo test -p clap-timeline # golden and property tests of the edit ops
+cargo run -p clap-cli -- <command>   # the clap command line from a checkout
 ```
 
 The database tests read `TEST_DATABASE_URL` (check.sh defaults it to the local container), and
@@ -61,4 +65,6 @@ when their dependency is missing: read the output before trusting a green run.
 - **Migrations** are append-only `NNNN_name.sql`; `0001_porte.sql` is `porte::pg::SCHEMA`
   verbatim, and a unit test compares them.
 - **No borders in the UI.** Separate with fill steps, spacing and shadows.
+- **The CLI version is the client's.** `apps/cli/Cargo.toml` and `apps/client/package.json`
+  carry the same version; the gate and the release workflow check it against the tag.
 - No inline comments, no comments in function bodies; doc comments on public items.
