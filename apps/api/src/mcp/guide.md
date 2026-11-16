@@ -37,15 +37,19 @@ Markdown scenes (`default`, `cover`, `center`, `split`) work too: a scene with s
 A clip is any element with `data-start`. It exists from `data-start` for `data-duration`
 seconds, counted from the start of its scene. The timeline in the editor shows one bar per clip.
 
-- Give every clip an `id`, unique in the file. The timeline tools name a clip by its id.
+- Give every clip an `id`, unique in the file. The timeline tools name a clip by `data-clip`,
+  else by its `id`. A clip with neither is named `clip-<scene>-<n>`, a derived id that shifts
+  when a clip before it is added or deleted: read the project again after such an edit.
 - Keep one clip per line when you can: an edit then changes one line.
 - A clip must end inside its scene: `data-start + data-duration <= duration`.
+- Without `data-duration` a clip lasts to the end of its scene.
 - A clip may hold other elements. Animate what is inside it with `scene.timeline`.
 
 ## Tracks
 
 `data-track-index` is the clip's track, a whole number. A higher track draws on top: it becomes
-the element's `z-index`. Two clips of one scene that share a track must not overlap in time.
+the element's `z-index`. Two clips of one scene that share a track must not overlap in time:
+`clap_timeline_edit` refuses an edit that makes them overlap.
 Put the background video on track 0, pictures above it, titles on top. Sound needs no track.
 
 ## Media
@@ -90,6 +94,8 @@ captures, so the frame at time `t` must depend on `t` alone.
    `add_clip {scene, kind, src?, start, duration, track, text?}` with `kind` one of `video`,
    `audio`, `image`, `text`, `html`, `set_scene_duration {scene, duration}`,
    `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`.
+   It changes only the attribute values and the lines an operation concerns, and answers the
+   new `rev` and the ids of the clips it changed. `split_clip` names the second half `<id>-b`.
 4. `clap_render` queues an MP4 of the saved project and `clap_render_status` follows it. A
    render is at most 1920x1080, 30 frames a second and 10 minutes unless the instance says
    otherwise.

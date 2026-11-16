@@ -16,11 +16,13 @@ const EDIT: &str = "Replaces one exact string in a project's source. Call it for
 must be in the source exactly once: zero or several matches are refused, so add surrounding text until it \
 names one place. It needs the rev clap_get_project answered.";
 const TIMELINE: &str = "Moves, trims, splits, deletes and adds clips, and sets, reorders, deletes and adds \
-scenes, by clip id and scene index. ops is a list applied in order, each tagged by op: move_clip {clip, start, \
-track?}, trim_clip {clip, start?, duration?, media_in?}, split_clip {clip, at}, delete_clip {clip}, add_clip \
-{scene, kind, src?, start, duration, track, text?}, set_scene_duration {scene, duration}, reorder_scene {scene, \
-to}, delete_scene {scene}, add_scene {at, duration, body}. Times are seconds. It needs the rev clap_get_project \
-answered; nothing is saved unless every op applies.";
+scenes, by clip id and scene index (from 0). ops is a list applied in order, each tagged by op: move_clip {clip, \
+start, track?}, trim_clip {clip, start?, duration?, media_in?}, split_clip {clip, at}, delete_clip {clip}, \
+add_clip {scene, kind, src?, start, duration, track, text?}, set_scene_duration {scene, duration}, \
+reorder_scene {scene, to}, delete_scene {scene}, add_scene {at, duration, body}. Times are seconds. A clip id \
+is the element's data-clip, else its id, else clip-<scene>-<n>: such a derived id shifts when a clip before it \
+is added or deleted, so read the project again before the next call. It needs the rev clap_get_project \
+answered; nothing is saved unless every op applies. It answers the new rev and the ids of the clips it changed.";
 const ASSETS: &str = "The media of a project: each file's name, kind, length, size in pixels and state. Call it \
 before you reference a file: a source may only name the files listed here, by their name.";
 const GUIDE: &str = "The format reference: frontmatter keys, layouts, timelines and the parser's errors, then \
