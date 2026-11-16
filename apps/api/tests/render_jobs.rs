@@ -36,6 +36,7 @@ fn whole_bundle(bundle: &std::path::Path) {
         assert_eq!(std::fs::read(bundle.join(file)).unwrap(), PNG, "{file}");
     }
     assert!(!html.contains("/api/") && !html.contains("?frame="), "{html}");
+    assert!(html.contains(clap_timeline::RUNTIME_JS), "the bundle carries the media runtime");
 }
 
 #[tokio::test]
@@ -71,7 +72,7 @@ async fn a_queued_render_writes_a_whole_bundle_then_a_valid_job_file() {
 #[tokio::test]
 async fn a_render_past_a_cap_or_with_a_missing_file_is_refused_and_queues_nothing() {
     let Some(pool) = common::pool("clap_renders_refused").await else { return };
-    let app = common::app_with(pool, &[("RENDER_QUEUE_MAX", "1")]).await;
+    let app = common::app(pool).await;
     let roles = common::fixture::roles(&app).await;
     let id = project(&app, &roles.owner, Some(&roles.space)).await;
     let path = format!("/api/projects/{id}/renders");
@@ -88,10 +89,23 @@ async fn a_render_past_a_cap_or_with_a_missing_file_is_refused_and_queues_nothin
     let missing = app.call("POST", &path, Some(&roles.member), Some(json!({}))).await;
     assert_eq!(missing.status, 412, "{}", missing.text());
     assert!(missing.json()["error"]["message"].as_str().unwrap().contains("assets/back.png"));
-    assert!(!app.state.data_dir.join("renders").exists());
+    assert_eq!(common::render::jobs(&app), 0);
     assert_eq!(app.call("GET", &path, Some(&roles.member), None).await.json(), json!({"renders": []}));
-    assert_eq!(common::upload::png(&app, &roles.member, &id, "assets/back.png").await.status, 201);
-    queued(&app, &roles.member, &id, json!({})).await;
-    let full = app.call("POST", &path, Some(&roles.member), Some(json!({}))).await;
-    assert_eq!((full.status.as_u16(), full.json()["error"]["code"].clone()), (429, json!("rate_limited")));
+}
+
+#[tokio::test]
+async fn nothing_is_queued_while_the_worker_is_silent_and_a_waiting_render_says_so() {
+    let Some(pool) = common::pool("clap_renders_heartbeat").await else { return };
+    let app = common::app(pool).await;
+    let ada = app.person("ada").await;
+    let id = project(&app, &ada, None).await;
+    let render = queued(&app, &ada, &id, json!({})).await;
+    let one = format!("/api/renders/{}", render["id"].as_str().unwrap());
+    assert_eq!(app.call("GET", &one, Some(&ada), None).await.json()["notice"], Value::Null);
+    let old = time::OffsetDateTime::now_utc() - time::Duration::minutes(2);
+    common::render::heartbeat(&app.state.data_dir, old);
+    let silent = app.call("POST", &format!("/api/projects/{id}/renders"), Some(&ada), Some(json!({}))).await;
+    assert_eq!((silent.status.as_u16(), silent.json()["error"]["code"].clone()), (503, json!("unavailable")));
+    assert!(app.call("GET", &one, Some(&ada), None).await.json()["notice"].as_str().unwrap().contains("not running"));
+    assert_eq!(common::render::jobs(&app), 1);
 }

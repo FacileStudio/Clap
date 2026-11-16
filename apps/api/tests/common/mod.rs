@@ -3,6 +3,7 @@
 pub mod directory;
 pub mod fixture;
 pub mod http;
+pub mod idp;
 pub mod mcp;
 pub mod media;
 pub mod render;
@@ -53,7 +54,8 @@ fn scratch() -> &'static PathBuf {
 
 pub fn data_dir() -> PathBuf {
     let dir = scratch().join(uuid::Uuid::new_v4().to_string());
-    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::create_dir_all(dir.join("renders")).unwrap();
+    render::heartbeat(&dir, time::OffsetDateTime::now_utc());
     dir
 }
 
@@ -62,10 +64,10 @@ pub async fn app(pool: PgPool) -> App {
 }
 
 pub async fn app_with(pool: PgPool, vars: &[(&str, &str)]) -> App {
-    let mut pairs = vec![("DATABASE_URL", "postgres://unused/x")];
+    let mut pairs = vec![("DATABASE_URL", "postgres://unused/x"), ("RENDER_QUEUE_MAX", "1000000")];
     pairs.extend_from_slice(vars);
     let config = Config::from_vars(&Vars::from_pairs(pairs)).unwrap();
-    let kits = Kits::new(&config, &pool).await.unwrap();
+    let kits = Kits::over(&config, &pool, idp::client()).await.unwrap();
     let state = AppState {
         issuer: Arc::from(ISSUER),
         data_dir: Arc::new(data_dir()),

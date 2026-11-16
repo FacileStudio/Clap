@@ -30,7 +30,7 @@ fn case((method, path, body, need, ok): Row) -> Case {
 }
 
 fn cases() -> Vec<Case> {
-    let rows: [Row; 13] = [
+    let rows: [Row; 14] = [
         ("GET", "/api/projects/{id}", None, Need::Viewer, 200),
         ("GET", "/api/projects/{id}/frame", None, Need::Viewer, 200),
         ("GET", "/api/projects/{id}/frame?scene=1", None, Need::Viewer, 200),
@@ -39,6 +39,7 @@ fn cases() -> Vec<Case> {
         ("PUT", "/api/projects/{id}/source", Some(|| json!({"source": "# New\n", "rev": 1})), Need::Editor, 200),
         ("PATCH", "/api/projects/{id}", Some(|| json!({"title": "Renamed"})), Need::Editor, 200),
         ("DELETE", "/api/projects/{id}/assets/assets/dot.png", None, Need::Editor, 204),
+        ("GET", "/api/projects/{id}/timeline", None, Need::Viewer, 200),
         ("GET", "/api/projects/{id}/renders", None, Need::Viewer, 200),
         ("POST", "/api/projects/{id}/renders", Some(|| json!({"fps": 24})), Need::Editor, 202),
         (
@@ -46,7 +47,7 @@ fn cases() -> Vec<Case> {
             "/api/projects/{id}/edits",
             Some(|| json!({"rev": 1, "ops": [{"op": "delete_scene", "scene": 1}]})),
             Need::Editor,
-            503,
+            200,
         ),
         ("PATCH", "/api/projects/{id}", Some(|| json!({"trashed": true})), Need::Manager, 200),
         ("PATCH", "/api/projects/{id}", Some(|| json!({"space_id": null})), Need::Manager, 200),
