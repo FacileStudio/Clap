@@ -49,9 +49,10 @@ pub async fn serve(state: &AppState, render: Uuid) -> Result<Response> {
 }
 
 /// Makes the poster of the kept render `render`, a frame from its middle, at most one second
-/// in, holding the media permit uploads hold, so one `ffmpeg` runs at a time. A failure is logged: the share page then has no picture.
+/// in. It takes no media permit: an upload holds that one while it waits for the worker, and
+/// the worker finishes one render at a time. A failure is logged: the share page then has no
+/// picture.
 pub async fn make(state: &AppState, render: Uuid, duration_ms: i64) {
-    let Ok(_slot) = state.media.clone().acquire_owned().await else { return };
     let video = crate::modules::renders::status::output(&state.data_dir, render);
     let at = (duration_ms / 2).min(1000);
     let made = crate::modules::assets::derive::poster(&state.tools, &video, at, &path(&state.data_dir, render)).await;

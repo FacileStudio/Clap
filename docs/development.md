@@ -28,9 +28,10 @@ mise run dev
 ```
 
 The API listens on `:4000` with `DATA_DIR=.local/data` and no Registre: the sign-in routes
-answer `oidc_enabled: false`. Uploads need `ffmpeg` and `ffprobe` on `PATH` (or `CLAP_FFMPEG`
-and `CLAP_FFPROBE`); without them an asset ends `failed`. Renders stay `queued` until a render
-worker reads `DATA_DIR/renders`. The routes are in [api.md](api.md). From `apps/client`, `bun run dev` serves the client and proxies
+answer `oidc_enabled: false`. Uploads stay `probing` and renders `queued` until a render
+worker reads `DATA_DIR/renders` (`CLAP_RENDERS_DIR=.local/data/renders cargo run -p worker`,
+with `ffmpeg`, `ffprobe` and Chrome found as below): the worker probes uploads and makes their
+posters, filmstrips, waveforms and proxies. The routes are in [api.md](api.md). From `apps/client`, `bun run dev` serves the client and proxies
 `/api` to the API.
 
 ## Tests
@@ -55,8 +56,8 @@ cargo test --workspace --locked
 | `crates/render/tests/render.rs` | Real renders of `fixtures/title`: frame count, size, identical runs, the network block, cancel |
 
 Without `TEST_DATABASE_URL` the database tests print a skip banner and pass. Without Chrome,
-ffmpeg or ffprobe the render tests do the same, and so does `apps/api/tests/media.rs` without
-ffmpeg. Read the output.
+ffmpeg or ffprobe the render tests do the same, and so do `apps/api/tests/media.rs` and the
+asset tests that wait for a probe, which start the `worker` binary (`cargo build -p worker`). Read the output.
 
 The render tests find their binaries through `CLAP_CHROME`, `CLAP_FFMPEG` and `CLAP_FFPROBE`,
 then `PATH`, then, for Chrome, the newest `chromium_headless_shell-*` build in Playwright's

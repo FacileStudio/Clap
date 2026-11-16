@@ -236,6 +236,28 @@ reads no database. The only thing it shares with `clap-api` is one directory.
 | `<id>/out.mp4` | worker | The video, present only once the job is `done`. |
 | `.worker` | worker | The heartbeat: an RFC 3339 timestamp, rewritten every second. |
 
+A media job is the same protocol with `"kind": "media"` in `job.json` (a `job.json` with no
+`kind` is a render). The API names its directory `media-<uuid>`, so the render sweep never takes
+it for a render, and writes the upload to `bundle/input`. `job.json` says what to make beside
+the probe; the API leaves out what it already holds:
+
+```json
+{"id": "media-0b6...", "kind": "media", "created_at": "2026-11-16T10:00:00Z", "poster": true, "strip": true, "peaks": true, "proxy": true}
+```
+
+| Path | Step | Made when |
+|---|---|---|
+| `probe.json` | 1 | Always: what `ffprobe -print_format json` printed. A probe that fails fails the job. |
+| `poster.jpg` | 2 | `poster` and the probe found a picture |
+| `strip.jpg` | 3 | `strip`, a picture and a length |
+| `peaks.json` | 4 | `peaks` and the probe heard sound |
+| `proxy.mp4` | 5 | `proxy` and a picture |
+
+`status.json` counts the steps finished in `frame`, out of 5 in `frames`: once `frame` has
+reached a step, its file is whole (written under `.part`, then renamed) or will never come.
+A step that fails is noted in the `error` of the final `done` status and the job goes on. The
+argument vectors and limits are `crates/media`'s, the same the API used to run.
+
 `job.json`:
 
 ```json
@@ -264,13 +286,17 @@ wrote once the job is over. The API reads and writes this directory as untrusted
 
 ### What the worker does
 
-- It takes the queued job with the oldest `created_at`, one at a time.
+- It takes queued media jobs first, then the job with the oldest `created_at`, one at a time.
+  `CLAP_WORKER_JOBS=media` (or `render`) takes only that kind: the browser tests run the real
+  worker on media jobs and play renders themselves. Production leaves it unset.
 - It checks `job.json` against its own limits, whatever the API allowed: the frame at most
   1920x1080 in either orientation and even, at most 30 fps, at most 600 s of video, and one
   hour of wall clock. A scene longer than the limit fails as soon as it has loaded. The
   limits are `CLAP_RENDER_MAX_WIDTH`, `CLAP_RENDER_MAX_HEIGHT`, `CLAP_RENDER_MAX_FPS`,
   `CLAP_RENDER_MAX_SECONDS`, `CLAP_RENDER_TIMEOUT_SECONDS` and `CLAP_RENDER_FRAMES_MAX_BYTES`.
-- It renders `bundle/index.html` to `out.mp4.tmp` and renames it to `out.mp4`.
+- It renders `bundle/index.html` to `out.mp4.tmp` and renames it to `out.mp4`, or, for a media
+  job, decodes `bundle/input` as above. It finds `ffprobe` through `CLAP_FFPROBE`, then `PATH`;
+  without it every media job fails, saying so.
 - A `cancel` file ends the job as `cancelled` within half a second plus one frame.
 - A job found `running` when no job runs was cut short by a crash or a restart. It is marked
   `failed` with a message that says so, and its partial files are removed. Nothing is retried.

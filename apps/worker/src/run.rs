@@ -1,80 +1,15 @@
 //! One job, start to final status.
 
-use std::ops::ControlFlow;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
-use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
 
-use clap_render::{Error, Job, Progress, Tools, render_with};
+use clap_render::{Job, Tools, render_with};
 
 use crate::config::Limits;
+use crate::shared::Shared;
 use crate::spec::Spec;
 use crate::status::{State, Status};
-use crate::{files, health, queue};
-
-/// How often the status file is rewritten while a job runs.
-const BEAT: Duration = Duration::from_millis(500);
-
-const CANCELLED: u8 = 1;
-const TIMED_OUT: u8 = 2;
-const TOO_LONG: u8 = 3;
-
-/// What the render thread and the status thread share.
-#[derive(Default)]
-struct Shared {
-    frame: AtomicU32,
-    frames: AtomicU32,
-    /// Why the render must stop: 0 while it may go on.
-    stop: AtomicU8,
-    over: AtomicBool,
-}
-
-impl Shared {
-    fn status(&self, state: State) -> Status {
-        Status::new(state, self.frame.load(Ordering::Relaxed), self.frames.load(Ordering::Relaxed))
-    }
-
-    /// Rewrites the status twice a second until the render is over, and watches for the `cancel`
-    /// file and the wall clock meanwhile.
-    fn beat(&self, dir: &Path, wall: Duration) {
-        let deadline = Instant::now() + wall;
-        while !self.over.load(Ordering::Relaxed) {
-            let _ = self.status(State::Running).save(dir);
-            health::beat(dir.parent().unwrap_or(dir));
-            let stop = if files::exists(&dir.join("cancel")) {
-                CANCELLED
-            } else {
-                u8::from(Instant::now() > deadline) * TIMED_OUT
-            };
-            let _ = self.stop.compare_exchange(0, stop, Ordering::Relaxed, Ordering::Relaxed);
-            std::thread::sleep(BEAT);
-        }
-    }
-
-    fn progress(&self, progress: Progress, most: u32) -> ControlFlow<()> {
-        self.frame.store(progress.frame, Ordering::Relaxed);
-        self.frames.store(progress.frames, Ordering::Relaxed);
-        if progress.frames > most {
-            self.stop.store(TOO_LONG, Ordering::Relaxed);
-        }
-        if self.stop.load(Ordering::Relaxed) == 0 { ControlFlow::Continue(()) } else { ControlFlow::Break(()) }
-    }
-
-    fn verdict(&self, rendered: Result<(), Error>, limits: &Limits) -> Status {
-        let failed = |reason: String| Status { error: Some(reason), ..self.status(State::Failed) };
-        match (rendered, self.stop.load(Ordering::Relaxed)) {
-            (Ok(()), _) => self.status(State::Done),
-            (Err(Error::Cancelled), CANCELLED) => self.status(State::Cancelled),
-            (Err(Error::Cancelled), TIMED_OUT) => {
-                failed(format!("the render passed its {} s time limit", limits.wall.as_secs()))
-            }
-            (Err(Error::Cancelled), TOO_LONG) => {
-                failed(format!("the scene is longer than the {} s a render may last", limits.seconds))
-            }
-            (Err(error), _) => failed(error.to_string()),
-        }
-    }
-}
+use crate::{files, queue};
 
 fn render(dir: &Path, spec: &Spec, tools: &Tools, limits: &Limits) -> Status {
     let partial = dir.join("out.mp4.tmp");
@@ -123,6 +58,8 @@ pub(crate) fn run(dir: &Path, tools: &Tools, limits: &Limits) -> Status {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::health;
+    use std::time::Duration;
 
     const SKIP: &str = "\n================ SKIPPED: the worker's render test needs chrome-headless-shell and ffmpeg \
         (CLAP_CHROME, CLAP_FFMPEG or PATH) ================\n";

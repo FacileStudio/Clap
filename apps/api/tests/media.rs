@@ -1,5 +1,7 @@
-//! Real media: a clip made with ffmpeg is uploaded, probed, given a poster, a filmstrip, a
-//! waveform and a proxy, and served by range. Needs `ffmpeg` and `ffprobe`; prints a banner and passes without them.
+//! Real media: a clip made with ffmpeg is uploaded, then probed and given a poster, a filmstrip,
+//! a waveform and a proxy by the worker binary, never by the API, whose `ffmpeg` here does not
+//! exist, and served by range. Needs the worker, Chrome, `ffmpeg` and `ffprobe`; prints a banner
+//! and passes without them.
 
 mod common;
 
@@ -9,6 +11,8 @@ use common::media::{clip, installed, settled};
 use common::upload::{File, upload};
 use http::{Request, header};
 use serde_json::json;
+
+const NO_DECODER: &[(&str, &str)] = &[("CLAP_FFMPEG", "/nonexistent/ffmpeg")];
 
 const SOURCE: &str = "---\nsize: 320x240\nlayout: raw\nduration: 2\n---\n\n\
 <video id=\"shot\" src=\"assets/clip.mp4\" data-start=\"0\" data-duration=\"2\" data-track-index=\"0\"></video>\n";
@@ -38,7 +42,8 @@ async fn an_uploaded_clip_is_probed_given_a_poster_and_a_proxy_and_served_by_ran
     if !installed() {
         return;
     }
-    let app = common::app(pool).await;
+    let app = common::app_with(pool, NO_DECODER).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let ada = app.person("ada").await;
     let id = fixture::id(&fixture::project(&app, &ada, None, SOURCE).await);
     let bytes = clip(&app.state.data_dir);
@@ -99,7 +104,8 @@ async fn boot_makes_the_filmstrip_and_the_waveform_of_a_ready_asset_that_has_non
     if !installed() {
         return;
     }
-    let app = common::app(pool).await;
+    let app = common::app_with(pool, NO_DECODER).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let ada = app.person("ada").await;
     let id = fixture::id(&fixture::project(&app, &ada, None, SOURCE).await);
     let bytes = clip(&app.state.data_dir);
@@ -126,7 +132,8 @@ async fn a_file_that_only_looks_like_a_video_fails_with_a_reason() {
     if !installed() {
         return;
     }
-    let app = common::app(pool).await;
+    let app = common::app_with(pool, NO_DECODER).await;
+    let Some(_worker) = common::worker::media(&app).await else { return };
     let ada = app.person("ada").await;
     let id = fixture::id(&fixture::project(&app, &ada, None, SOURCE).await);
     let file =

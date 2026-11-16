@@ -4,6 +4,17 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Security
+
+- Uploads are decoded in the render worker's sandbox, never in `clap-api`, which holds the
+  database URL and the sign-in secrets. The API copies each upload into a media job; the worker
+  (no network, its own uid, the seccomp profile, its CPU and memory caps) runs `ffprobe` and
+  makes the poster, filmstrip, waveform and proxy, and the API reads each file back as
+  untrusted: no link, one hard link, a size cap per file, and a re-checked waveform. The
+  argument vectors live in a shared crate, `crates/media`, so the two sides cannot drift.
+  Media jobs go before renders in the worker's queue and do not count toward
+  `RENDER_QUEUE_MAX`.
+
 ## [0.2.0] - 2026-11-16
 
 ### Added

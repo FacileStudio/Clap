@@ -13,6 +13,7 @@ path = "src/main.rs"
 [dependencies]
 tronc = { git = "https://github.com/FacileStudio/tronc-rs", tag = "v0.5.1", features = ["http", "health", "spa", "migrate", "journal", "apiref", "bulle", "mcp"] }
 porte = { git = "https://github.com/FacileStudio/porte-rs", tag = "v0.8.1", features = ["pg", "oidc", "directory", "exchange", "mcp"] }
+clap-media = { path = "../../crates/media" }
 clap-timeline = { path = "../../crates/timeline" }
 scene = { package = "facile-scene", git = "https://github.com/FacileStudio/Diapo", tag = "v0.2.0" }
 async-trait = "0.1.92"

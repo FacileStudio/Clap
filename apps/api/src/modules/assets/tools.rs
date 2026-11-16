@@ -5,23 +5,19 @@ use std::time::Duration;
 
 use tronc::env::Vars;
 
-/// The media binaries the API runs: never a shell, always an argument vector.
+/// The media binary the API runs, for the poster of a finished render only: never a shell,
+/// always an argument vector. Uploads are decoded by the render worker.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tools {
     /// `CLAP_FFMPEG`, or `ffmpeg` on `PATH`.
     pub ffmpeg: PathBuf,
-    /// `CLAP_FFPROBE`, or `ffprobe` on `PATH`.
-    pub ffprobe: PathBuf,
 }
 
 impl Tools {
-    /// Reads `CLAP_FFMPEG` and `CLAP_FFPROBE`; a blank one means the name looked up on `PATH`.
+    /// Reads `CLAP_FFMPEG`; a blank one means the name looked up on `PATH`.
     pub fn from_vars(vars: &Vars) -> Self {
-        let named = |key: &str, name: &str| {
-            let raw = vars.string(key, "");
-            PathBuf::from(if raw.trim().is_empty() { name } else { raw.trim() })
-        };
-        Tools { ffmpeg: named("CLAP_FFMPEG", "ffmpeg"), ffprobe: named("CLAP_FFPROBE", "ffprobe") }
+        let raw = vars.string("CLAP_FFMPEG", "");
+        Tools { ffmpeg: PathBuf::from(if raw.trim().is_empty() { "ffmpeg" } else { raw.trim() }) }
     }
 }
 
@@ -52,29 +48,10 @@ pub async fn run(program: &Path, args: &[OsString], limit: Duration) -> Result<V
     }
 }
 
-/// The input options of every `ffprobe` and `ffmpeg` run on an upload: two decoding threads, and
-/// no picture over DCI 4K (4096x2160 pixels), so a hostile file cannot make a decoder allocate
-/// without bound.
-pub const DECODE: [&str; 4] = ["-threads", "2", "-max_pixels", "8847360"];
-
-/// The longest `ffmpeg` gets to encode a proxy, whatever the length of the video.
-pub const PROXY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
-
-/// How long `ffmpeg` gets to encode the proxy of a video of `duration_ms`: a minute, plus four
-/// times the length of the video, at most [`PROXY_TIMEOUT`].
-pub fn proxy_limit(duration_ms: Option<i64>) -> Duration {
-    let length = Duration::from_millis(duration_ms.unwrap_or(0).max(0) as u64);
-    (Duration::from_secs(60) + length * 4).min(PROXY_TIMEOUT)
-}
-
-/// `words` as an argument vector, each word one whole element.
-pub fn argv(words: &[&str]) -> Vec<OsString> {
-    words.iter().map(OsString::from).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap_media::argv;
 
     #[tokio::test]
     async fn a_child_is_stopped_at_its_limit_and_a_missing_binary_is_named() {
@@ -83,7 +60,5 @@ mod tests {
         let missing = run(Path::new("/nonexistent/ffprobe"), &[], Duration::from_secs(1)).await.unwrap_err();
         assert!(missing.contains("ffprobe could not start"), "{missing}");
         assert_eq!(run(Path::new("printf"), &argv(&["a b"]), Duration::from_secs(5)).await.unwrap(), b"a b");
-        assert_eq!(proxy_limit(Some(30_000)), Duration::from_secs(180));
-        assert_eq!((proxy_limit(None), proxy_limit(Some(3_600_000))), (Duration::from_secs(60), PROXY_TIMEOUT));
     }
 }

@@ -138,7 +138,7 @@ mod tests {
         assert_eq!(config.porte.app_name, "Clap");
         assert_eq!(config.data_dir, PathBuf::from("/data"));
         assert_eq!(config.bulle.url, "https://bulle.facile.studio");
-        assert_eq!(config.tools.ffprobe, PathBuf::from("ffprobe"));
+        assert_eq!(config.tools.ffmpeg, PathBuf::from("ffmpeg"));
         let config = Config::from_vars(&vars(&[("CLAP_FFMPEG", "/opt/ffmpeg")])).unwrap();
         assert_eq!(config.tools.ffmpeg, PathBuf::from("/opt/ffmpeg"));
     }

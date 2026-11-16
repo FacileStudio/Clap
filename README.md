@@ -18,7 +18,10 @@ renderer.
 
 - `crates/timeline`: `clap-timeline`, the clip model and the edit operations. See
   [docs/timeline.md](docs/timeline.md).
-- `apps/worker`: the isolated render service.
+- `crates/media`: `clap-media`, the `ffprobe` and `ffmpeg` commands the API and the worker share
+  for a media job.
+- `apps/worker`: the isolated render service. It also probes every upload and makes its poster,
+  filmstrip, waveform and proxy, so the API never decodes a file.
 - `apps/cli`: the `clap` command line. See [docs/cli.md](docs/cli.md).
 
 ## Install

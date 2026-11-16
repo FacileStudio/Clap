@@ -15,7 +15,7 @@ if [ "$cli_version" != "$(sh scripts/version.sh)" ]; then
   exit 1
 fi
 
-echo "==> workspace (apps/api, apps/cli, apps/worker, crates/render, crates/timeline)"
+echo "==> workspace (apps/api, apps/cli, apps/worker, crates/media, crates/render, crates/timeline)"
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo build -p worker --locked

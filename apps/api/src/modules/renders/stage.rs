@@ -16,12 +16,14 @@ async fn opened(bundle: &Path) -> std::io::Result<()> {
     tokio::fs::set_permissions(bundle, mode).await
 }
 
-async fn published(data_dir: &Path, staged: &Path, job: &JobFile) -> std::io::Result<()> {
+/// Publishes the bundle the API built in `staged` as the job `name` described by `job`, with
+/// [`jobfs::publish`](super::jobfs::publish): the worker sees it once `job.json` is there.
+pub async fn publish(data_dir: &Path, staged: &Path, name: &str, job: &impl serde::Serialize) -> std::io::Result<()> {
     opened(staged).await?;
     let encoded = serde_json::to_vec(job).map_err(std::io::Error::other)?;
-    let (data_dir, staged, name) = (data_dir.to_owned(), staged.to_owned(), job.id.to_string());
-    let publish = move || super::jobfs::publish(&data_dir, &name, &staged, &encoded);
-    tokio::task::spawn_blocking(publish).await.map_err(std::io::Error::other)?
+    let (data_dir, staged, name) = (data_dir.to_owned(), staged.to_owned(), name.to_owned());
+    let written = move || super::jobfs::publish(&data_dir, &name, &staged, &encoded);
+    tokio::task::spawn_blocking(written).await.map_err(std::io::Error::other)?
 }
 
 async fn built(data_dir: &Path, plan: &Plan, bundle: &Path) -> std::io::Result<()> {
@@ -42,7 +44,7 @@ pub async fn write(data_dir: &Path, plan: &Plan, job: &JobFile) -> std::io::Resu
     let staged = staging(data_dir).join(job.id.to_string());
     let bundle = staged.join("bundle");
     let done = match built(data_dir, plan, &bundle).await {
-        Ok(()) => published(data_dir, &bundle, job).await,
+        Ok(()) => publish(data_dir, &bundle, &job.id.to_string(), job).await,
         Err(error) => Err(error),
     };
     tokio::fs::remove_dir_all(&staged).await.ok();
@@ -52,5 +54,5 @@ pub async fn write(data_dir: &Path, plan: &Plan, job: &JobFile) -> std::io::Resu
 /// Makes a received bundle, which sits in the API's own uploads directory, the job `job`, as
 /// [`write`] publishes a built one.
 pub async fn adopt(data_dir: &Path, received: &Path, job: &JobFile) -> std::io::Result<()> {
-    published(data_dir, received, job).await
+    publish(data_dir, received, &job.id.to_string(), job).await
 }

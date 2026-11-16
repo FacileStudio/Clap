@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 
 use crate::config::Config;
 use crate::files;
-use crate::spec::{Spec, named};
+use crate::spec::{Head, Kind, named};
 use crate::status::{State, Status};
 
 /// What a job that was `running` when the worker started is told.
@@ -51,15 +51,16 @@ pub(crate) fn recover(config: &Config) -> usize {
     recovered
 }
 
-/// The queued job to run now: the one queued first. A job whose `job.json` cannot be read sorts
-/// first, so it fails at once instead of waiting.
+/// The queued job to run now: a media job before any render, then the one queued first. A job
+/// whose `job.json` cannot be read sorts first, so it fails at once instead of waiting.
 pub(crate) fn next(config: &Config) -> Option<PathBuf> {
     let queued = job_dirs(&config.renders).into_iter().filter(|dir| Status::load(dir).is_none());
-    let dated = queued.map(|dir| {
-        let created = Spec::load(&dir, &config.limits).ok().and_then(|spec| spec.created());
-        (created.unwrap_or(OffsetDateTime::UNIX_EPOCH), dir)
+    let dated = queued.map(|dir| match Head::load(&dir) {
+        Ok((head, _)) => (head.kind, crate::clock::parse(&head.created_at), dir),
+        Err(_) => (Kind::Media, Some(OffsetDateTime::UNIX_EPOCH), dir),
     });
-    dated.min().map(|(_, dir)| dir)
+    let dated = dated.filter(|(kind, _, _)| config.only.is_none_or(|only| only == *kind));
+    dated.min().map(|(_, _, dir)| dir)
 }
 
 #[cfg(test)]
@@ -79,7 +80,12 @@ mod tests {
     #[test]
     fn the_oldest_queued_job_is_next_and_a_job_left_running_fails() {
         let renders = tempfile::tempdir().unwrap();
-        let config = Config { renders: renders.path().to_owned(), poll: Default::default(), limits: Limits::default() };
+        let config = Config {
+            renders: renders.path().to_owned(),
+            poll: Default::default(),
+            limits: Limits::default(),
+            only: None,
+        };
         assert_eq!(next(&config), None);
         let late = job(renders.path(), "late", "2026-11-16T10:00:05Z");
         let early = job(renders.path(), "early", "2026-11-16T12:00:00+02:00");
@@ -98,5 +104,27 @@ mod tests {
         assert_eq!(next(&config), Some(early.clone()));
         Status::new(State::Done, 1, 1).save(&early).unwrap();
         assert_eq!(next(&config), Some(late));
+    }
+
+    #[test]
+    fn a_media_job_goes_before_an_older_render() {
+        let renders = tempfile::tempdir().unwrap();
+        let config = Config {
+            renders: renders.path().to_owned(),
+            poll: Default::default(),
+            limits: Limits::default(),
+            only: None,
+        };
+        let render = job(renders.path(), "render", "2026-11-16T10:00:00Z");
+        let upload = renders.path().join("upload");
+        std::fs::create_dir_all(&upload).unwrap();
+        let media = r#"{"id":"upload","kind":"media","created_at":"2026-11-16T23:00:00Z"}"#;
+        std::fs::write(upload.join("job.json"), media).unwrap();
+        assert_eq!(next(&config), Some(upload.clone()));
+        let renders_only = Config { only: Some(Kind::Render), ..config.clone() };
+        assert_eq!(next(&renders_only), Some(render.clone()));
+        Status::new(State::Done, 5, 5).save(&upload).unwrap();
+        assert_eq!(next(&config), Some(render));
+        assert_eq!(next(&Config { only: Some(Kind::Media), ..config }), None);
     }
 }

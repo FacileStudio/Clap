@@ -3,23 +3,56 @@
 use std::path::Path;
 
 use serde::Deserialize;
-use time::OffsetDateTime;
 
 use crate::config::Limits;
 use crate::{clock, files};
 
-/// The content of `job.json`.
+/// The content of the `job.json` of a render; [`Head`] holds its id and its date.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub(crate) struct Spec {
-    /// The job id: the name of its directory.
-    pub id: String,
     pub width: u32,
     pub height: u32,
     pub fps: u32,
     /// The seconds to render, `[start, end]`; `null` is the whole scene.
     pub range: Option<(f64, f64)>,
-    /// When the API queued the job, RFC 3339. The oldest job runs first.
+}
+
+/// What a job asks for.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum Kind {
+    /// A short job on an upload: probe it, then make its poster, filmstrip, waveform and proxy.
+    /// It sorts first, so an upload never waits behind a queue of renders.
+    Media,
+    /// A render of `bundle/index.html`, what a `job.json` with no `kind` asks for.
+    #[default]
+    Render,
+}
+
+/// What every `job.json` holds, whatever its kind.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub(crate) struct Head {
+    pub id: String,
+    #[serde(default)]
+    pub kind: Kind,
     pub created_at: String,
+}
+
+impl Head {
+    /// Reads the `job.json` of `dir` far enough to queue it: its id must be the directory's
+    /// name and its `created_at` a timestamp.
+    pub(crate) fn load(dir: &Path) -> Result<(Head, String), String> {
+        let text = files::read(&dir.join("job.json"))?;
+        let head: Head = serde_json::from_str(&text).map_err(|error| format!("job.json: {error}"))?;
+        let name = dir.file_name().unwrap_or_default().to_string_lossy();
+        if head.id != name {
+            return Err(format!("job.json names job `{}` in directory `{name}`", head.id));
+        }
+        match clock::parse(&head.created_at) {
+            Some(_) => Ok((head, text)),
+            None => Err("created_at must be an RFC 3339 timestamp".to_owned()),
+        }
+    }
 }
 
 /// Whether `name` can be a job id: 1 to 64 letters, digits, `-` and `_`.
@@ -31,18 +64,9 @@ pub(crate) fn named(name: &str) -> bool {
 impl Spec {
     /// Reads and checks the `job.json` of the job directory `dir`.
     pub(crate) fn load(dir: &Path, limits: &Limits) -> Result<Spec, String> {
-        let text = files::read(&dir.join("job.json"))?;
+        let (_, text) = Head::load(dir)?;
         let spec: Spec = serde_json::from_str(&text).map_err(|error| format!("job.json: {error}"))?;
-        let name = dir.file_name().unwrap_or_default().to_string_lossy();
-        if spec.id != name {
-            return Err(format!("job.json names job `{}` in directory `{name}`", spec.id));
-        }
         spec.check(limits).map(|()| spec)
-    }
-
-    /// When the job was queued.
-    pub(crate) fn created(&self) -> Option<OffsetDateTime> {
-        clock::parse(&self.created_at)
     }
 
     fn check(&self, limits: &Limits) -> Result<(), String> {
@@ -54,9 +78,6 @@ impl Spec {
         }
         if !(1..=limits.fps).contains(&self.fps) {
             return Err(format!("{} fps must be between 1 and {}", self.fps, limits.fps));
-        }
-        if self.created().is_none() {
-            return Err("created_at must be an RFC 3339 timestamp".to_owned());
         }
         let Some((start, end)) = self.range else { return Ok(()) };
         if !(start.is_finite() && end.is_finite() && start >= 0.0 && end > start) {
@@ -85,7 +106,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let with = |fields: &str| format!(r#"{{"id":"j1","created_at":"2026-11-16T10:00:00Z",{fields}}}"#);
         let good = job(dir.path(), &with(r#""width":1920,"height":1080,"fps":30,"range":[0,2.5]"#)).unwrap();
-        assert_eq!((good.width, good.range, good.created().is_some()), (1920, Some((0.0, 2.5)), true));
+        assert_eq!((good.width, good.range), (1920, Some((0.0, 2.5))));
         assert!(job(dir.path(), &with(r#""width":1080,"height":1920,"fps":30,"range":null"#)).is_ok());
         for (fields, reason) in [
             (r#""width":3840,"height":2160,"fps":30,"range":null"#, "at most 1920x1080"),
@@ -101,6 +122,9 @@ mod tests {
         assert!(job(dir.path(), other).unwrap_err().contains("names job `j2`"));
         let undated = r#"{"id":"j1","width":2,"height":2,"fps":1,"range":null,"created_at":"yesterday"}"#;
         assert!(job(dir.path(), undated).unwrap_err().contains("RFC 3339"));
+        let media = r#"{"id":"j1","kind":"media","created_at":"2026-11-16T10:00:00Z","proxy":true}"#;
+        std::fs::write(dir.path().join("j1/job.json"), media).unwrap();
+        assert_eq!(Head::load(&dir.path().join("j1")).unwrap().0.kind, Kind::Media);
         assert!(named("a-b_9") && !named("") && !named("../x") && !named(".hidden"));
     }
 }

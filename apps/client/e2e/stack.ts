@@ -10,6 +10,7 @@ const root = resolve(import.meta.dir, '../../..');
 const target = process.env.CARGO_TARGET_DIR ?? resolve(root, 'target');
 const api = resolve(target, 'debug/api');
 const seeder = resolve(target, 'debug/examples/e2e_seed');
+const worker = resolve(target, 'debug/worker');
 const clientDir = resolve(root, 'apps/client/build');
 const admin = process.env.E2E_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5672/postgres?sslmode=disable';
 const database = 'clap_e2e';
@@ -48,6 +49,24 @@ async function seed(env: Record<string, string>): Promise<string> {
 	return (JSON.parse(out) as { cookie: string }).cookie;
 }
 
+/**
+ * Starts the real worker binary on media jobs only, so uploads are probed and given their posters, filmstrips and
+ * waveforms as in production; renders stay for `finish` to play. `undefined` when the worker is not built.
+ */
+function startMedia(dataDir: string): Subprocess | undefined {
+	if (!existsSync(worker)) {
+		console.warn('e2e: no worker binary, uploads stay probing (cargo build -p worker)');
+		return undefined;
+	}
+	const env = {
+		CLAP_RENDERS_DIR: join(dataDir, 'renders'),
+		CLAP_WORKER_JOBS: 'media',
+		CLAP_RENDER_POLL_MS: '200',
+		CLAP_CHROME_SANDBOX: 'off'
+	};
+	return Bun.spawn([worker], { env: { ...process.env, ...env }, stdout: 'inherit', stderr: 'inherit' });
+}
+
 async function startApi(): Promise<Stack> {
 	const port = freePort();
 	const base = `http://127.0.0.1:${port}`;
@@ -65,11 +84,13 @@ async function startApi(): Promise<Stack> {
 	await ready(base, server);
 	const beat = setInterval(() => heartbeat(dataDir), 5000);
 	heartbeat(dataDir);
+	const media = startMedia(dataDir);
 	const cookie = await seed(env);
 	const stop = async () => {
 		clearInterval(beat);
+		media?.kill('SIGTERM');
 		server.kill('SIGTERM');
-		await server.exited;
+		await Promise.all([server.exited, media?.exited]);
 		rmSync(dataDir, { recursive: true, force: true });
 	};
 	return { base, cookie, stop, finish: (id, mp4) => finish(dataDir, id, mp4) };

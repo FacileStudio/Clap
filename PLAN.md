@@ -221,6 +221,14 @@ a title scene from the sidebar and starts a render; `mcp-live-smoke` passes with
 
 ### Decode uploads in the sandbox, not in clap-api (review H3, 2026-11-16)
 
+Done for v0.2.1 (branch `feat/media-sandbox`), with the filmstrip and the waveform in the same
+job. Two departures from the text below: the worker picks the poster time itself from the probe
+(`clap_media::poster_at`), because the API cannot know a length before the probe, so
+`job.json` carries `poster`, `strip`, `peaks` and `proxy` flags and no `poster_at_ms`; and
+`status.json` counts the steps finished in `frame`, so the API stores the probe and the poster
+before the proxy is encoded, as it did when it decoded itself. Left: the poster of a finished
+render is still cut by `ffmpeg` in `clap-api`, from the worker's `out.mp4`.
+
 Today `clap-api` runs `ffprobe` and `ffmpeg` on every upload (probe, poster, 720p proxy), and
 `clap-api` holds every secret: the database URL, `PORTE_TOKEN_KEY`, the OIDC client secret.
 A decoder bug in a hostile file would run in the process that holds them. Tonight's mitigation:
