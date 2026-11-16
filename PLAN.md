@@ -216,3 +216,37 @@ a title scene from the sidebar and starts a render; `mcp-live-smoke` passes with
   exchange plus an import route.
 - Keyframe curve editor, effects, colour grading, multi-cam.
 - OpenTimelineIO import and export.
+
+## Next
+
+### Decode uploads in the sandbox, not in clap-api (review H3, 2026-11-16)
+
+Today `clap-api` runs `ffprobe` and `ffmpeg` on every upload (probe, poster, 720p proxy), and
+`clap-api` holds every secret: the database URL, `PORTE_TOKEN_KEY`, the OIDC client secret.
+A decoder bug in a hostile file would run in the process that holds them. Tonight's mitigation:
+`clap-api` is capped at 2 CPUs, 3 GiB and 512 PIDs; every decode gets `-threads 2` and
+`-max_pixels 8847360` (DCI 4K); a proxy has a minute plus four times the video's length, at most
+15 minutes; one media job runs at a time. The fix is to decode where Chrome already runs:
+
+1. **A second job kind on the same file protocol.** The API writes
+   `renders/<id>/job.json` with `"kind": "media"` and `bundle/input` (a copy of the upload, as
+   bundles are built today in `staging/`). `job.json` gains `kind` (`render` when absent, so the
+   worker stays compatible) and, for media, `{"poster_at_ms": n, "proxy": true}`.
+2. **The worker runs the three commands** it would otherwise refuse: `ffprobe -print_format json`,
+   the poster and the proxy, with the same argument vectors (move `probe::args`,
+   `derive::poster_args` and `derive::proxy_args` into a shared crate, `crates/media`, so the two
+   sides cannot drift). It writes `probe.json`, `poster.jpg` and `proxy.mp4`, then `status.json`
+   `done`. It already has no network, a seccomp profile, its own uid and a memory cap.
+3. **The API reads them back through `jobfs`** (`regular`, nlink 1, size caps: `probe.json`
+   64 KiB, `poster.jpg` 2 MiB, `proxy.mp4` the asset cap), parses `probe.json` with the existing
+   `probe::parse`, and copies the two files into `derived/`. `assets/worker.rs` becomes the job
+   writer and the mirror's second consumer; the API never decodes untrusted media again.
+4. **Order.** Media jobs and renders share the worker's one-at-a-time queue; a media job is
+   short, so the worker takes media jobs first. `RENDER_QUEUE_MAX` counts renders only.
+5. **Tests.** The existing `tests/media.rs` runs unchanged against the worker binary, as
+   `tests/render_e2e.rs` does; a planted `probe.json` link and an oversized `proxy.mp4` are
+   refused, as in `tests/isolation_worker.rs`.
+
+Verify: `docker exec clap-api ps -eo comm` never lists `ffmpeg` or `ffprobe` during an upload,
+and `cargo test -p api --test media` passes with the worker running.
+
