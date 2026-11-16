@@ -65,6 +65,17 @@ pub fn spec(request: &RenderRequest, size: (u32, u32), duration: f64, limits: &R
     Ok(Spec { width, height, fps, range, frames })
 }
 
+/// The render a posted bundle asks for. A bundle is compiled HTML, so the API knows neither its
+/// size nor its length: `width` and `height` are required, a `range` is held to the longest
+/// render, and without one the worker enforces that cap once the scene has loaded.
+pub fn posted(request: &RenderRequest, limits: &RenderLimits) -> Result<Spec> {
+    let (Some(width), Some(height)) = (request.width, request.height) else {
+        return Err(Error::invalid("a posted bundle names its width and height"));
+    };
+    let spec = spec(request, (width, height), f64::from(limits.seconds), limits)?;
+    Ok(Spec { frames: if spec.range.is_some() { spec.frames } else { 0 }, ..spec })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +113,9 @@ mod tests {
         }
         assert!(spec(&RenderRequest::default(), (1280, 720), 601.0, &limits).unwrap_err().message.contains("600 s"));
         assert!(spec(&ask(None, None, None, Some([0.0, 600.0])), (1280, 720), 900.0, &limits).is_ok());
+        assert!(posted(&ask(None, Some(720), None, None), &limits).is_err());
+        assert!(posted(&ask(Some(1280), Some(720), None, Some([0.0, 601.0])), &limits).is_err());
+        let bundle = posted(&ask(Some(1280), Some(720), None, None), &limits).unwrap();
+        assert_eq!((bundle.width, bundle.fps, bundle.range, bundle.frames), (1280, 30, None, 0));
     }
 }

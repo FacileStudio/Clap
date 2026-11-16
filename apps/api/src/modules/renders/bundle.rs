@@ -28,7 +28,8 @@ pub fn dir(data_dir: &Path, id: Uuid) -> PathBuf {
 /// A scene compiled for the worker: the document, and the media it names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
-    /// `index.html`, every project file referenced by a relative path under [`MEDIA`].
+    /// `index.html`, every project file referenced by a relative path under [`MEDIA`], with
+    /// Clap's media runtime, so a render draws what the preview shows.
     pub html: String,
     /// Each asset name the document loads, with the digest of its bytes.
     pub media: BTreeMap<String, String>,
@@ -48,7 +49,7 @@ pub fn plan(project: &scene::Project, assets: &[Asset]) -> Result<Plan> {
         media.borrow_mut().insert(name.to_owned(), (*sha256).to_owned());
         Some(format!("{MEDIA}/{name}{fragment}"))
     };
-    let html = scene::compile(project, &scene::Options::new().assets(&resolve));
+    let html = clap_timeline::with_runtime(&scene::compile(project, &scene::Options::new().assets(&resolve)));
     let missing: Vec<String> = missing.into_inner().into_iter().collect();
     match missing.is_empty() {
         true => Ok(Plan { html, media: media.into_inner() }),
@@ -114,4 +115,13 @@ pub async fn write(data_dir: &Path, plan: &Plan, job: &JobFile) -> std::io::Resu
     tokio::fs::write(bundle.join("index.html"), &plan.html).await?;
     let encoded = serde_json::to_vec(job).map_err(std::io::Error::other)?;
     atomic(&dir(data_dir, job.id).join("job.json"), &encoded).await
+}
+
+/// Makes a received bundle the job `job`: the bundle directory moves into `target` by rename,
+/// then `job.json` is written last and by rename.
+pub async fn adopt(received: &Path, target: &Path, job: &JobFile) -> std::io::Result<()> {
+    tokio::fs::create_dir_all(target).await?;
+    tokio::fs::rename(received, target.join("bundle")).await?;
+    let encoded = serde_json::to_vec(job).map_err(std::io::Error::other)?;
+    atomic(&target.join("job.json"), &encoded).await
 }

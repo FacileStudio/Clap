@@ -15,6 +15,9 @@ pub const EVERY: Duration = Duration::from_secs(10 * 60);
 /// How long a job may wait or run before it is given up: six hours.
 pub const STALE: Duration = Duration::from_secs(6 * 60 * 60);
 
+/// How long the job directory of a failed or cancelled render is kept.
+pub const RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
+
 /// How long a new job is left alone: its directory may still be on its way to disk.
 pub const GRACE: Duration = Duration::from_secs(60);
 
@@ -40,6 +43,7 @@ async fn given_up(state: &AppState) -> Result<HashSet<Uuid>, SweepError> {
                 continue;
             }
         };
+        tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
         if mirror::close(state, id, "failed", Some(reason)).await? {
             state.events.render(id);
         }
@@ -62,19 +66,32 @@ async fn entries(dir: &Path) -> Vec<(Uuid, std::path::PathBuf)> {
     found
 }
 
+async fn retained(state: &AppState) -> Result<HashSet<Uuid>, sqlx::Error> {
+    let recent = sqlx::query_scalar(
+        "SELECT id FROM renders WHERE state IN ('failed', 'cancelled') AND finished_at > now() - make_interval(secs => $1)",
+    )
+    .bind(RETENTION.as_secs_f64())
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(recent.into_iter().collect())
+}
+
 async fn kept(state: &AppState) -> Result<HashSet<Uuid>, sqlx::Error> {
     let done = sqlx::query_scalar("SELECT id FROM renders WHERE state = 'done'").fetch_all(&state.pool).await?;
     Ok(done.into_iter().collect())
 }
 
 /// Fails every unfinished render whose job directory is gone or that waited past [`STALE`],
-/// then removes the job directories and the output files no row names. The directories are
+/// then removes the job directories and the output files no row names, and the directories of
+/// renders that failed or were cancelled more than [`RETENTION`] ago. A render given up here
+/// loses its directory at once, so a worker that comes back cannot pick it up. The directories are
 /// listed before the rows are read, and a row is always written before its directory, so a job
 /// queued meanwhile is never taken. Answers how many directories and files went.
 pub async fn swept(state: &AppState) -> Result<usize, SweepError> {
     let jobs = entries(&bundle::root(&state.data_dir)).await;
     let files = entries(&state.data_dir.join("outputs")).await;
-    let (waiting, kept) = (given_up(state).await?, kept(state).await?);
+    let (mut waiting, kept) = (given_up(state).await?, kept(state).await?);
+    waiting.extend(retained(state).await?);
     let mut removed = 0;
     for (_, path) in jobs.into_iter().filter(|(id, _)| !waiting.contains(id)) {
         removed += usize::from(tokio::fs::remove_dir_all(&path).await.is_ok());

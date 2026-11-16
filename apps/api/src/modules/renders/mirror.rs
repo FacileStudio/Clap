@@ -26,7 +26,8 @@ async fn progress(state: &AppState, id: Uuid, status: &Status) -> Result<bool, s
     Ok(moved.rows_affected() > 0)
 }
 
-/// Closes the render `id` as `outcome` (`failed` or `cancelled`) and removes its job directory.
+/// Closes the render `id` as `outcome` (`failed` or `cancelled`). Its job directory stays for
+/// [`sweep::RETENTION`], for whoever looks into the failure; the sweep removes it then.
 pub async fn close(state: &AppState, id: Uuid, outcome: &str, error: Option<&str>) -> Result<bool, sqlx::Error> {
     let closed = sqlx::query(
         "UPDATE renders SET state = $2, error = $3, finished_at = now() WHERE id = $1 AND state IN ('queued', 'running')",
@@ -36,7 +37,6 @@ pub async fn close(state: &AppState, id: Uuid, outcome: &str, error: Option<&str
     .bind(error)
     .execute(&state.pool)
     .await?;
-    tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
     Ok(closed.rows_affected() > 0)
 }
 
@@ -65,7 +65,8 @@ async fn done(state: &AppState, id: Uuid, status: &Status) -> Result<bool, sqlx:
 }
 
 /// Mirrors the status file of the unfinished render `id`, and answers whether its row moved. On
-/// `done` the file moves to durable storage and the job directory goes.
+/// `done` the file moves to durable storage and the job directory goes: the worker never
+/// deletes one.
 pub async fn mirror(state: &AppState, id: Uuid) -> Result<bool, sqlx::Error> {
     let Some(status) = status(&bundle::dir(&state.data_dir, id)).await else { return Ok(false) };
     let moved = match status.state.as_str() {

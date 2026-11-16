@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 use super::bundle::{self, JobFile};
 use super::spec::{self, Spec};
-use super::types::{Render, RenderRequest, RenderRow, Renders, columns, is_final};
+use super::status::{serving, worker_alive};
+use super::types::{Render, RenderRequest, RenderRow, Renders, WORKER_DOWN, columns, is_final};
 use crate::extract::db;
 use crate::modules::assets::service as assets;
 use crate::modules::projects::access::{self, Access};
@@ -22,17 +23,25 @@ pub async fn row(state: &AppState, id: Uuid) -> Result<RenderRow> {
 }
 
 /// The render `id`, for a caller whose access to its project reaches `need`: `404` when they
-/// cannot see the project, `403` when they can but may not do this.
+/// cannot see the project, `403` when they can but may not do this. A posted bundle has no
+/// project: it belongs to the account that posted it, and to nobody else.
 pub async fn authorized(state: &AppState, user_id: i64, id: Uuid, need: Access) -> Result<RenderRow> {
     let row = row(state, id).await?;
-    match access::access(state, user_id, row.project_id).await? {
+    let have = match row.project_id {
+        Some(project) => access::access(state, user_id, project).await?,
+        None if row.requested_by == Some(user_id) => Access::Manager,
+        None => Access::None,
+    };
+    match have {
         Access::None => Err(Error::not_found("render not found")),
         have if have < need => Err(Error::forbidden("you may not do this to the render")),
         _ => Ok(row),
     }
 }
 
-async fn insert(state: &AppState, user_id: i64, project: (Uuid, i64), spec: &Spec) -> Result<RenderRow> {
+/// Queues one row, unless the instance already has `RENDER_QUEUE_MAX` renders waiting or
+/// running: `429`. `project` is the project and its revision, or `(None, 0)` for a posted bundle.
+pub async fn insert(state: &AppState, user_id: i64, project: (Option<Uuid>, i64), spec: &Spec) -> Result<RenderRow> {
     let inserted = sqlx::query_as::<_, RenderRow>(concat!(
         "INSERT INTO renders (project_id, requested_by, rev, width, height, fps, range_start, range_end, frames) \
          SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9 \
@@ -55,7 +64,8 @@ async fn insert(state: &AppState, user_id: i64, project: (Uuid, i64), spec: &Spe
     inserted.ok_or_else(|| Error::rate_limited("too many renders are waiting: try again when one has finished"))
 }
 
-async fn discard(state: &AppState, id: Uuid) {
+/// Forgets a render whose job directory could not be written.
+pub async fn discard(state: &AppState, id: Uuid) {
     tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
     sqlx::query("DELETE FROM renders WHERE id = $1").bind(id).execute(&state.pool).await.ok();
 }
@@ -73,11 +83,12 @@ pub async fn enqueue(
     if source.trashed_at.is_some() {
         return Err(Error::failed("the project is in the trash").into());
     }
+    serving(state).await?;
     let parsed = scene::parse(&source.source).map_err(ProjectError::Invalid)?;
     let size = parsed.config().size;
     let spec = spec::spec(request, (size.width, size.height), parsed.duration(), &state.limits.render)?;
     let plan = bundle::plan(&parsed, &assets::catalog(state, project).await?)?;
-    let row = insert(state, user_id, (project, source.rev), &spec).await?;
+    let row = insert(state, user_id, (Some(project), source.rev), &spec).await?;
     if let Err(error) = bundle::write(&state.data_dir, &plan, &JobFile::of(&row, &spec)).await {
         discard(state, row.id).await;
         return Err(Error::internal("failed to write a render job", error).into());
@@ -86,9 +97,12 @@ pub async fn enqueue(
     Ok(row.into())
 }
 
-/// `GET /renders/{id}`: the render, for a caller who may read its project.
+/// `GET /renders/{id}`: the render, for a caller who may read its project. An unfinished one
+/// says so when the worker's heartbeat is stale.
 pub async fn read(state: &AppState, user_id: i64, id: Uuid) -> Result<Render> {
-    authorized(state, user_id, id, Access::Viewer).await.map(Render::from)
+    let render = Render::from(authorized(state, user_id, id, Access::Viewer).await?);
+    let stalled = !is_final(&render.state) && !worker_alive(&state.data_dir).await;
+    Ok(Render { notice: stalled.then_some(WORKER_DOWN), ..render })
 }
 
 /// `GET /projects/{id}/renders`: the renders of a project, newest first.
@@ -111,5 +125,6 @@ pub async fn cancel(state: &AppState, user_id: i64, id: Uuid) -> Result<Option<R
     }
     sqlx::query("DELETE FROM renders WHERE id = $1").bind(id).execute(&state.pool).await.map_err(db)?;
     tokio::fs::remove_file(super::status::output(&state.data_dir, id)).await.ok();
+    tokio::fs::remove_dir_all(bundle::dir(&state.data_dir, id)).await.ok();
     Ok(None)
 }

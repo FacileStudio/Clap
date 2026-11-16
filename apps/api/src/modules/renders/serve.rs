@@ -33,7 +33,10 @@ pub async fn file(
     if row.state != "done" {
         return Err(Error::failed(format!("the render is {}, not done: there is no file", row.state)));
     }
-    let title = fetch(&state, row.project_id).await?.title;
+    let title = match row.project_id {
+        Some(project) => fetch(&state, project).await?.title,
+        None => String::new(),
+    };
     let answer = ServeFile::new(status::output(&state.data_dir, row.id)).oneshot(request).await;
     let answer = answer.map_err(|error| Error::internal("failed to read a render", error))?;
     if answer.status() == StatusCode::NOT_FOUND {
