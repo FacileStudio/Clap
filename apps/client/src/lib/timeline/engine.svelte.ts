@@ -3,17 +3,21 @@ import type { Op, Timeline } from '$lib/types';
 import { applyOps } from './apply';
 import { History, type Entry } from './history';
 import { invertOps, nameAdded } from './invert';
-import { clipIds } from './model';
+import { carry } from './link';
 import { outline, type Outline } from './outline';
 
 /** Why a timeline edit did not land. */
 export type Refusal = 'blocked' | 'stale' | 'failed';
 
+/** A write the server took. */
+export type Written = { source: string; rev: number; timeline?: Timeline };
+
 /** What the engine needs from the page: the API calls and the source editor's state. */
 export interface EngineIo {
 	/** Saves pending text, then answers the revision to edit at; null when the source cannot be saved now. */
 	settle(): Promise<number | null>;
-	edit(rev: number, ops: Op[]): Promise<{ source: string; rev: number }>;
+	/** Answers the new source and revision, and the timeline read from it when the server sends one. */
+	edit(rev: number, ops: Op[]): Promise<Written>;
 	put(source: string, rev: number): Promise<{ rev: number }>;
 	timeline(): Promise<Timeline>;
 	/** The engine wrote the project: the page must show `source` at `rev`. */
@@ -129,9 +133,10 @@ export class Engine {
 		}
 	}
 
-	private async took(answer: { source: string; rev: number }): Promise<void> {
+	private async took(answer: Written): Promise<void> {
+		const shown = this.timeline;
 		this.io.adopt(answer.source, answer.rev);
-		await this.read(answer.source);
+		await this.read(answer.source, answer.timeline, shown);
 	}
 
 	private async rev(): Promise<number> {
@@ -147,16 +152,15 @@ export class Engine {
 		await this.io.reload().catch(() => undefined);
 	}
 
-	private async read(source: string): Promise<void> {
+	private async read(source: string, sent?: Timeline, shown: Timeline = this.timeline): Promise<void> {
 		this.source = source;
 		const spans = outline(source);
-		const served = this.served ? await this.io.timeline().catch(() => null) : null;
+		const served = sent ?? (this.served ? await this.io.timeline().catch(() => null) : null);
 		if (this.source !== source) return;
 		this.served = served !== null;
 		this.spans = spans;
 		this.timeline = served ?? spans;
-		const known = new Set(clipIds(this.timeline));
-		this.selection = new Set([...this.selection].filter((id) => known.has(id)));
+		this.selection = carry(this.selection, shown, this.timeline);
 	}
 
 	private mark(): void {

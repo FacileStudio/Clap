@@ -36,8 +36,6 @@ export const timeline = {
 		'{kind} {label}, pista {track}, de {from} a {to}',
 		'{kind} {label}, Spur {track}, von {from} bis {to}'
 	],
-	'timeline.trim.start': ['Trim the start', 'Rogner le début', 'Recortar el inicio', 'Anfang kürzen'],
-	'timeline.trim.end': ['Trim the end', 'Rogner la fin', 'Recortar el final', 'Ende kürzen'],
 	'timeline.empty': [
 		'Drag a media file here, or add a text.',
 		'Glissez un média ici, ou ajoutez un texte.',
@@ -68,20 +66,8 @@ export const timeline = {
 	'kind.text': ['Text', 'Texte', 'Texto', 'Text'],
 	'kind.html': ['Element', 'Élément', 'Elemento', 'Element'],
 	'starter.title': ['Title', 'Titre', 'Título', 'Titel'],
-	'starter.title.kicker': ['Episode 01', 'Épisode 01', 'Episodio 01', 'Folge 01'],
-	'starter.title.text': ['Your title here', 'Votre titre ici', 'Su título aquí', 'Ihr Titel hier'],
 	'starter.lower': ['Lower third', 'Bandeau de nom', 'Tercio inferior', 'Bauchbinde'],
-	'starter.lower.name': ['First Last', 'Prénom Nom', 'Nombre Apellido', 'Vorname Nachname'],
-	'starter.lower.role': ['Role, company', 'Fonction, société', 'Cargo, empresa', 'Funktion, Firma'],
-	'starter.caption': ['Caption', 'Sous-titre', 'Subtítulo', 'Untertitel'],
-	'starter.caption.text': [
-		'Words appear one by one',
-		'Les mots arrivent un par un',
-		'Las palabras llegan una a una',
-		'Die Wörter erscheinen einzeln'
-	],
-	'starter.chart': ['Animated chart', 'Graphique animé', 'Gráfico animado', 'Animiertes Diagramm'],
-	'starter.chart.text': ['Growth this year', 'Croissance cette année', 'Crecimiento este año', 'Wachstum in diesem Jahr'],
-	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung'],
-	'starter.logo.text': ['Your brand', 'Votre marque', 'Su marca', 'Ihre Marke']
+	'starter.caption': ['Captions', 'Sous-titres', 'Subtítulos', 'Untertitel'],
+	'starter.chart': ['Chart race', 'Course de barres', 'Carrera de barras', 'Balkenrennen'],
+	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung']
 } satisfies Record<string, Row>;

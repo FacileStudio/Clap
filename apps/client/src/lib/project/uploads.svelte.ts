@@ -1,4 +1,5 @@
 import { backend } from '$lib/backend';
+import { t } from '$lib/i18n';
 import type { Asset } from '$lib/types';
 
 /** One upload as muse's `UploadProgress` shows it. */
@@ -42,7 +43,7 @@ export class Uploads {
 				this.onstored(asset);
 				this.items = this.items.filter((item) => item.id !== id);
 			})
-			.catch((error: unknown) => this.patch(id, { status: 'error', error: error instanceof Error ? error.message : '' }))
+			.catch((error: unknown) => this.patch(id, { status: 'error', error: (error instanceof Error && error.message) || t('media.failed') }))
 			.finally(() => this.running.delete(id));
 	}
 

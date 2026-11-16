@@ -110,7 +110,7 @@
 					</Field>
 				</div>
 			{/if}
-			<p class="text-fc-xs text-fc-fg-muted">{t('render.limits')}</p>
+			<p class="text-fc-xs text-fc-fg-muted">{t('preview.note')} {t('render.limits')}</p>
 		{:else}
 			<div class="flex flex-col gap-3" role="status">
 				<div class="flex items-center justify-between gap-3 text-fc-sm">

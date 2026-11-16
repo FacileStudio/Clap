@@ -3,6 +3,7 @@ WORKDIR /client
 COPY apps/client/package.json apps/client/bun.lock* ./
 RUN bun install --frozen-lockfile
 COPY apps/client/ .
+COPY starters/ /starters/
 RUN bun run build
 
 FROM rust:1-bookworm AS api-build

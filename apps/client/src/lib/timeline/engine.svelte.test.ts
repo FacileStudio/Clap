@@ -111,6 +111,15 @@ describe('Engine', () => {
 		expect([engine.canUndo, start(engine)]).toEqual([false, 4]);
 	});
 
+	it('takes the timeline an edit answers and carries the selection by position', async () => {
+		const named = { scenes: [{ index: 0, duration: 6, layout: 'raw', clips: [{ ...outline(SOURCE).scenes[0].clips[0], id: 'video-1', start: 3 }] }] };
+		const { io, engine } = setup(async (rev) => ({ source: moved(3), rev: rev + 1, timeline: named }));
+		await engine.sync(SOURCE);
+		engine.select('clip-0-0');
+		await engine.commit(move(3));
+		expect([...engine.selection, io.timeline.mock.calls.length]).toEqual(['video-1', 1]);
+	});
+
 	it('selects one clip, toggles with add, and drops ids that are gone', async () => {
 		const { engine } = setup(async () => ({ source: SOURCE, rev: 2 }));
 		await engine.sync(SOURCE);

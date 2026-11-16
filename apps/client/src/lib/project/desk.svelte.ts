@@ -117,8 +117,7 @@ export class Desk {
 	insert(starter: Starter): void {
 		const timeline = this.engine.timeline;
 		const at = timeline.scenes.length === 0 ? 0 : locate(timeline, this.transport.time).scene + 1;
-		const body = starter.body(starter.words.map((key) => t(key)));
-		void this.engine.commit([{ op: 'add_scene', at, duration: starter.duration, body }]);
+		void this.engine.commit([{ op: 'add_scene', at, duration: starter.duration, body: starter.body }]);
 	}
 
 	private show(source: string): void {
