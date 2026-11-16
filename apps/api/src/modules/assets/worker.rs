@@ -82,10 +82,11 @@ async fn settle(state: &AppState, job: &Job, facts: &Result<Facts, String>) -> R
     Ok(bound.bind(probe.has_audio).bind(poster).execute(&state.pool).await?.rows_affected())
 }
 
-async fn proxy(state: &AppState, job: &Job) {
+async fn proxy(state: &AppState, job: &Job, duration_ms: Option<i64>) {
     let relative = files::proxy(&job.sha256);
     let input = files::path(&state.data_dir, &job.sha256);
-    if let Err(error) = derive::proxy(&state.tools, &input, &state.data_dir.join(&relative)).await {
+    let limit = super::tools::proxy_limit(duration_ms);
+    if let Err(error) = derive::proxy(&state.tools, &input, &state.data_dir.join(&relative), limit).await {
         return tracing::warn!(asset = %job.name, %error, "assets: no proxy");
     }
     let stored = sqlx::query("UPDATE assets SET proxy = $4 WHERE project_id = $1 AND name = $2 AND sha256 = $3")
@@ -100,7 +101,7 @@ async fn proxy(state: &AppState, job: &Job) {
     }
 }
 
-/// Looks at one asset, one at a time across the process: probes it, grabs the poster of a
+/// Looks at one asset, one media job at a time across the process (renders' posters included): probes it, grabs the poster of a
 /// video, stores what it found and tells open editors, then encodes the proxy of a video and
 /// tells them again. An asset replaced or deleted meanwhile is left alone.
 pub async fn run(state: AppState, job: Job) {
@@ -112,8 +113,10 @@ pub async fn run(state: AppState, job: Job) {
         Ok(_) => state.events.asset(job.project, &job.name, if facts.is_ok() { "ready" } else { "failed" }),
         Err(error) => return tracing::error!(asset = %job.name, %error, "assets: could not store a probe"),
     }
-    if facts.is_ok_and(|facts| facts.kind == "video") {
-        proxy(&state, &job).await;
+    if let Ok(facts) = facts.as_ref()
+        && facts.kind == "video"
+    {
+        proxy(&state, &job, facts.probe.duration_ms).await;
     }
 }
 
