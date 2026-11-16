@@ -57,7 +57,8 @@ when their dependency is missing: read the output before trusting a green run.
 - **User HTML is served by one route,** `GET /api/projects/{id}/frame`, with the `sandbox
   allow-scripts` policy and no cookie. Never give it `allow-same-origin` or `connect-src`.
 - **The API never launches Chrome.** It writes `DATA_DIR/renders/<id>/` and reads the worker's
-  `status.json` (`docs/api.md`, "Renders"). What the worker's side writes is not trusted.
+  `status.json` (`docs/api.md`, "Renders"). Every access to `renders/` goes through
+  `modules::renders::jobfs` (`openat2`, no links, fd checks); never open a path there directly.
 - **Render Chrome reaches nothing.** It loads `file://` URLs inside the bundle directory and
   refuses every other request (`crates/render/src/guard.rs`), with the proxy and resolver
   flags of `chrome.rs` behind that. Never loosen either.

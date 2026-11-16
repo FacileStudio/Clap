@@ -241,8 +241,12 @@ directory name.
 loaded. A job is queued while it has a `job.json` and no `status.json`. The worker writes the
 status when it starts the job, twice a second while it runs, and once at the end.
 
-Both sides must be uid 65532, and the API must leave `bundle/` writable by that uid: the
-extracted video frames go under it for the length of the render.
+The worker runs as uid 65533 in group 65532, the API as 65532. `renders/` is mode `3775`
+(setgid, sticky): the worker writes its heartbeat and its job files, and cannot rename or
+remove what the API put there. A job directory is `3775` and its `bundle/` `2775`, so the
+worker can extract frames under it; the worker's umask is 002, so the API can remove what it
+wrote once the job is over. The API reads and writes this directory as untrusted: see
+"Renders" in [api.md](api.md).
 
 ### What the worker does
 
@@ -271,7 +275,7 @@ The `clap-render` service of `docker-compose.yml`:
 | `security_opt: seccomp=deploy/chrome-seccomp.json` | Chrome's sandbox needs it, see below. |
 | `security_opt: no-new-privileges:true`, `cap_drop: ALL` | Nothing in the container can gain a capability. |
 | `read_only: true`, `tmpfs: /tmp` | The only writable places are `/tmp` (Chrome's profile) and the renders directory. |
-| `user: 65532:65532` | Not root. |
+| `user: 65533:65532` | Not root, and not the API's uid: the worker cannot write the API's files. |
 | volume `clap_data`, `subpath: renders`, at `/data/renders` | The worker sees the renders directory and nothing else of `/data`: no upload, no other project. |
 | 4 CPUs, 4 GiB, 1024 PIDs | A render cannot starve the host. |
 
