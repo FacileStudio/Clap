@@ -13,7 +13,9 @@
     for (const el of document.querySelectorAll("video, audio")) {
       const local = time - offset(el);
       const length = el.dataset.duration === undefined ? Infinity : Number(el.dataset.duration);
-      const shown = local >= 0 && local < length && !el.closest(".is-off") && !!el.closest(".scene.is-active, body");
+      const section = el.closest(".scene");
+      const active = !section || section.classList.contains("is-active");
+      const shown = active && local >= 0 && local < length && !el.closest(".is-off");
       const volume = Number(el.dataset.volume);
       el.volume = Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 1) : 1;
       if (!shown) {
