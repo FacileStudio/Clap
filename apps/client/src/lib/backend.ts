@@ -4,11 +4,13 @@ import type {
 	AssistantProfile,
 	Op,
 	PendingAction,
+	PublicRender,
 	Project,
 	ProjectSummary,
 	Render,
 	RenderRequest,
 	SessionUser,
+	ShareLink,
 	Timeline
 } from './types';
 import { uploadAsset } from './upload';
@@ -65,6 +67,12 @@ export const backend = {
 	render: (id: string) => request<Render>(render(id)),
 	cancelRender: (id: string) => request<Render | undefined>(render(id), send('DELETE')),
 	renderEventsUrl: (id: string) => `${API}${render(id, '/events')}`,
+	share: (id: string) => request<ShareLink>(project(id, '/share')),
+	createShare: (id: string, rotate = false) =>
+		request<ShareLink>(project(id, `/share${rotate ? '?rotate=true' : ''}`), send('POST')),
+	revokeShare: (id: string) => request<void>(project(id, '/share'), send('DELETE')),
+	publicRender: (token: string) =>
+		request<PublicRender>(`/public/renders/${encodeURIComponent(token)}`, { credentials: 'omit' }),
 	assistant: () => request<AssistantProfile>('/assistant'),
 	actions: () => request<{ actions: PendingAction[]; truncated?: boolean }>('/mcp/pending'),
 	confirmAction: (id: string) => request<unknown>(action(id, 'confirm'), send('POST')),

@@ -2,6 +2,7 @@
 	import { Blob } from '@facile/blob';
 	import { Button, Icon, Menu, icons, type MenuEntry } from '@facile/muse';
 	import { logoIcon } from '$lib/brand';
+	import { icons as clapIcons } from '$lib/icons';
 	import type { SaveStatus } from '$lib/project/saver.svelte';
 	import { t } from '$lib/i18n';
 	import type { AppKey } from '$lib/i18n/messages';
@@ -14,6 +15,7 @@
 		bulleOpen,
 		onrename,
 		onrender,
+		onshare,
 		ontogglebulle
 	}: {
 		title: string;
@@ -25,6 +27,7 @@
 		bulleOpen: boolean;
 		onrename: (title: string) => void;
 		onrender: () => void;
+		onshare: () => void;
 		ontogglebulle: () => void;
 	} = $props();
 
@@ -108,6 +111,9 @@
 			<Blob name={assistant} size={24} />
 			<span class="hidden xl:inline">{ask}</span>
 		</button>
+		<Button variant="secondary" size="sm" class="h-11" icon={clapIcons.share} onclick={onshare} data-testid="share-open">
+			<span class="hidden sm:inline">{t('share.open')}</span>
+		</Button>
 		<Button size="sm" class="h-11" icon={logoIcon} onclick={onrender} data-testid="render-open">
 			<span class="hidden sm:inline">{t('render.open')}</span>
 		</Button>

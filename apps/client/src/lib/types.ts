@@ -97,6 +97,23 @@ export interface RenderRequest {
 	range?: [number, number];
 }
 
+/** The share link of a project, as `GET` and `POST /api/projects/{id}/share` answer it. `url` comes once, on creation. */
+export interface ShareLink {
+	shared: boolean;
+	created_at: string | null;
+	url?: string;
+}
+
+/** The video a share link shows, as `GET /api/public/renders/{token}` answers it. `poster` and `video` are routes. */
+export interface PublicRender {
+	title: string;
+	duration_ms: number;
+	width: number;
+	height: number;
+	poster: string | null;
+	video: string;
+}
+
 /** The person's Bulle assistant, as `GET /api/assistant` answers it. */
 export interface AssistantProfile {
 	name: string;
