@@ -20,3 +20,5 @@ All notable changes to Clap. Versions follow SemVer.
   `/data/renders` one at a time with no network, a read-only root and Chrome's sandbox on,
   under the seccomp profile `deploy/chrome-seccomp.json`. `clap-api` and `clap-render` share
   the `renders` directory of the `clap_data` volume; the contract is in `docs/rendering.md`.
+- Motion starters (`starters/`): five ready-made raw scenes (title, lower third, caption, chart
+  race, logo reveal), each rendered by a test.
