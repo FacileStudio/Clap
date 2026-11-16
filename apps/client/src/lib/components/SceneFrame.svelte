@@ -2,7 +2,9 @@
 	import { untrack } from 'svelte';
 	import { stageBoxes, stageMessage, type StageBox, type StageBoxes, type StageInfo, type StageState } from '$lib/project/stage';
 
-	type Layer = { key: number; src: string; phase: 'loading' | 'seeking' | 'shown' };
+	type Layer = { key: number; src: string; phase: 'loading' | 'seeking' | 'shown'; painted: boolean; drawn: StageState | null };
+
+	const PATIENCE_MS = 2500;
 
 	let {
 		src,
@@ -39,7 +41,7 @@
 		const next = src;
 		untrack(() => {
 			const shown = layers.filter((layer) => layer.phase === 'shown').slice(-1);
-			layers = [...shown, { key: (serial += 1), src: next, phase: 'loading' }];
+			layers = [...shown, { key: (serial += 1), src: next, phase: 'loading', painted: shown.length === 0, drawn: null }];
 		});
 	});
 
@@ -69,21 +71,34 @@
 		return { destroy: () => frames.delete(key) };
 	}
 
+	function promote(layer: Layer) {
+		if (!layers.includes(layer) || layer.phase === 'loading' || !layer.painted || !layer.drawn) return;
+		layer.phase = 'shown';
+		if (layers.length > 1) layers = layers.filter((known) => known.key >= layer.key);
+		onstate?.(layer.drawn);
+	}
+
+	function painted(layer: Layer) {
+		layer.painted = true;
+		promote(layer);
+	}
+
 	function onmessage(event: MessageEvent) {
 		const layer = layers.find((known) => frames.get(known.key)?.contentWindow === event.source);
 		const boxes = layer?.phase === 'shown' ? stageBoxes(event.data) : null;
 		if (boxes && layer) onboxes?.(boxes, layer.src);
+		if (layer && (event.data as { type?: unknown } | null)?.type === 'clap:painted') return painted(layer);
 		const message = layer ? stageMessage(event.data) : null;
 		if (!layer || !message) return;
 		if (message.type === 'scene:ready') {
 			layer.phase = 'seeking';
+			setTimeout(() => painted(layer), PATIENCE_MS);
 			onready?.(message);
 			return;
 		}
 		if (layer.phase === 'loading') return;
-		layer.phase = 'shown';
-		if (layers.length > 1) layers = layers.filter((known) => known.key >= layer.key);
-		onstate?.(message);
+		layer.drawn = message;
+		promote(layer);
 	}
 </script>
 

@@ -4,11 +4,12 @@
   const CLIP_SECONDS = 0.5;
   const SCENE_SECONDS = 0.6;
   const BEFORE = 1e-4;
+  const PATIENCE_MS = 2000;
   const FITS = ["cover", "contain", "fill"];
   const HOLDING = ["fade", "slide-left", "slide-right", "wipe-left", "wipe-right", "zoom"];
   const OWNED = ["position", "inset", "left", "top", "width", "height", "margin", "maxWidth", "maxHeight",
     "transform", "transformOrigin", "objectFit", "opacity", "filter", "clipPath", "visibility", "background"];
-  const state = { playing: false, ghost: null, time: 0, ids: new Map(), touched: new Set() };
+  const state = { playing: false, ghost: null, time: 0, ids: new Map(), touched: new Set(), painted: false };
 
   const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
   const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
@@ -292,6 +293,26 @@
     window.parent.postMessage({ type: "clap:boxes", t: time, clips }, "*");
   }
 
+  function ready(el) {
+    if (el.matches("img")) return el.decode ? el.decode().catch(() => {}) : Promise.resolve();
+    if (el.readyState >= 2) return Promise.resolve();
+    return new Promise((done) => {
+      el.addEventListener("loadeddata", done, { once: true });
+      el.addEventListener("error", done, { once: true });
+    });
+  }
+
+  function painted(m) {
+    if (state.painted || window.parent === window) return;
+    state.painted = true;
+    const section = m.list[m.index];
+    const media = section ? Array.from(section.querySelectorAll("img, video")) : [];
+    const waits = Promise.all(media.filter((el) => !el.closest(".is-off")).map(ready));
+    const patience = new Promise((done) => setTimeout(done, PATIENCE_MS));
+    Promise.race([waits, patience]).then(() =>
+      requestAnimationFrame(() => window.parent.postMessage({ type: "clap:painted" }, "*")));
+  }
+
   function frame(t, seeked) {
     const api = window.__scene;
     const time = clamp(number(t, 0), 0, api.duration || 0);
@@ -306,6 +327,7 @@
     if (window.__clapRender) return;
     sync(time, m);
     boxes(time, m);
+    painted(m);
   }
 
   function ghost(data) {

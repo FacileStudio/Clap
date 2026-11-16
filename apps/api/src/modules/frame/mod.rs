@@ -1,6 +1,7 @@
 //! The sandboxed frame: a project compiled to HTML, served with a policy that gives it an opaque
 //! origin, and the signed links through which that cookie-less document loads the project's assets.
 
+mod expiry;
 mod router;
 
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use uuid::Uuid;
 
+pub use expiry::expiry;
 pub use router::{POLICY, cookieless, routes};
 
 /// How long the asset links of one frame work.
