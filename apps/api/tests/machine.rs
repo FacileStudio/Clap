@@ -3,45 +3,11 @@
 
 mod common;
 
-use axum::body::Body;
+use common::bundle::{PAGE, body, post, whole};
 use common::idp::{self, token};
-use common::upload::{BOUNDARY, PNG};
+use common::upload::PNG;
 use common::{Answer, App};
-use http::{Request, header};
 use serde_json::{Value, json};
-
-const PAGE: &[u8] = b"<!doctype html><img src=\"assets/a.png\"><script>window.__scene = {};</script>";
-
-fn body(spec: Option<Value>, files: &[(&str, &[u8])]) -> Vec<u8> {
-    let mut body = Vec::new();
-    if let Some(spec) = spec {
-        let part = format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"spec\"\r\n\r\n{spec}\r\n");
-        body.extend_from_slice(part.as_bytes());
-    }
-    for (path, bytes) in files {
-        let head =
-            format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{path}\"\r\n\r\n");
-        body.extend_from_slice(head.as_bytes());
-        body.extend_from_slice(bytes);
-        body.extend_from_slice(b"\r\n");
-    }
-    body.extend_from_slice(format!("--{BOUNDARY}--\r\n").as_bytes());
-    body
-}
-
-async fn post(app: &App, bearer: Option<&str>, body: Vec<u8>) -> Answer {
-    let mut request = Request::post("/api/renders")
-        .header(header::HOST, "clap.test")
-        .header(header::CONTENT_TYPE, format!("multipart/form-data; boundary={BOUNDARY}"));
-    if let Some(bearer) = bearer {
-        request = request.header(header::AUTHORIZATION, format!("Bearer {bearer}"));
-    }
-    common::http::raw(&app.router, request.body(Body::from(body)).unwrap()).await
-}
-
-fn whole() -> Vec<u8> {
-    body(Some(json!({"width": 1280, "height": 720, "fps": 24})), &[("index.html", PAGE), ("assets/a.png", PNG)])
-}
 
 async fn get(app: &App, bearer: &str, path: &str) -> Answer {
     common::send(&app.router, "GET", path, Some(bearer), None).await
@@ -131,4 +97,18 @@ async fn a_bundle_is_held_to_safe_paths_an_index_a_spec_and_the_caps() {
     assert_eq!(std::fs::read_dir(app.state.data_dir.join("uploads")).unwrap().count(), 0);
     common::render::heartbeat(&app.state.data_dir, time::OffsetDateTime::UNIX_EPOCH);
     assert_eq!(post(&app, Some(&bearer), body(spec(), &[("index.html", PAGE)])).await.status, 503);
+}
+
+#[tokio::test]
+async fn a_token_exactly_as_registre_exchanges_it_queues_a_render_for_a_new_person() {
+    let Some(pool) = common::pool("clap_machine_exchanged").await else { return };
+    let app = common::app_with(pool, &idp::REGISTRE).await;
+    let subject = format!("first-{}", uuid::Uuid::new_v4());
+    let queued = post(&app, Some(&idp::exchanged(&subject, "diapo")), whole()).await;
+    assert_eq!(queued.status, 202, "{}", queued.text());
+    assert_eq!(owner(&app, &queued.json()).await, subject, "the person's account was created on this first call");
+    let again = post(&app, Some(&idp::exchanged(&subject, "diapo")), whole()).await;
+    assert_eq!(again.status, 202, "{}", again.text());
+    let unverified = idp::token(&format!("lie-{}", uuid::Uuid::new_v4()), json!({"email_verified": false}));
+    assert_eq!(post(&app, Some(&unverified), whole()).await.status, 401, "an explicit false is never trusted");
 }
