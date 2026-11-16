@@ -1,14 +1,11 @@
 use axum::Router;
-use axum::body::Body;
 use axum::extract::{Path, Request, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderValue, header};
 use axum::response::Response;
 use axum::routing::get;
-use tower::ServiceExt;
-use tower_http::services::ServeFile;
+use tronc::Result;
 use tronc::http::rate_limit;
 use tronc::json::Json;
-use tronc::{Error, Result};
 
 use super::guard::limiter;
 use super::info::{self, PublicRender, shared};
@@ -32,12 +29,8 @@ fn dress(response: &mut Response) {
 
 async fn video(State(state): State<AppState>, Path(token): Path<String>, request: Request) -> Result<Response> {
     let shared = shared(&state, &token).await?;
-    let answer = ServeFile::new(output(&state.data_dir, shared.id)).oneshot(request).await;
-    let answer = answer.map_err(|error| Error::internal("failed to read a render", error))?;
-    if answer.status() == StatusCode::NOT_FOUND {
-        return Err(Error::internal("a render file is missing", std::io::Error::other(shared.id.to_string())));
-    }
-    let mut response = answer.map(Body::new);
+    let mut response =
+        crate::modules::renders::output::send(&output(&state.data_dir, shared.id), request.headers()).await?;
     dress(&mut response);
     Ok(response)
 }
