@@ -368,7 +368,7 @@ Every answer about a project carries its `url`, `https://<host>/projects/<id>`.
 | `clap_list_projects` | read | `{space_id?, trashed?, cursor?, limit?}` | `{projects: [{id, title, space_id, rev, updated_at, url}], next_cursor?, total}` |
 | `clap_get_project` | read | `{project_id}` | `{id, title, space_id, rev, source, truncated, scenes, duration, assets, trashed, url}` |
 | `clap_list_assets` | read | `{project_id}` | `{assets: [{name, kind, mime, size, duration_ms, width, height, fps, has_audio, state}], url}` |
-| `clap_format_guide` | read | `{}` | `{guide}`: `scene::FORMAT_GUIDE`, then Clap's section (`apps/api/src/mcp/guide.md`) |
+| `clap_format_guide` | read | `{}` | `{guide}`: `clap_timeline::format_guide()`, the scene reference then Clap's section (`crates/timeline/src/guide.md`) |
 | `clap_render_status` | read | `{render_id}` | `{id, project_id, rev, state, frame, frames, error, download_url, url}` |
 | `clap_create_project` | write | `{title, source?, space_id?}` | `{id, title, rev, scenes, url}` |
 | `clap_write_project` | write | `{project_id, source, rev}` | `{id, title, rev, scenes, url}` |
