@@ -43,11 +43,12 @@ async fn compiled(state: &AppState, id: Uuid, only: Option<usize>) -> Result<Str
         Some(format!("{}?frame={token}{variant}{fragment}", assets::url(id, name)))
     };
     let options = scene::Options::new().assets(&resolve);
-    match only {
-        None => Ok(scene::compile(&parsed, &options)),
+    let html = match only {
+        None => scene::compile(&parsed, &options),
         Some(index) => scene::compile_scene(&parsed, index, &options)
-            .ok_or_else(|| Error::not_found(format!("the project has no scene {index}")).into()),
-    }
+            .ok_or_else(|| Error::not_found(format!("the project has no scene {index}")))?,
+    };
+    Ok(clap_timeline::with_runtime(&html))
 }
 
 async fn frame(
@@ -77,7 +78,8 @@ async fn cookieless(mut response: Response) -> Response {
 
 /// `GET /projects/{id}/frame?scene=n`, behind `require_auth`: the project compiled to one HTML
 /// document, or its scene `n` (from 0), with [`POLICY`]. Each asset the source names loads through
-/// a signed link, a video through its 720p proxy once that exists. The only route that answers user HTML
+/// a signed link, a video through its 720p proxy once that exists, and Clap's media runtime
+/// (`clap_timeline::with_runtime`) keeps each video and sound at the time the scene is at. The only route that answers user HTML
 /// as HTML. The response never carries a cookie, whatever a layer inside it set.
 pub fn routes(sessions: &Manager) -> Router<AppState> {
     Router::new()

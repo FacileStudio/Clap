@@ -5,7 +5,7 @@ use uuid::Uuid;
 /// The columns every render answer reads, as a literal for `concat!`.
 macro_rules! columns {
     () => {
-        "id, project_id, rev, width, height, fps, range_start, range_end, state, frame, frames, error, size, \
+        "id, project_id, requested_by, rev, width, height, fps, range_start, range_end, state, frame, frames, error, size, \
          created_at, started_at, finished_at"
     };
 }
@@ -20,7 +20,9 @@ pub fn is_final(state: &str) -> bool {
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RenderRow {
     pub id: Uuid,
-    pub project_id: Uuid,
+    /// The project that was rendered; `None` for a posted bundle.
+    pub project_id: Option<Uuid>,
+    pub requested_by: Option<i64>,
     pub rev: i64,
     pub width: i32,
     pub height: i32,
@@ -41,8 +43,9 @@ pub struct RenderRow {
 #[derive(Debug, Clone, Serialize)]
 pub struct Render {
     pub id: Uuid,
-    pub project_id: Uuid,
-    /// The project revision that was rendered.
+    /// The project that was rendered; `null` for a bundle posted to `POST /renders`.
+    pub project_id: Option<Uuid>,
+    /// The project revision that was rendered; 0 for a posted bundle.
     pub rev: i64,
     pub width: i32,
     pub height: i32,
@@ -66,7 +69,12 @@ pub struct Render {
     pub finished_at: Option<OffsetDateTime>,
     /// Where a signed-in caller downloads the MP4, once done.
     pub download_url: Option<String>,
+    /// Set on a waiting or running render while the render service is not running.
+    pub notice: Option<&'static str>,
 }
+
+/// What [`Render::notice`] says while the worker's heartbeat is stale.
+pub const WORKER_DOWN: &str = "the render service is not running: the render resumes when it is back";
 
 /// The route that serves the file of the render `id`.
 pub fn file_url(id: Uuid) -> String {
@@ -77,6 +85,7 @@ impl From<RenderRow> for Render {
     fn from(row: RenderRow) -> Self {
         Render {
             download_url: (row.state == "done").then(|| file_url(row.id)),
+            notice: None,
             range: row.range_start.zip(row.range_end).map(|(start, end)| [start, end]),
             id: row.id,
             project_id: row.project_id,
