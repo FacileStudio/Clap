@@ -18,6 +18,8 @@ pub mod jobfs;
 pub mod mirror;
 pub mod output;
 pub mod posted;
+pub mod queue;
+pub mod retention;
 mod router;
 mod serve;
 pub mod service;
