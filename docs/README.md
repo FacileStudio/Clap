@@ -1,5 +1,6 @@
 # Clap documentation
 
-- [Rendering](rendering.md): how `clap-render` turns a scene into an MP4, and what it does not do yet
+- [Rendering](rendering.md): how `clap-render` turns a scene into an MP4, video and sound included, and how the isolated render worker runs it
+- [Timeline](timeline.md): the model `clap-timeline` reads from a `clap.md`, and the edit ops
 - [Development](development.md): running the API, the client and the tests locally
 - [Deployment](deployment.md): the image, the compose file, the pinned Chrome, library bumps
