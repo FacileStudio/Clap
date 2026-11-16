@@ -21,6 +21,7 @@ mod clips;
 mod cut;
 mod doc;
 mod error;
+mod guide;
 mod html;
 mod lines;
 mod model;
@@ -33,6 +34,7 @@ mod scenes;
 mod tree;
 
 pub use error::Error;
+pub use guide::{CLAP_GUIDE, format_guide};
 pub use model::{Clip, Kind, Scene, Span, Timeline};
 pub use op::Op;
 pub use runtime::{RUNTIME_JS, with_runtime};

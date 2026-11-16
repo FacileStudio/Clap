@@ -1,0 +1,95 @@
+# Clap: a video is a scene file
+
+Everything above applies to Clap. A Clap project is the same file, read as a video: scenes
+play one after the other, each for its `duration`, and the project lasts the sum of its scenes.
+This section says how to write one that previews and renders well.
+
+## Write time-based scenes
+
+Use `layout: raw` and set `duration` on every scene. A raw scene is a full-stage HTML
+composition: position its elements yourself, absolutely, inside the stage size given by `size`.
+
+```md
+---
+title: Launch
+size: 1920x1080
+layout: raw
+duration: 6
+---
+
+<style>
+  #shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #title { position: absolute; left: 120px; bottom: 140px; margin: 0; font-size: 120px; color: white; }
+</style>
+<video id="shot" src="assets/shot.mp4" data-start="0" data-duration="6" data-track-index="0" data-in="1.5"></video>
+<h1 id="title" data-start="1" data-duration="4" data-track-index="1">Launch day</h1>
+<audio id="music" src="assets/music.mp3" data-start="0" data-duration="6" data-volume="0.4"></audio>
+<script>
+  scene.timeline((tl) => tl.from("#title", { opacity: 0, y: 40, duration: 0.8 }, 1));
+</script>
+```
+
+Markdown scenes (`default`, `cover`, `center`, `split`) work too: a scene with steps lasts
+`step_duration` per stop, which is how a deck becomes a video. Prefer raw scenes for motion.
+
+## Clips
+
+A clip is any element with `data-start`. It exists from `data-start` for `data-duration`
+seconds, counted from the start of its scene. The timeline in the editor shows one bar per clip.
+
+- Give every clip an `id`, unique in the file. The timeline tools name a clip by its id.
+- Keep one clip per line when you can: an edit then changes one line.
+- A clip must end inside its scene: `data-start + data-duration <= duration`.
+- A clip may hold other elements. Animate what is inside it with `scene.timeline`.
+
+## Tracks
+
+`data-track-index` is the clip's track, a whole number. A higher track draws on top: it becomes
+the element's `z-index`. Two clips of one scene that share a track must not overlap in time.
+Put the background video on track 0, pictures above it, titles on top. Sound needs no track.
+
+## Media
+
+Media are the project's assets. `clap_list_assets` lists them with their `name`, `kind`,
+`duration_ms`, size in pixels and `state`. Reference an asset by its `name`, exactly, as a
+relative path: `src="assets/shot.mp4"`. A remote URL is refused, and so is a file the project
+does not hold when you render. Assets are uploaded by people in the editor: you cannot upload
+one, so use only the names the list answers.
+
+- `<video src data-start data-duration>` plays a video for the life of the clip.
+- `<audio src data-start data-duration>` plays a sound. It draws nothing.
+- `<img src>` shows a picture. Add `data-start` and `data-duration` to make it a clip.
+- `data-in` is the second of the media file the clip starts at. With `data-in="1.5"` a clip
+  shows the file from 1.5 s on. Without it the file plays from its start.
+- `data-volume` is the loudness from `0` to `1`. Without it the media plays at full volume.
+- Never write `autoplay`, `loop`, `controls` or `muted`. The clip decides when media plays.
+- A clip longer than what is left of its file holds the last frame. Check `duration_ms`.
+- An asset whose `state` is `probing` is usable; `failed` means the file could not be read.
+
+## Determinism
+
+The renderer never plays the page. For each frame it calls `window.__scene.seek(t)` and
+captures, so the frame at time `t` must depend on `t` alone.
+
+- Animate only with `scene.timeline`. CSS transitions, CSS animations and
+  `requestAnimationFrame` loops follow the wall clock and are not captured reliably.
+- No `Date`, no `performance.now()`, no timers, no unseeded `Math.random()`, no network.
+- Do not set `currentTime` on media yourself and do not call `play()`: write `data-in`.
+- Fonts: use the theme's system stack, or a font file uploaded to the project and loaded with
+  `@font-face { src: url(assets/font.woff2) }`. A remote font is refused.
+- The preview plays a 720p proxy and is not frame-exact. The render is the reference.
+
+## Editing with tools
+
+1. `clap_get_project` answers the source and its `rev`. Every write names that `rev`.
+2. `clap_edit_project` replaces one exact string: the right tool to change a text, a time or a
+   style. `clap_write_project` replaces the whole file.
+3. `clap_timeline_edit` applies timeline operations by clip id or scene index (scenes count
+   from 0): `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
+   `split_clip {clip, at}`, `delete_clip {clip}`,
+   `add_clip {scene, kind, src?, start, duration, track, text?}` with `kind` one of `video`,
+   `audio`, `image`, `text`, `html`, `set_scene_duration {scene, duration}`,
+   `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`.
+4. `clap_render` queues an MP4 of the saved project and `clap_render_status` follows it. A
+   render is at most 1920x1080, 30 frames a second and 10 minutes unless the instance says
+   otherwise.

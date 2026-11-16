@@ -1,6 +1,6 @@
 //! The model read from a source, and the JSON the client and the API exchange.
 
-use clap_timeline::{Error, Kind, Op, read, with_runtime};
+use clap_timeline::{CLAP_GUIDE, Error, Kind, Op, format_guide, read, with_runtime};
 use serde_json::json;
 
 const LAUNCH: &str = include_str!("fixtures/launch.md");
@@ -78,4 +78,14 @@ fn a_bad_source_is_a_parse_error() {
 fn the_preview_runtime_lands_before_the_end_of_the_body() {
     let html = with_runtime("<html><body><main></main></body></html>");
     assert!(html.contains("clap:playing") && html.ends_with("</script>\n</body></html>"), "{html}");
+}
+
+#[test]
+fn the_guide_is_the_scene_reference_then_claps_section_and_its_example_reads() {
+    let guide = format_guide();
+    assert!(guide.starts_with(scene::FORMAT_GUIDE) && guide.ends_with(CLAP_GUIDE));
+    let example = CLAP_GUIDE.split("```md\n").nth(1).unwrap().split("```").next().unwrap();
+    let timeline = read(example).unwrap();
+    let ids: Vec<&str> = timeline.scenes[0].clips.iter().map(|clip| clip.id.as_str()).collect();
+    assert_eq!((timeline.duration, ids), (6.0, vec!["shot", "title", "music"]));
 }
