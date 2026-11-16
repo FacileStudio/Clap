@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use super::access::{self, Access, member_spaces};
 use super::error::ProjectError;
-use super::source::{self, STARTER};
+use super::source;
 use super::types::{Author, CreateRequest, ListQuery, Project, ProjectEntry, ProjectRow, columns};
 use super::write;
 use crate::extract::db;
@@ -62,7 +62,8 @@ fn named(asked: &str, project: &scene::Project) -> Result<String> {
 }
 
 /// `POST /projects`: a new project at `rev` 1, in a space the caller may edit or in their personal
-/// projects. Its title is the one asked for, else the source's `title`, else [`UNTITLED`].
+/// projects. Its title is the one asked for, else the source's `title`, else [`UNTITLED`]. Without a
+/// source it holds `clap_timeline::starter` in the language `lang` asks for, French by default.
 pub async fn create(
     state: &AppState,
     author: &Author,
@@ -70,8 +71,8 @@ pub async fn create(
 ) -> std::result::Result<Project, ProjectError> {
     let have = access::scope(state, author.user_id, request.space_id.as_deref()).await?;
     access::require(have, Access::Editor)?;
-    let text = request.source.as_deref().unwrap_or(STARTER);
-    let project = source::checked(text, state.limits.source)?;
+    let text = request.source.unwrap_or_else(|| clap_timeline::starter(request.lang.as_deref().unwrap_or_default()));
+    let project = source::checked(&text, state.limits.source)?;
     let title = named(&request.title, &project)?;
     let mut tx = state.pool.begin().await.map_err(db)?;
     let row = sqlx::query_as::<_, ProjectRow>(concat!(
@@ -82,7 +83,7 @@ pub async fn create(
     .bind(&request.space_id)
     .bind(author.user_id)
     .bind(title)
-    .bind(text)
+    .bind(&text)
     .fetch_one(&mut *tx)
     .await
     .map_err(db)?;

@@ -110,6 +110,10 @@ pub struct CreateRequest {
     pub title: String,
     pub space_id: Option<String>,
     pub source: Option<String>,
+    /// The language of the starter a project without `source` begins with: a tag or an
+    /// `Accept-Language` value. The route fills it from the request's `Accept-Language`.
+    #[serde(default)]
+    pub lang: Option<String>,
 }
 
 /// `PUT /projects/{id}/source`: the whole source and the `rev` it was read at.

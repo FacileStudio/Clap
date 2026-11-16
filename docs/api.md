@@ -39,7 +39,7 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | Route | Needs | Does |
 |---|---|---|
 | `GET /projects` | session | Every project the caller reaches, newest first, without sources. `?space_id=` keeps one space (`404` when not a member). `?trashed=true` lists the trash |
-| `POST /projects` | editor in the space | Body `{title?, space_id?, source?}`. `201` with the project at `rev` 1. No `source` gives a one-scene starter. The title is the one given, else the source's `title`, else `Untitled` |
+| `POST /projects` | editor in the space | Body `{title?, space_id?, source?, lang?}`. `201` with the project at `rev` 1. No `source` gives the one-scene starter of `clap_timeline::starter`, in the language of `lang`, else of the request's `Accept-Language`: `fr` (the default), `en`, `de` or `es`. The title is the one given, else the source's `title`, else `Untitled` |
 | `GET /projects/{id}` | viewer | `{id, space_id, title, source, rev, created_at, updated_at, trashed_at, access}` |
 | `PUT /projects/{id}/source` | editor | Body `{source, rev}`. Saves and answers the project at `rev + 1`. See "The rev rule" |
 | `GET /projects/{id}/timeline` | viewer | `{rev, timeline}`: the scenes and clips of the saved source |

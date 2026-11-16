@@ -1,7 +1,8 @@
 //! The project handlers: thin wrappers that read the caller and the path.
 
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::header::ACCEPT_LANGUAGE;
+use axum::http::{HeaderMap, StatusCode};
 use porte::Identity;
 use tronc::Result;
 use tronc::json::{Json, JsonLimit};
@@ -27,8 +28,11 @@ pub async fn list(
 pub async fn create(
     State(state): State<AppState>,
     who: Identity,
-    JsonLimit(body): Body<CreateRequest>,
+    headers: HeaderMap,
+    JsonLimit(mut body): Body<CreateRequest>,
 ) -> std::result::Result<(StatusCode, Json<Project>), ProjectError> {
+    let accepted = headers.get(ACCEPT_LANGUAGE).and_then(|value| value.to_str().ok()).map(str::to_owned);
+    body.lang = body.lang.or(accepted);
     Ok((StatusCode::CREATED, Json(service::create(&state, &Author::of(&who), body).await?)))
 }
 
