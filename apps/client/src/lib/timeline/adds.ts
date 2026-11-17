@@ -1,4 +1,4 @@
-import type { Asset, ClipKind, Op, Timeline } from '$lib/types';
+import type { Asset, Clip, ClipKind, Op, Timeline } from '$lib/types';
 import { locate, round, trackRows } from './model';
 
 const MEDIA: ClipKind[] = ['video', 'audio', 'image'];
@@ -9,13 +9,17 @@ export function kindOfAsset(asset: Asset): ClipKind | null {
 	return MEDIA.find((kind) => asset.kind.startsWith(kind)) ?? null;
 }
 
-function freeTrack(timeline: Timeline, clip: Extract<Op, { op: 'add_clip' }>): number {
-	const others = timeline.scenes[clip.scene]?.clips ?? [];
-	const busy = (track: number) =>
-		others.some((one) => one.track === track && one.start < clip.start + clip.duration && clip.start < one.start + one.duration);
-	let track = clip.track;
-	while (busy(track)) track += 1;
-	return track;
+/** The first track at or above `track` where none of `clips` plays between `start` and `start + duration`. */
+export function freeTrack(clips: readonly Clip[], start: number, duration: number, track: number): number {
+	const busy = (lane: number) => clips.some((one) => one.track === lane && one.start < start + duration && start < one.start + one.duration);
+	let free = track;
+	while (busy(free)) free += 1;
+	return free;
+}
+
+/** The `set_scene_duration` that makes scene `scene` last until `end`, when it ends sooner. */
+export function growOps(timeline: Timeline, scene: number, end: number): Op[] {
+	return end > (timeline.scenes[scene]?.duration ?? 0) ? [{ op: 'set_scene_duration', scene, duration: round(end) }] : [];
 }
 
 /**
@@ -23,10 +27,8 @@ function freeTrack(timeline: Timeline, clip: Extract<Op, { op: 'add_clip' }>): n
  * that moment, and making the scene longer first when the clip would run past its end.
  */
 export function addOps(timeline: Timeline, wanted: Extract<Op, { op: 'add_clip' }>): Op[] {
-	const clip = { ...wanted, track: freeTrack(timeline, wanted) };
-	const end = round(clip.start + clip.duration);
-	const grow: Op[] = end > (timeline.scenes[clip.scene]?.duration ?? 0) ? [{ op: 'set_scene_duration', scene: clip.scene, duration: end }] : [];
-	return [...grow, clip];
+	const track = freeTrack(timeline.scenes[wanted.scene]?.clips ?? [], wanted.start, wanted.duration, wanted.track);
+	return [...growOps(timeline, wanted.scene, round(wanted.start + wanted.duration)), { ...wanted, track }];
 }
 
 /** A media file as a drop needs it: its clip kind, its source path and its length in seconds, when known. */

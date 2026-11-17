@@ -90,6 +90,20 @@ withPicture('the clip inspector sets the opacity', async () => {
 	expect(attribute(await stored(), 'data-opacity')).toBe(0.5);
 });
 
+withPicture('the stage menu fills the frame with the picture, drawn with Toile\'s knobs', async () => {
+	const { width } = await stageSize();
+	const box = editor.locator('[data-testid="stage-box"][data-clip="image-1"]');
+	await editor.locator('[data-testid="clip"][data-kind="image"]').click();
+	await editor.getByTestId('stage-selection').waitFor({ timeout: 5_000 });
+	expect(await editor.locator('[data-testid="stage-handle"]').count()).toBe(8);
+	await box.click({ button: 'right', force: true });
+	await editor.getByRole('menuitem', { name: 'Remplir le cadre' }).click();
+	await settled(editor);
+	const source = await stored();
+	expect([attribute(source, 'data-x'), attribute(source, 'data-w')]).toEqual([0, width]);
+	expect(source).toMatch(new RegExp(`${SRC}[^>]*data-fit="cover"`));
+});
+
 test('a scene transition picked on the timeline is written into the source', async () => {
 	const theirs = await api<{ source: string; rev: number }>(stack, `/projects/${id}`);
 	const body = { source: `${theirs.source.trimEnd()}\n\n---\nlayout: raw\nduration: 2\n---\n\n`, rev: theirs.rev };

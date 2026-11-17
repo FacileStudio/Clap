@@ -1,3 +1,5 @@
+import { keyCaps } from '@facile/muse';
+
 /** What a keyboard shortcut asks the editor to do. */
 export type Command =
 	| 'toggle'
@@ -12,8 +14,13 @@ export type Command =
 	| 'end'
 	| 'split'
 	| 'delete'
+	| 'ripple'
+	| 'copy'
+	| 'paste'
+	| 'duplicate'
 	| 'undo'
-	| 'redo';
+	| 'redo'
+	| 'help';
 
 type Key = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>;
 
@@ -31,10 +38,53 @@ const KEYS: Record<string, Command> = {
 	s: 'split',
 	Backspace: 'delete',
 	Delete: 'delete',
+	'Shift+Backspace': 'ripple',
+	'Shift+Delete': 'ripple',
+	'Mod+c': 'copy',
+	'Mod+v': 'paste',
+	'Mod+d': 'duplicate',
 	'Mod+z': 'undo',
 	'Mod+Shift+z': 'redo',
-	'Mod+y': 'redo'
+	'Mod+y': 'redo',
+	'?': 'help',
+	'Shift+?': 'help'
 };
+
+/** The shortcut of each command, as muse's `Kbd` and `keyCaps` spell one. */
+export const SHORTCUTS: Record<Command, string> = {
+	toggle: 'space',
+	back: 'j',
+	pause: 'k',
+	forward: 'l',
+	prevFrame: 'left',
+	nextFrame: 'right',
+	prevSecond: 'shift+left',
+	nextSecond: 'shift+right',
+	home: 'Home',
+	end: 'End',
+	split: 's',
+	delete: 'backspace',
+	ripple: 'shift+backspace',
+	copy: 'mod+c',
+	paste: 'mod+v',
+	duplicate: 'mod+d',
+	undo: 'mod+z',
+	redo: 'mod+shift+z',
+	help: '?'
+};
+
+/** Whether this browser runs on an Apple platform, where `mod` is Command. */
+export const onApple = (): boolean => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** The shortcut of `command` as one line of text, such as `Ctrl+Shift+Z`. */
+export function keysOf(command: Command): string {
+	return keyCaps(SHORTCUTS[command], onApple()).join(onApple() ? '' : '+');
+}
+
+/** `label` followed by the shortcut of `command`, the way tooltips and menus show it. */
+export function withKeys(label: string, command: Command): string {
+	return `${label} (${keysOf(command)})`;
+}
 
 /** The chord `event` spells, such as `Mod+Shift+z`. Ctrl and Cmd are both `Mod`. */
 export function chord(event: Key): string {
@@ -47,7 +97,7 @@ export function commandOf(event: Key): Command | null {
 	return event.altKey ? null : (KEYS[chord(event)] ?? null);
 }
 
-const TYPING = 'input, textarea, select, .cm-editor, [role="dialog"], [role="menu"]';
+const TYPING = 'input, textarea, select, [role="dialog"], [role="menu"]';
 const PRESSING = 'button, a, summary';
 const STEPPING = '[role="slider"], [role="separator"], [role="tab"], [role="radio"]';
 

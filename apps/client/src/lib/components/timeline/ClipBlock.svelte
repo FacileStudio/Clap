@@ -75,6 +75,7 @@
 	});
 
 	function grab(event: PointerEvent, grip: Grip) {
+		if (event.button === 2) event.stopPropagation();
 		if (event.button !== 0) return;
 		event.stopPropagation();
 		ongrab(event, grip);
@@ -85,7 +86,8 @@
 	use:register={clip.id}
 	class="clip group absolute flex touch-none items-center rounded-fc-md text-fc-xs text-fc-fg select-none
 		focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-fc-ring {TONE[clip.kind]}
-		{selected ? 'outline-2 outline-offset-[-2px] outline-fc-fg' : ''} {readonly ? '' : 'cursor-grab active:cursor-grabbing'}"
+		{selected ? 'outline-2 outline-offset-[-2px] outline-fc-info' : 'hover:outline-[1.5px] hover:outline-offset-[-1.5px] hover:outline-fc-info/60'}
+		{readonly ? '' : 'cursor-grab active:cursor-grabbing'}"
 	style="--x: {clip.start * zoom}px; --w: {Math.max(clip.duration * zoom, 6)}px; --y: {row * ROW}px"
 	role="button"
 	tabindex="0"

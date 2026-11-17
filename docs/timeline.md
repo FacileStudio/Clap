@@ -223,7 +223,10 @@ stays until the reloaded preview draws the new box. A file or a media bin item d
 stage is added at the playhead above what plays there, followed in the same edit by an
 `update_clip` naming the id `add_clip` will give it (`<kind>-<n>`, the first free one), with a box
 centred on the drop point at the media's ratio (its own size, at most half the stage) and
-`fit: contain`. The Clip tab edits the same values by number.
+`fit: contain`. The Clip tab edits the same values by number. A right-click on a box, or Shift+F10
+while the stage has the focus, opens its menu: bring forward or send backward (the clip's track,
+which the runtime stacks by), fill or fit the frame, centre, reset the size, copy, duplicate and
+delete.
 
 ## The stage
 

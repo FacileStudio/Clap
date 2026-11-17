@@ -109,11 +109,13 @@ export type Op =
 	| { op: 'trim_clip'; clip: string; start?: number; duration?: number; media_in?: number }
 	| { op: 'split_clip'; clip: string; at: number }
 	| { op: 'delete_clip'; clip: string }
+	| { op: 'duplicate_clip'; clip: string; scene?: number; start: number; track?: number }
 	| { op: 'add_clip'; scene: number; kind: ClipKind; src?: string; start: number; duration: number; track: number; text?: string }
 	| { op: 'set_scene_duration'; scene: number; duration: number }
 	| { op: 'reorder_scene'; scene: number; to: number }
 	| { op: 'delete_scene'; scene: number }
 	| { op: 'add_scene'; at: number; duration: number; body: string }
+	| { op: 'duplicate_scene'; scene: number }
 	| ({ op: 'update_clip'; clip: string } & ClipUpdate)
 	| { op: 'set_scene_transition'; scene: number; transition: SceneTransition | null; duration?: number | null };
 

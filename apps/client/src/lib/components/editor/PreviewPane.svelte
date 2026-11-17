@@ -5,7 +5,9 @@
 	import type { LocalMedia } from '$lib/project/local-media';
 	import type { StageBoxes, StageState } from '$lib/project/stage';
 	import type { Box, Point } from '$lib/stage/geometry';
+	import type { MenuHost } from '$lib/timeline/clip-menu';
 	import type { Engine } from '$lib/timeline/engine.svelte';
+	import { withKeys } from '$lib/timeline/keys';
 	import type { Asset } from '$lib/types';
 	import { FPS, timecode } from '$lib/project/timecode';
 	import type { Transport } from '$lib/project/transport.svelte';
@@ -21,6 +23,7 @@
 		assets,
 		measured,
 		readonly = false,
+		actions,
 		boxes = $bindable({ t: 0, clips: [] }),
 		ondropasset,
 		ondropfiles
@@ -34,6 +37,8 @@
 		assets: Asset[];
 		measured: Record<string, LocalMedia>;
 		readonly?: boolean;
+		/** What the stage's right-click menu acts through. */
+		actions: MenuHost;
 		/** The clip boxes the preview drew last, in frame pixels. */
 		boxes?: StageBoxes;
 		ondropasset: (asset: Asset, at: Point) => void;
@@ -105,6 +110,7 @@
 				{assets}
 				{measured}
 				{readonly}
+				{actions}
 				onghost={(next) => (ghost = next)}
 				onlanded={landed}
 				{ondropasset}
@@ -113,18 +119,19 @@
 		</div>
 	</div>
 	<div class="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-2">
-		<IconButton variant="ghost" aria-label={t('preview.start')} onclick={() => scrubbed(0)}>
+		<IconButton variant="ghost" aria-label={t('preview.start')} tooltip={withKeys(t('preview.start'), 'home')} onclick={() => scrubbed(0)}>
 			<Icon icon={icons.toStart} size={18} />
 		</IconButton>
 		<IconButton
 			aria-label={transport.playing ? t('preview.pause') : t('preview.play')}
+			tooltip={withKeys(transport.playing ? t('preview.pause') : t('preview.play'), 'toggle')}
 			data-testid="play"
 			data-playing={transport.playing}
 			onclick={() => transport.toggle()}
 		>
 			<Icon icon={transport.playing ? icons.pause : icons.play} size={18} />
 		</IconButton>
-		<IconButton variant="ghost" aria-label={t('preview.end')} onclick={() => scrubbed(transport.duration)}>
+		<IconButton variant="ghost" aria-label={t('preview.end')} tooltip={withKeys(t('preview.end'), 'end')} onclick={() => scrubbed(transport.duration)}>
 			<Icon icon={icons.toEnd} size={18} />
 		</IconButton>
 		<span
@@ -158,6 +165,7 @@
 		<IconButton
 			variant="ghost"
 			aria-label={t('preview.safe')}
+			tooltip={t('preview.safe')}
 			aria-pressed={safe}
 			class={safe ? 'bg-fc-surface' : ''}
 			data-testid="safe-toggle"

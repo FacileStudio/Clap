@@ -19,6 +19,8 @@ const INVERTERS: Inverters = {
 		return [{ op: 'trim_clip', clip: clip.id, start: clip.start, duration: clip.duration, media_in: clip.media_in }];
 	},
 	add_clip: () => [{ op: 'delete_clip', clip: ADDED }],
+	duplicate_clip: () => [{ op: 'delete_clip', clip: ADDED }],
+	duplicate_scene: (_, op) => [{ op: 'delete_scene', scene: op.scene + 1 }],
 	set_scene_duration: (before, op) => {
 		const scene = before.scenes[op.scene];
 		return scene ? [{ op: 'set_scene_duration', scene: op.scene, duration: scene.duration }] : null;

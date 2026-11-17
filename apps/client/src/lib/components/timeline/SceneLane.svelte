@@ -124,6 +124,7 @@
 					class="ml-auto flex size-5 items-center justify-center rounded-fc-sm opacity-0 group-hover/head:opacity-100
 						hover:bg-fc-field focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-fc-ring"
 					aria-label={t('timeline.scene.delete', { scene: scene.index + 1 })}
+					title={t('timeline.scene.delete', { scene: scene.index + 1 })}
 					disabled={locked}
 					data-testid="scene-delete"
 					onpointerdown={(event) => event.stopPropagation()}

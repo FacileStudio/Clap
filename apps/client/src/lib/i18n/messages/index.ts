@@ -1,6 +1,7 @@
 import type { Catalogs, Message } from '@facile/muse';
 import type { Row } from '../row';
 import { editor } from './editor';
+import { menu } from './menu';
 import { pending } from './pending';
 import { projects } from './projects';
 import { render } from './render';
@@ -8,7 +9,7 @@ import { share } from './share';
 import { stage } from './stage';
 import { timeline } from './timeline';
 
-const rows = { ...projects, ...editor, ...timeline, ...render, ...pending, ...share, ...stage };
+const rows = { ...projects, ...editor, ...timeline, ...render, ...pending, ...share, ...stage, ...menu };
 
 export type AppKey = keyof typeof rows;
 type AppCatalog = Record<AppKey, Message>;

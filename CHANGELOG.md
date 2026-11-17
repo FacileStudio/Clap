@@ -4,6 +4,32 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Added
+
+- Right-click menus in the web editor, also opened with Shift+F10 or the menu key: on a clip
+  (split, trim to the playhead, copy, paste, duplicate, move to the track above or below, fade
+  in and out, show in the media, delete, delete and close the gap), on a scene (insert a blank
+  scene, duplicate, transition, delete), on the empty timeline (paste, add a text or media
+  there, move the playhead), on the ruler, on the stage (bring forward, send backward, fill or
+  fit the frame, centre, reset the size) and on a media file (add at the playhead or on a new
+  track, preview, delete). Each entry shows its shortcut.
+- Two timeline operations, `duplicate_clip {clip, scene?, start, track?}` and
+  `duplicate_scene {scene}`, for the API, the MCP tool and `clap edit`. A copy is named
+  `<id>-copy`.
+- Shortcuts: Ctrl+C and Ctrl+V copy and paste a clip at the playhead, Ctrl+D duplicates the
+  selection, Shift+Delete deletes it and closes the gap, and `?` lists every shortcut.
+
+### Changed
+
+- The web editor no longer shows the project's text: the Source tab is gone, and every edit
+  goes through the timeline, the stage and the clip settings. The text stays the project, for
+  the `clap` command line and the agents. A project the server cannot read shows a notice that
+  points to `clap check` instead of its lines.
+- The stage selection is drawn like Toile's: a blue outline, blue rounded square corner knobs
+  and a round blue rotate knob. A selected timeline clip is outlined in the same blue.
+- The Media and Clip tabs carry icons, the toolbar and transport buttons show their shortcuts,
+  the playhead shows its time, and an empty clip panel says what to do.
+
 ## [0.2.2] - 2026-11-16
 
 ### Fixed

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { page } from '$app/state';
-	import { Alert, Tabs, toast } from '@facile/muse';
+	import { Alert, Tabs, icons, toast } from '@facile/muse';
 	import { backend } from '$lib/backend';
 	import { assistant as askAssistant, DEFAULT_ASSISTANT, rememberSidebar, sidebarOpen } from '$lib/bulle';
 	import { t } from '$lib/i18n';
@@ -10,69 +10,64 @@
 	import { STARTERS } from '$lib/project/starters';
 	import { session } from '$lib/session.svelte';
 	import { darkWhileOpen } from '$lib/theme';
+	import type { MenuHost } from '$lib/timeline/clip-menu';
 	import { runCommand } from '$lib/timeline/commands';
-	import { claimed, commandOf } from '$lib/timeline/keys';
+	import { claimed, commandOf, type Command } from '$lib/timeline/keys';
 	import { total } from '$lib/timeline/model';
 	import type { StageBoxes } from '$lib/project/stage';
 	import type { Point } from '$lib/stage/geometry';
 	import type { Project } from '$lib/types';
 	import BulleSidebar from '../BulleSidebar.svelte';
-	import ConflictBanner from '../ConflictBanner.svelte';
-	import ErrorList from '../ErrorList.svelte';
+	import ProjectProblem from '../ProjectProblem.svelte';
 	import Timeline from '../timeline/Timeline.svelte';
 	import ClipInspector from './ClipInspector.svelte';
 	import EditorHeader from './EditorHeader.svelte';
 	import MediaBin from './MediaBin.svelte';
+	import MediaPicker from './MediaPicker.svelte';
 	import PreviewPane from './PreviewPane.svelte';
 	import RenderDialog from './RenderDialog.svelte';
 	import ShareDialog from './ShareDialog.svelte';
-	import SourceEditor from './SourceEditor.svelte';
+	import ShortcutsDialog from './ShortcutsDialog.svelte';
 	import Splitter from './Splitter.svelte';
 
 	let { project }: { project: Project } = $props();
 
-	const EDITS = new Set(['split', 'delete', 'undo', 'redo']);
+	const EDITS = new Set<Command>(['split', 'delete', 'ripple', 'paste', 'duplicate', 'undo', 'redo']);
+	const REVEAL_MS = 2500;
 	const failed = (error: unknown) => toast.danger(error instanceof Error ? error.message : t('error.generic'));
 	const desk = new Desk(
 		untrack(() => project),
 		(message) => toast.danger(message)
 	);
-	const { saver, engine, transport } = desk;
+	const { revision, engine, transport } = desk;
 	const owner = session.user?.email ?? '';
 	const wide = window.matchMedia('(min-width: 1024px)');
 	const restoreTheme = darkWhileOpen();
 
-	let editor = $state<ReturnType<typeof SourceEditor>>();
 	let tab = $state('media');
 	let panes = $state(loadPanes());
 	let compact = $state(!wide.matches);
 	let renderOpen = $state(false);
 	let shareOpen = $state(false);
+	let helpOpen = $state(false);
+	let revealed = $state<string | null>(null);
+	let picker = $state<ReturnType<typeof MediaPicker>>();
 	let assistant = $state(DEFAULT_ASSISTANT.name);
 	let bulleOpen = $state(sidebarOpen(owner));
 	let boxes = $state<StageBoxes>({ t: 0, clips: [] });
 
 	const size = $derived(engine.spans);
 	const tabs = $derived([
-		{ id: 'media', label: t('editor.media') },
-		{ id: 'clip', label: t('editor.clip') },
-		{ id: 'source', label: t('editor.source') }
+		{ id: 'media', label: t('editor.media'), icon: icons.folder, badge: desk.assets.length || undefined },
+		{ id: 'clip', label: t('editor.clip'), icon: icons.settings }
 	]);
 	const inserts = $derived(STARTERS.map((starter) => ({ label: t(starter.label), onselect: () => desk.insert(starter) })));
 
-	$effect(() => {
-		desk.view = editor;
-	});
-	$effect(() => editor?.mark(desk.marked));
 	$effect(() => desk.watch());
 	$effect(() => rememberSidebar(owner, bulleOpen));
 	$effect(() => savePanes($state.snapshot(panes)));
 	$effect(() => {
 		if (!engine.busy) untrack(() => desk.settled());
-	});
-	$effect(() => {
-		void saver.rev;
-		if (saver.status === 'clean') untrack(() => void engine.sync(saver.buffer));
 	});
 	$effect(() => {
 		transport.duration = total(engine.timeline);
@@ -85,21 +80,35 @@
 	});
 
 	const onStage = (at: Point) => ({ time: transport.time, track: 0, at });
+	const run = (command: Command) => (command === 'help' ? (helpOpen = true) : runCommand(command, desk));
+	const actions: MenuHost = {
+		bench: desk,
+		run,
+		reveal: (src) => void reveal(src),
+		has: (src) => desk.assets.some((asset) => asset.name === src),
+		addMedia: (target) => picker?.pick(target)
+	};
 
 	void askAssistant().then((found) => (assistant = found.name));
 
 	onDestroy(() => {
 		transport.pause();
-		void saver.flush();
-		saver.dispose();
 		restoreTheme();
 	});
 
 	function onkeydown(event: KeyboardEvent) {
-		const command = claimed(event) || renderOpen || shareOpen ? null : commandOf(event);
+		const command = claimed(event) || renderOpen || shareOpen || helpOpen ? null : commandOf(event);
 		if (!command || (compact && EDITS.has(command))) return;
 		event.preventDefault();
-		runCommand(command, engine, transport);
+		run(command);
+	}
+
+	async function reveal(src: string) {
+		tab = 'media';
+		revealed = src;
+		await tick();
+		document.querySelector(`[data-testid="media-item"][data-name="${CSS.escape(src)}"]`)?.scrollIntoView({ block: 'nearest' });
+		setTimeout(() => revealed === src && (revealed = null), REVEAL_MS);
 	}
 </script>
 
@@ -108,7 +117,7 @@
 <svelte:window
 	{onkeydown}
 	onbeforeunload={(event) => {
-		if (saver.status !== 'clean') event.preventDefault();
+		if (engine.busy) event.preventDefault();
 	}}
 />
 
@@ -120,27 +129,14 @@
 				assets={desk.assets}
 				uploads={desk.uploads}
 				readonly={compact}
+				{revealed}
 				onadd={(asset) => desk.place(asset)}
+				onaddabove={(asset) => desk.placeAbove(asset)}
 				onremove={(asset) => void desk.removeAsset(asset).catch(failed)}
 			/>
 		</div>
 		<div class="min-h-0 flex-1 {tab === 'clip' ? '' : 'hidden'}">
 			<ClipInspector {engine} boxes={boxes.clips} readonly={compact} />
-		</div>
-		<div class="min-h-0 flex-1 flex-col {tab === 'source' ? 'flex' : 'hidden'}">
-			<div class="min-h-0 flex-1">
-				<SourceEditor
-					bind:this={editor}
-					value={untrack(() => desk.text)}
-					errors={saver.errors}
-					label={t('editor.source')}
-					onchange={(source) => desk.typed(source)}
-					oncursor={(line) => desk.caret(line)}
-				/>
-			</div>
-			{#if saver.errors.length > 0}
-				<ErrorList errors={saver.errors} onpick={(line) => editor?.reveal(line)} />
-			{/if}
 		</div>
 	</div>
 {/snippet}
@@ -148,7 +144,7 @@
 {#snippet preview()}
 	<div class="size-full min-h-0 overflow-hidden rounded-fc-lg bg-fc-component">
 		<PreviewPane
-			src={backend.frameUrl(desk.id, { stamp: saver.rev })}
+			src={backend.frameUrl(desk.id, { stamp: revision.rev })}
 			width={size.width}
 			height={size.height}
 			{transport}
@@ -156,6 +152,7 @@
 			assets={desk.assets}
 			measured={desk.uploads.measured}
 			readonly={compact}
+			{actions}
 			bind:boxes
 			ondropasset={(asset, at) => desk.drop(asset, onStage(at))}
 			ondropfiles={(files, at) => desk.dropFiles(files, onStage(at))}
@@ -172,6 +169,7 @@
 			readonly={compact}
 			ghosts={desk.ghosts}
 			measured={desk.uploads.measured}
+			{actions}
 			ondropasset={(asset, target) => desk.drop(asset, target)}
 			ondropfiles={(files, target) => desk.dropFiles(files, target)}
 		/>
@@ -181,7 +179,7 @@
 <div class="flex h-full min-h-0 flex-col gap-2 p-3 {bulleOpen ? 'lg:pr-[412px]' : ''}" data-testid="workbench">
 	<EditorHeader
 		title={desk.title}
-		status={saver.status}
+		saving={engine.busy}
 		{inserts}
 		{assistant}
 		{bulleOpen}
@@ -190,11 +188,8 @@
 		onshare={() => (shareOpen = true)}
 		ontogglebulle={() => (bulleOpen = !bulleOpen)}
 	/>
-	{#if saver.status === 'conflict'}
-		<ConflictBanner
-			onreload={() => void saver.reload().catch(failed)}
-			onoverwrite={() => void saver.overwrite().catch(failed)}
-		/>
+	{#if engine.problem}
+		<ProjectProblem message={engine.problem} />
 	{/if}
 	{#if compact}
 		<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
@@ -216,6 +211,8 @@
 	{/if}
 </div>
 
+<MediaPicker bind:this={picker} onpick={(files, target) => desk.dropFiles(files, target)} />
+<ShortcutsDialog bind:open={helpOpen} />
 <ShareDialog
 	bind:open={shareOpen}
 	id={desk.id}

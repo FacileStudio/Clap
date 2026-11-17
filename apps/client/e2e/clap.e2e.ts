@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { dragFile } from './drops';
-import { api, appendSource, attributeOf, dragBy, openPage, settled, startOf, waitData, type Stack } from './pages';
+import { api, attributeOf, dragBy, openPage, settled, startOf, waitData, type Stack } from './pages';
 import { startStack } from './stack';
 
 const scratch = mkdtempSync(join(tmpdir(), 'clap-e2e-'));
@@ -91,13 +91,9 @@ withClip('dragging the clip changes its data-start in the stored source, and und
 	expect(startOf(await stored(), SRC)).toBe(before);
 });
 
-withClip('the selected clip is marked in the source, and S splits it at the playhead', async () => {
+withClip('S splits the selected clip at the playhead', async () => {
 	const video = editor.locator('[data-testid="clip"][data-kind="video"]');
 	await video.click();
-	await editor.getByRole('tab', { name: 'Source' }).click();
-	await editor.locator('.cm-clip-line').first().waitFor({ timeout: 5_000 });
-	expect(await editor.locator('.cm-clip-line').first().textContent()).toContain(SRC);
-
 	const start = Number(await video.getAttribute('data-start'));
 	const box = await video.boundingBox();
 	const ruler = await editor.getByTestId('ruler').boundingBox();
@@ -156,23 +152,41 @@ withClip('a trimmed video starts its filmstrip on the frame of its media_in', as
 	expect(Number(await first.getAttribute('data-tile'))).toBe(Math.min(3, Math.floor(media_in / 2)));
 });
 
-test('typed source is saved, and a source the parser refuses shows its line', async () => {
-	await appendSource(editor, '\n<!-- note -->\n');
-	await waitData(editor, 'save-status', 'status', 'clean');
-	expect(await stored()).toContain('<!-- note -->');
-	await appendSource(editor, '\n---\ncolour: red\n---\n\nFin\n');
-	await waitData(editor, 'save-status', 'status', 'invalid');
-	expect(await editor.getByTestId('scene-errors').textContent()).toMatch(/Ligne \d+/);
-	await editor.keyboard.press('Control+z');
+withClip('the clip menu duplicates a clip, and the keyboard opens and closes it', async () => {
+	const videos = editor.locator('[data-testid="clip"][data-kind="video"]');
+	const before = await videos.count();
+	await videos.first().click({ button: 'right' });
+	await editor.getByRole('menuitem', { name: /^Dupliquer/ }).click();
+	await settled(editor);
+	expect(await videos.count()).toBe(before + 1);
+	expect(await stored()).toMatch(/data-clip="[^"]+-copy"/);
+
+	await videos.first().focus();
+	await editor.keyboard.press('Shift+F10');
+	const menu = editor.getByRole('menu', { name: 'Actions de la timeline' });
+	await menu.waitFor({ timeout: 5_000 });
+	expect(await menu.getByRole('menuitem').first().textContent()).toContain('(S)');
+	await editor.keyboard.press('Escape');
+	await menu.waitFor({ state: 'detached', timeout: 5_000 });
+});
+
+test('the editor shows no source, and an outside write reloads the timeline', async () => {
+	expect(await editor.getByRole('tab', { name: 'Source' }).count()).toBe(0);
+	expect(await editor.locator('.cm-editor, [data-testid="source-editor"]').count()).toBe(0);
+	const scenes = await editor.getByTestId('scene').count();
+	const theirs = await api<{ source: string; rev: number }>(stack, `/projects/${id}`);
+	const body = { source: `${theirs.source.trimEnd()}\n\n---\nlayout: raw\nduration: 2\n---\n\n<!-- theirs -->\n`, rev: theirs.rev };
+	await api(stack, `/projects/${id}/source`, { method: 'PUT', body });
+	await editor.locator(`[data-testid="scene"][data-scene="${scenes}"]`).waitFor({ state: 'attached', timeout: 10_000 });
 	await waitData(editor, 'save-status', 'status', 'clean');
 });
 
-test('an outside write reloads a clean editor', async () => {
-	const theirs = await api<{ source: string; rev: number }>(stack, `/projects/${id}`);
-	const body = { source: theirs.source.replace('<!-- note -->', '<!-- theirs -->'), rev: theirs.rev };
-	await api(stack, `/projects/${id}/source`, { method: 'PUT', body });
-	await editor.locator('.cm-content').getByText('<!-- theirs -->').waitFor({ timeout: 10_000 });
-	await waitData(editor, 'save-status', 'status', 'clean');
+test('? opens the keyboard shortcuts', async () => {
+	await editor.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	await editor.keyboard.press('Shift+?');
+	await editor.getByTestId('shortcuts-dialog').waitFor({ timeout: 5_000 });
+	await editor.keyboard.press('Escape');
+	await editor.getByTestId('shortcuts-dialog').waitFor({ state: 'hidden', timeout: 5_000 });
 });
 
 test('a render job is created from the dialog', async () => {
