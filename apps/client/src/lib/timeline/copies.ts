@@ -1,6 +1,16 @@
-import type { Op, Scene, Timeline } from '$lib/types';
+import type { Clip, Op, Scene, Timeline } from '$lib/types';
 import { freeTrack, growOps } from './adds';
+import { findClips } from './clips';
 import { clipIds, findClip, locate, round } from './model';
+
+/** The clip on the clipboard: its id, its element as the source wrote it, and the clip as it was then. */
+export interface Copied {
+	id: string;
+	element: string;
+	clip: Clip;
+}
+
+type PasteClip = Extract<Op, { op: 'paste_clip' }>;
 
 type DuplicateClip = Extract<Op, { op: 'duplicate_clip' }>;
 type DuplicateScene = Extract<Op, { op: 'duplicate_scene' }>;
@@ -35,17 +45,38 @@ export function duplicateScene(timeline: Timeline, op: DuplicateScene): void {
 	timeline.scenes.splice(op.scene + 1, 0, copy);
 }
 
+/** What the clipboard holds for clip `id` of `timeline`, whose element is `element`; null when either is missing. */
+export function copyOf(timeline: Timeline, id: string | undefined, element: string | null): Copied | null {
+	const clip = id ? findClip(timeline, id)?.clip : undefined;
+	return clip && element ? { id: clip.id, element, clip: structuredClone(clip) } : null;
+}
+
+/** Writes a `paste_clip` into the timeline, as the server will read the edited text back. */
+export function pasteClip(timeline: Timeline, op: PasteClip): void {
+	const [found] = findClips(op.element.trim());
+	const scene = timeline.scenes[op.scene];
+	if (!found || !scene) return;
+	const id = copyName(new Set(clipIds(timeline)), found.named ?? 'clip');
+	const duration = found.duration ?? Math.max(0, scene.duration - op.start);
+	const { kind, src, media_in, text } = found;
+	scene.clips.push({ id, kind, src, media_in, text, start: op.start, duration, track: op.track ?? found.track });
+}
+
 /**
- * The ops that copy clip `id` to project time `time`: on the first free track at or above its own, the scene made
- * longer first when the copy would run past its end. None when the clip is gone.
+ * The ops that paste `copied` at project time `time`: on the first free track at or above its own, the scene made
+ * longer first when the copy would run past its end. A copy of the clip while it still exists, else its element.
  */
-export function pasteOps(timeline: Timeline, id: string, time: number): Op[] {
-	const clip = findClip(timeline, id)?.clip;
-	if (!clip || timeline.scenes.length === 0) return [];
+export function pasteOps(timeline: Timeline, copied: Copied, time: number): Op[] {
+	if (timeline.scenes.length === 0) return [];
+	const live = findClip(timeline, copied.id)?.clip;
+	const clip = live ?? copied.clip;
 	const { scene, local } = locate(timeline, time);
 	const start = round(local);
 	const track = freeTrack(timeline.scenes[scene].clips, start, clip.duration, clip.track);
-	return [...growOps(timeline, scene, start + clip.duration), { op: 'duplicate_clip', clip: id, scene, start, track }];
+	const paste: Op = live
+		? { op: 'duplicate_clip', clip: copied.id, scene, start, track }
+		: { op: 'paste_clip', scene, start, track, element: copied.element };
+	return [...growOps(timeline, scene, start + clip.duration), paste];
 }
 
 /** The ops that copy clip `id` right after itself, in its own scene. */

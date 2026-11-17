@@ -136,7 +136,7 @@ describe('clip commands', () => {
 		runCommand('copy', bench);
 		runCommand('paste', bench);
 		runCommand('duplicate', bench);
-		expect(bench.copied).toBe('clip-0-0');
+		expect(bench.copied?.id).toBe('clip-0-0');
 		expect(commit.mock.calls).toEqual([
 			[[{ op: 'duplicate_clip', clip: 'clip-0-0', scene: 0, start: 2, track: 2 }]],
 			[[{ op: 'duplicate_clip', clip: 'clip-0-0', scene: 0, start: 3, track: 0 }]]
@@ -148,7 +148,10 @@ describe('clip commands', () => {
 		engine.select('clip-0-0');
 		engine.select('clip-0-1', true);
 		runCommand('cut', bench);
-		expect(bench.copied).toBe('clip-0-0');
+		expect([bench.copied?.id, bench.copied?.element]).toEqual([
+			'clip-0-0',
+			'<video src="assets/a.mp4" data-start="1" data-duration="2" data-track-index="0"></video>'
+		]);
 		expect(commit.mock.calls).toEqual([
 			[
 				[

@@ -53,7 +53,7 @@
 					style:left={share(SCENE.titleStart)}
 					style:width={share(SCENE.title)}
 				>
-					<Icon icon={icons.text} size={13} /><span>{t('demo.clip.title')}</span>
+					<Icon icon={icons.text} size={13} /><span>{scene.typed || t('demo.clip.title')}</span>
 				</span>
 				<span
 					bind:this={clip}

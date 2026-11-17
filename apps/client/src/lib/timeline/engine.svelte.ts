@@ -83,6 +83,12 @@ export class Engine {
 		});
 	}
 
+	/** The element of clip `id` as the stored source writes it, start tag to end tag; null when it is not there. */
+	element(id: string): string | null {
+		const span = this.spans.scenes.flatMap((scene) => scene.clips).find((clip) => clip.id === id);
+		return span && this.source !== null ? this.source.slice(span.open[0], span.end) : null;
+	}
+
 	/** Selects `id`; with `add`, toggles it in the selection. Null clears. */
 	select(id: string | null, add = false): void {
 		if (id === null) this.selection = new Set();

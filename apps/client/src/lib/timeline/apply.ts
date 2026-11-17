@@ -1,5 +1,5 @@
 import type { Clip, Op, Scene, Timeline } from '$lib/types';
-import { duplicateClip, duplicateScene } from './copies';
+import { duplicateClip, duplicateScene, pasteClip } from './copies';
 import { nextClipId } from './stage-drop';
 import { setTransition, updateClip } from './look';
 import { findClip, round } from './model';
@@ -41,6 +41,8 @@ const HANDLERS: Handlers = {
 	},
 	duplicate_clip: duplicateClip,
 	duplicate_scene: duplicateScene,
+	paste_clip: pasteClip,
+	set_clip_text: (timeline, op) => Object.assign(findClip(timeline, op.clip)?.clip ?? {}, { text: op.text.trim() }),
 	add_clip: (timeline, { scene, kind, src, start, duration, track }) => {
 		timeline.scenes[scene]?.clips.push({ id: nextClipId(timeline, kind), kind, src: src ?? null, start, duration, track, media_in: 0 });
 	},

@@ -1,6 +1,7 @@
 import { ApiError, backend } from '$lib/backend';
 import { t } from '$lib/i18n';
 import type { AppKey } from '$lib/i18n/messages';
+import type { Copied } from '$lib/timeline/copies';
 import { Engine, type Refusal } from '$lib/timeline/engine.svelte';
 import type { DropTarget, Ghost } from '$lib/timeline/ghost';
 import { locate, trackRows } from '$lib/timeline/model';
@@ -28,8 +29,8 @@ export class Desk {
 	readonly markers: Markers;
 	title = $state('');
 	assets = $state<Asset[]>([]);
-	/** The clip the person copied last, pasted by id while it exists. */
-	copied = $state<string | null>(null);
+	/** The clip the person copied or cut last, with its element, so it pastes even once deleted. */
+	copied = $state<Copied | null>(null);
 	private late = 0;
 
 	constructor(

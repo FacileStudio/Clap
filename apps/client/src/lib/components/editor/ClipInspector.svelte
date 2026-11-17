@@ -43,6 +43,12 @@
 		if (ops) commit(ops);
 		else event.currentTarget.value = fieldValue(clip, box, key);
 	};
+	const retext = (input: HTMLInputElement) => {
+		if (!clip) return;
+		const text = input.value.trim();
+		if (text && text !== clip.text) commit([{ op: 'set_clip_text', clip: clip.id, text }]);
+		else input.value = clip.text ?? '';
+	};
 	const preset = (side: 'enter' | 'exit') => (value: string) =>
 		clip && commit([{ op: 'update_clip', clip: clip.id, [side]: (value || null) as ClipTransition | null }]);
 </script>
@@ -90,6 +96,17 @@
 			<span class="truncate">{clip.src?.split('/').pop() ?? t(`kind.${clip.kind}`)}</span>
 			<span class="ml-auto font-fc-mono text-fc-xs font-normal text-fc-fg-muted">{clip.id}</span>
 		</header>
+		{#if clip.kind === 'text'}
+			<Field label={t('inspector.text')}>
+				<Input
+					type="text"
+					value={clip.text ?? ''}
+					disabled={locked}
+					data-testid="inspector-text"
+					onchange={(event) => retext(event.currentTarget)}
+				/>
+			</Field>
+		{/if}
 		{#if placed}
 			<div class="grid grid-cols-2 gap-2">
 				{@render number('x', 'X', 'px')}

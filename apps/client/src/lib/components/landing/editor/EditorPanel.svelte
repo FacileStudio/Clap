@@ -44,7 +44,7 @@
 			</li>
 		</ul>
 		<div class="inspector" class:shown={scene.tab === 'clip'}>
-			<p class="head"><Icon icon={icons.text} size={13} /><span>{t('demo.clip.title')}</span><span class="id clap-mono">text-1</span></p>
+			<p class="head"><Icon icon={icons.text} size={13} /><span>{t('demo.text')}</span><span class="id clap-mono">text-1</span></p>
 			<span class="label">{t('demo.text')}</span>
 			<span class="field" class:on={scene.tab === 'clip' && !scene.titled} bind:this={textField}
 				>{scene.typed}{#if scene.tab === 'clip' && !scene.titled}<span class="caret"></span>{/if}</span

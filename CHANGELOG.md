@@ -7,7 +7,10 @@ All notable changes to Clap. Versions follow SemVer.
 ### Added
 
 - Cut: Ctrl+X, or Cut in the clip menu, copies the selected clip and deletes the selection in
-  one step that one undo puts back.
+  one step that one undo puts back. Ctrl+V pastes it back at the playhead even once deleted:
+  the clipboard keeps the clip's element.
+- A Text field in the clip settings edits the words of a text clip, saved on Enter or when the
+  field loses focus, as one undo step.
 - Rename a media file: Rename in its menu, or a double-click on its name. Enter saves, Escape
   cancels. The file and every reference to it in the project text change together, as one
   revision (`PATCH /api/projects/{id}/assets/{name}`).
@@ -15,8 +18,11 @@ All notable changes to Clap. Versions follow SemVer.
   Click a marker to move the playhead to it, drag it to move it, right-click it to rename or
   delete it. The API keeps markers beside the project (`/api/projects/{id}/markers`), so the
   `clap.md` format does not change.
-- A timeline operation, `rename_media {from, to}`, for the API, the MCP tool and `clap edit`. It
-  rewrites references only; it does not rename the stored file.
+- Timeline operations for the API, the MCP tool and `clap edit`: `rename_media {from, to}`
+  (rewrites references only; it does not rename the stored file), `paste_clip {scene, start,
+  track?, element}` (an element copied as text becomes a clip named `<id>-copy`; the API refuses
+  a file the project does not hold) and `set_clip_text {clip, text}`.
+- The timeline JSON gives each text clip its `text`.
 
 ### Changed
 

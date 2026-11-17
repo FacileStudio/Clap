@@ -29,6 +29,8 @@ export interface Clip {
 	duration: number;
 	track: number;
 	media_in: number;
+	/** What a text clip shows, its HTML escapes read back; null for any other kind. */
+	text?: string | null;
 	/** The stage box, null when the clip carries none and keeps the box its classes give it. */
 	frame?: Geometry | null;
 	fit?: Fit | null;
@@ -116,6 +118,8 @@ export type Op =
 	| { op: 'delete_scene'; scene: number }
 	| { op: 'add_scene'; at: number; duration: number; body: string }
 	| { op: 'duplicate_scene'; scene: number }
+	| { op: 'paste_clip'; scene: number; start: number; track?: number; element: string }
+	| { op: 'set_clip_text'; clip: string; text: string }
 	| ({ op: 'update_clip'; clip: string } & ClipUpdate)
 	| { op: 'set_scene_transition'; scene: number; transition: SceneTransition | null; duration?: number | null };
 

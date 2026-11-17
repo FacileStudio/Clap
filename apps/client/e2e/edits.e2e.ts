@@ -77,7 +77,49 @@ test('Ctrl+X and the clip menu cut a clip, and one undo puts it back', async () 
 	expect(await stored()).toBe(source);
 });
 
+test('a cut clip pastes back at the playhead and stays after a reload', async () => {
+	const two = editor.locator('[data-testid="clip"][data-clip="two"]');
+	await two.click();
+	await editor.keyboard.press('Control+x');
+	await settled(editor);
+	expect(await two.count()).toBe(0);
+	await editor.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	await editor.keyboard.press('Home');
+	await editor.keyboard.press('Control+v');
+	await settled(editor);
+	const copy = editor.locator('[data-testid="clip"][data-clip="two-copy"]');
+	await copy.waitFor({ timeout: 10_000 });
+	const source = await until(stored, (text) => text.includes('data-clip="two-copy"'));
+	expect(source).toContain('>Two</p>');
+	await editor.reload();
+	await copy.waitFor({ timeout: 15_000 });
+	expect(await copy.getAttribute('data-start')).toBe('0');
+});
+
+test('the words of a text clip are edited in the clip settings and kept after a reload', async () => {
+	const one = editor.locator('[data-testid="clip"][data-clip="one"]');
+	const field = editor.getByTestId('inspector-text');
+	await one.click();
+	await editor.getByRole('tab', { name: 'Clip' }).click();
+	expect(await field.inputValue()).toBe('One');
+	await field.fill('Uno & co');
+	await field.press('Enter');
+	await settled(editor);
+	await until(stored, (text) => text.includes('>Uno &amp; co</p>'));
+	await editor.getByTestId('undo').click();
+	await settled(editor);
+	await until(stored, (text) => text.includes('>One</p>'));
+	await editor.getByTestId('redo').click();
+	await settled(editor);
+	await until(stored, (text) => text.includes('>Uno &amp; co</p>'));
+	await editor.reload();
+	await one.click();
+	await editor.getByRole('tab', { name: 'Clip' }).click();
+	expect(await field.inputValue()).toBe('Uno & co');
+});
+
 test('a media file renamed in the bin is renamed in the source, and Escape cancels', async () => {
+	await editor.getByRole('tab', { name: /^Média/ }).click();
 	await editor.locator('[data-testid="media-bin"] input[type="file"]').setInputFiles(still);
 	const item = editor.locator('[data-testid="media-item"][data-name="assets/still.png"]');
 	await item.waitFor({ timeout: 15_000 });

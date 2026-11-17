@@ -20,6 +20,11 @@ const INVERTERS: Inverters = {
 	},
 	add_clip: () => [{ op: 'delete_clip', clip: ADDED }],
 	duplicate_clip: () => [{ op: 'delete_clip', clip: ADDED }],
+	paste_clip: () => [{ op: 'delete_clip', clip: ADDED }],
+	set_clip_text: (before, op) => {
+		const text = findClip(before, op.clip)?.clip.text;
+		return text ? [{ op: 'set_clip_text', clip: op.clip, text }] : null;
+	},
 	duplicate_scene: (_, op) => [{ op: 'delete_scene', scene: op.scene + 1 }],
 	set_scene_duration: (before, op) => {
 		const scene = before.scenes[op.scene];
