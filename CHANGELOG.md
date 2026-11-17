@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
 ### Added
 
 - Right-click menus in the web editor, also opened with Shift+F10 or the menu key: on a clip
@@ -29,6 +31,12 @@ All notable changes to Clap. Versions follow SemVer.
   and a round blue rotate knob. A selected timeline clip is outlined in the same blue.
 - The Media and Clip tabs carry icons, the toolbar and transport buttons show their shortcuts,
   the playhead shows its time, and an empty clip panel says what to do.
+
+## [0.2.3] - 2026-11-17
+
+### Changed
+
+- Vision tracker v0.15.0: sends bot-detection flags and a first-gesture engagement beacon.
 
 ## [0.2.2] - 2026-11-16
 
