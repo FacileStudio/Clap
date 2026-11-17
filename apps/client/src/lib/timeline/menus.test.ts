@@ -58,7 +58,7 @@ describe('timeline menus', () => {
 		const { engine, host } = await setup();
 		const menu = timelineMenu(host, node('<div data-testid="clip" data-clip="clip-0-0"><span data-pick></span></div>'), AT, vi.fn());
 		expect([...engine.selection]).toEqual(['clip-0-0']);
-		expect([pick(menu, 'Couper')?.label, pick(menu, 'Couper')?.shortcut]).toEqual(['Couper à la tête de lecture', 's']);
+		expect([pick(menu, 'Scinder')?.label, pick(menu, 'Scinder')?.shortcut]).toEqual(['Scinder à la tête de lecture', 's']);
 		expect([pick(menu, 'Coller')?.disabled, pick(menu, 'Rogner le début')?.disabled]).toEqual([true, false]);
 		pick(menu, 'Dupliquer')?.onselect?.();
 		expect(host.run).toHaveBeenCalledWith('duplicate');
@@ -161,7 +161,7 @@ describe('clip commands', () => {
 			]
 		]);
 		const menu = timelineMenu(host, node('<div data-testid="clip" data-clip="clip-0-0" data-pick></div>'), AT, vi.fn());
-		expect(pick(menu, 'Couper')?.label).toBe('Couper à la tête de lecture');
+		expect(pick(menu, 'Scinder')?.label).toBe('Scinder à la tête de lecture');
 		expect(actions(menu).find((entry) => entry.label === 'Couper')?.shortcut).toBe('mod+x');
 	});
 

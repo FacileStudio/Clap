@@ -6,7 +6,7 @@ export const menu = {
 	'menu.timeline': ['Timeline actions', 'Actions de la timeline', 'Acciones de la línea de tiempo', 'Timeline-Aktionen'],
 	'menu.stage': ['Stage actions', 'Actions de la scène', 'Acciones del escenario', 'Bühnen-Aktionen'],
 	'menu.media': ['Media actions', 'Actions du média', 'Acciones del medio', 'Medien-Aktionen'],
-	'menu.split': ['Split at the playhead', 'Couper à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
+	'menu.split': ['Split at the playhead', 'Scinder à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
 	'menu.trim.start': [
 		'Trim the start to the playhead',
 		'Rogner le début à la tête de lecture',
@@ -104,7 +104,7 @@ export const menu = {
 	'command.nextSecond': ['One second forward', 'Une seconde en avant', 'Un segundo adelante', 'Eine Sekunde vor'],
 	'command.home': ['Go to the start', 'Aller au début', 'Ir al inicio', 'Zum Anfang'],
 	'command.end': ['Go to the end', 'Aller à la fin', 'Ir al final', 'Zum Ende'],
-	'command.split': ['Split at the playhead', 'Couper à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
+	'command.split': ['Split at the playhead', 'Scinder à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
 	'command.delete': ['Delete the selection', 'Supprimer la sélection', 'Eliminar la selección', 'Auswahl löschen'],
 	'command.ripple': [
 		'Delete and close the gap',

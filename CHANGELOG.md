@@ -4,6 +4,8 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-17
+
 ### Added
 
 - Cut: Ctrl+X, or Cut in the clip menu, copies the selected clip and deletes the selection in
@@ -26,6 +28,7 @@ All notable changes to Clap. Versions follow SemVer.
 
 ### Changed
 
+- In French, Split reads "Scinder à la tête de lecture", so it no longer looks like Cut ("Couper").
 - Menus show their shortcut at the end of the row instead of in the label (muse v0.33.1).
 - The landing page's editor demo types the title in the clip settings instead of a Source tab.
 

@@ -4,7 +4,7 @@ import type { Row } from '../row';
 export const timeline = {
 	'timeline.title': ['Timeline', 'Timeline', 'Línea de tiempo', 'Timeline'],
 	'timeline.tools': ['Timeline tools', 'Outils de la timeline', 'Herramientas de la línea de tiempo', 'Timeline-Werkzeuge'],
-	'timeline.split': ['Split at the playhead', 'Couper à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
+	'timeline.split': ['Split at the playhead', 'Scinder à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
 	'timeline.delete': ['Delete the selection', 'Supprimer la sélection', 'Eliminar la selección', 'Auswahl löschen'],
 	'timeline.text': ['Add a text', 'Ajouter un texte', 'Añadir un texto', 'Text hinzufügen'],
 	'timeline.text.default': ['Your text', 'Votre texte', 'Su texto', 'Ihr Text'],
