@@ -19,7 +19,9 @@ const TIMELINE: &str = "Moves, trims, splits, copies, deletes, adds and places c
 copies, deletes, adds and transitions scenes, by clip id and scene index (from 0). ops is a list applied in \
 order, each tagged by op: move_clip {clip, start, track?}, trim_clip {clip, start?, duration?, media_in?}, \
 split_clip {clip, at}, delete_clip {clip}, duplicate_clip {clip, scene?, start, track?} (a copy named \
-<id>-copy), add_clip {scene, kind, src?, start, duration, track, text?}, set_scene_duration {scene, duration}, \
+<id>-copy), add_clip {scene, kind, src?, start, duration, track, text?}, paste_clip {scene, start, track?, element} \
+(element is one HTML element as copied from a source; it becomes a clip named <id>-copy), set_clip_text {clip, \
+text} (the words of a text clip, escaped), set_scene_duration {scene, duration}, \
 reorder_scene {scene, to}, delete_scene {scene}, add_scene {at, duration, body}, duplicate_scene {scene}, \
 update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?, \
 exit_duration?} (box in frame pixels, null removes an attribute), set_scene_transition {scene, transition, \

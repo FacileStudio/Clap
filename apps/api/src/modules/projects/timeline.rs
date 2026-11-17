@@ -12,6 +12,7 @@ use super::error::ProjectError;
 use super::service::fetch;
 use super::types::{Author, Project, SourceRequest};
 use super::write;
+use crate::modules::assets::held::held;
 use crate::state::AppState;
 
 /// The most operations one edit applies.
@@ -63,6 +64,7 @@ fn named(op: &Op) -> Vec<String> {
         Op::MoveClip { clip, .. }
         | Op::TrimClip { clip, .. }
         | Op::DeleteClip { clip }
+        | Op::SetClipText { clip, .. }
         | Op::UpdateClip { clip, .. } => {
             vec![clip.clone()]
         }
@@ -106,6 +108,7 @@ pub async fn edits(
         return Err(ProjectError::Stale { rev: row.rev, sent: request.rev });
     }
     let ops = ops(&request.ops)?;
+    held(state, id, &ops).await?;
     let edit = move || -> std::result::Result<_, clap_timeline::Error> {
         let before = clap_timeline::read(&row.source)?;
         let source = clap_timeline::apply(&row.source, &ops)?;

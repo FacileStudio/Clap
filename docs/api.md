@@ -128,6 +128,7 @@ scene's transition (`docs/timeline.md`).
 `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
 `split_clip {clip, at}`, `delete_clip {clip}`, `duplicate_clip {clip, scene?, start, track?}`,
 `add_clip {scene, kind, src?, start, duration, track, text?}`,
+`paste_clip {scene, start, track?, element}`, `set_clip_text {clip, text}`,
 `set_scene_duration {scene, duration}`, `reorder_scene {scene, to}`, `delete_scene {scene}`,
 `add_scene {at, duration, body}`, `duplicate_scene {scene}`,
 `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?,
@@ -138,6 +139,8 @@ is saved under the rev rule, as one revision, and the route answers
 `{source, rev, timeline, clips}`: the new source, its `rev`, its timeline, and the ids, as they
 are now, of the clips the ops named or added.
 
+- A `paste_clip` whose element loads a file the project does not hold is `422` with
+  `timeline_error: invalid_op`, and nothing is saved.
 - A stale `rev` is `409`, as for a save. An `ops` entry that is not an operation is `400`, and
   so are more than 500 operations in one edit. The engine runs on a blocking thread.
 - An op that does not apply is `422` and nothing is saved. The body is tronc's
