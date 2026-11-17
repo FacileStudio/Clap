@@ -12,6 +12,7 @@ pub mod media;
 pub mod name;
 mod previews;
 pub mod quota;
+pub mod rename;
 mod router;
 pub mod seal;
 mod serve;
