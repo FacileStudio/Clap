@@ -30,14 +30,14 @@ renderer.
 curl -fsSL https://raw.githubusercontent.com/FacileStudio/Clap/main/install.sh | bash
 ```
 
-Installs to `~/.local/bin` via [facile](https://github.com/FacileStudio/facile), the suite
-installer. Pass `--bin-dir <dir>` to change that, `--source` to build from source, `--no-skill`
-to skip AI agent skill registration.
+Installs to `~/.local/bin` via [kit](https://github.com/FacileStudio/kit), the Facile package
+manager. Pass `--bin-dir <dir>` to change that, `--source` to build from source, `--no-skill` to
+skip AI agent skill registration.
 
-Already have `facile`:
+Already have `kit`:
 
 ```sh
-facile install clap
+kit add clap
 ```
 
 No release is published yet: until the first tag, run `cargo run -p clap-cli -- <command>`.

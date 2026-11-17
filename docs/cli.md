@@ -12,10 +12,10 @@ so what is true of one is true of the other.
 curl -fsSL https://raw.githubusercontent.com/FacileStudio/Clap/main/install.sh | bash
 ```
 
-Or `facile install clap` when you already have [facile](https://github.com/FacileStudio/facile).
+Or `kit add clap` when you already have [kit](https://github.com/FacileStudio/kit).
 
-The first binaries are published with the first tagged release, and `facile` needs the catalog
-entry at the end of this page. Until both exist, run the CLI from a checkout:
+The first binaries are published with the first tagged release. Until then, run the CLI from a
+checkout:
 `cargo run -p clap-cli -- <command>`.
 
 `clap render` needs `chrome-headless-shell` and `ffmpeg` on the machine. Every other command
@@ -257,10 +257,10 @@ Each archive holds the `clap` binary at its root. `clap --version` prints the ve
 `apps/client/package.json`, in the tagged commit. The gate and the workflow both check it.
 No tag has been pushed yet.
 
-## The `facile` catalog entry
+## The `kit` catalog entry
 
-The block to add to `internal/manifest/tools.yml` in `FacileStudio/facile`. Every `auth` field
-is transcribed from the code in `apps/cli/src/config` and `apps/cli/src/api/auth.rs`:
+The block in `crates/kit-core/catalog/tools.yml` in `FacileStudio/kit`. Every `auth` field is
+transcribed from the code in `apps/cli/src/config` and `apps/cli/src/api/auth.rs`:
 
 ```yaml
   - name: clap

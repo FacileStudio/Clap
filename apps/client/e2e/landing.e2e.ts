@@ -69,6 +69,6 @@ test('the downloads page offers the install commands and the release files', asy
 	const links = await page.locator('main a').evaluateAll((all) => all.map((a) => a.getAttribute('href')));
 	expect(links).toContain('https://github.com/FacileStudio/Clap/releases');
 	expect(links).toContain('https://github.com/FacileStudio/Clap/releases/latest/download/checksums.txt');
-	expect(await page.locator('main').innerText()).toContain('facile install clap');
+	expect(await page.locator('main').innerText()).toContain('kit add clap');
 	await page.context().close();
 });
