@@ -5,8 +5,10 @@ import { Engine, type Refusal } from '$lib/timeline/engine.svelte';
 import type { DropTarget, Ghost } from '$lib/timeline/ghost';
 import { locate, trackRows } from '$lib/timeline/model';
 import type { Asset, Project } from '$lib/types';
+import { renamedAsset } from './asset-name';
 import { Drops } from './drops.svelte';
 import { watchProject } from './events';
+import { Markers } from './markers.svelte';
 import { Revision } from './revision.svelte';
 import type { Starter } from './starters';
 import { Transport } from './transport.svelte';
@@ -23,6 +25,7 @@ export class Desk {
 	readonly engine: Engine;
 	readonly uploads: Uploads;
 	readonly drops: Drops;
+	readonly markers: Markers;
 	title = $state('');
 	assets = $state<Asset[]>([]);
 	/** The clip the person copied last, pasted by id while it exists. */
@@ -51,8 +54,10 @@ export class Desk {
 			refused: (why, error) => this.fail(refusal(why, error))
 		});
 		this.drops = new Drops(this.engine);
+		this.markers = new Markers(this.id, (error) => this.fail(error instanceof Error ? error.message : t('error.generic')));
 		void this.engine.sync(project.source);
 		void this.loadAssets();
+		void this.markers.load();
 	}
 
 	/** Follows the project's events until the answered function is called. */
@@ -82,6 +87,23 @@ export class Desk {
 	async removeAsset(asset: Asset): Promise<void> {
 		await backend.removeAsset(this.id, asset.name);
 		this.assets = this.assets.filter((known) => known.name !== asset.name);
+	}
+
+	/**
+	 * Renames `asset` to the name `typed` asks for, its references in the source with it, then shows the stored
+	 * project. A stale revision is read again and the rename tried once more. Answers whether a rename was sent.
+	 */
+	async renameAsset(asset: Asset, typed: string): Promise<boolean> {
+		const next = renamedAsset(asset.name, typed);
+		if (!next || next === asset.name) return false;
+		const send = () => backend.renameAsset(this.id, asset.name, next, this.revision.rev);
+		await send().catch(async (error: unknown) => {
+			if (!(error instanceof ApiError) || error.status !== 409) throw error;
+			await this.revision.reload();
+			return send();
+		});
+		await Promise.all([this.revision.reload(), this.loadAssets()]);
+		return true;
 	}
 
 	/** Places `asset` at the playhead, on the lowest track that is free there. */

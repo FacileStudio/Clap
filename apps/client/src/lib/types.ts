@@ -142,6 +142,13 @@ export interface Asset {
 	peaks_url?: string | null;
 }
 
+/** A ruler marker: a named project time, stored by the API beside the source. `label` is empty without a name. */
+export interface Marker {
+	id: string;
+	t: number;
+	label: string;
+}
+
 /** Where a render job stands. */
 export type RenderState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
 

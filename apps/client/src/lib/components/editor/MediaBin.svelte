@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Badge, ContextMenu, Dropzone, Icon, IconButton, UploadProgress, type MenuEntry } from '@facile/muse';
+	import { Badge, ContextMenu, Dropzone, Icon, IconButton, Input, UploadProgress, type MenuEntry } from '@facile/muse';
 	import { KIND_ICON, icons } from '$lib/icons';
 	import { t } from '$lib/i18n';
+	import { fileName } from '$lib/project/asset-name';
 	import { shortTime } from '$lib/project/timecode';
 	import type { Uploads } from '$lib/project/uploads.svelte';
 	import { kindOfAsset } from '$lib/timeline/adds';
@@ -17,6 +18,7 @@
 		revealed = null,
 		onadd,
 		onaddabove,
+		onrename,
 		onremove
 	}: {
 		assets: Asset[];
@@ -28,10 +30,21 @@
 		onadd: (asset: Asset) => void;
 		/** Places the file at the playhead on a new track above the others. */
 		onaddabove: (asset: Asset) => void;
+		/** Renames the file to the name typed in place of its own. */
+		onrename: (asset: Asset, typed: string) => void;
 		onremove: (asset: Asset) => void;
 	} = $props();
 
 	let previewed = $state<Asset | null>(null);
+	let editing = $state<string | null>(null);
+
+	function renameKey(event: KeyboardEvent & { currentTarget: HTMLInputElement }, asset: Asset) {
+		if (event.key !== 'Enter' && event.key !== 'Escape') return;
+		event.preventDefault();
+		event.stopPropagation();
+		editing = null;
+		if (event.key === 'Enter') onrename(asset, event.currentTarget.value);
+	}
 
 	function ondragstart(event: DragEvent, asset: Asset) {
 		event.dataTransfer?.setData(ASSET_MIME, asset.name);
@@ -40,7 +53,7 @@
 		carry(asset);
 	}
 
-	const short = (asset: Asset) => asset.name.split('/').pop() ?? asset.name;
+	const short = (asset: Asset) => fileName(asset.name);
 	const known = (asset: Asset) =>
 		asset.state === 'ready' ||
 		(asset.state === 'probing' && (kindOfAsset(asset) === 'image' || (uploads.measured[asset.name]?.duration ?? null) !== null));
@@ -55,7 +68,13 @@
 			{ label: t('menu.add'), icon: icons.plus, disabled: blocked, onselect: () => onadd(asset) },
 			{ label: t('menu.add.track'), icon: icons.layers, disabled: blocked, onselect: () => onaddabove(asset) },
 			{ label: t('menu.preview'), icon: icons.eye, disabled: asset.state === 'failed', onselect: () => (previewed = asset) },
-			...(readonly ? [] : [{ separator: true } as const, { label: t('menu.delete'), icon: icons.remove, tone: 'danger' as const, onselect: () => onremove(asset) }])
+			...(readonly
+				? []
+				: [
+						{ separator: true } as const,
+						{ label: t('menu.rename'), icon: icons.edit, onselect: () => (editing = asset.name) },
+						{ label: t('menu.delete'), icon: icons.remove, tone: 'danger' as const, onselect: () => onremove(asset) }
+					])
 		];
 	}
 </script>
@@ -105,7 +124,26 @@
 						{/if}
 					</div>
 					<div class="flex items-center gap-0.5">
-						<span class="min-w-0 flex-1 truncate px-1 text-fc-xs text-fc-fg" title={asset.name}>{short(asset)}</span>
+						{#if editing === asset.name}
+							<Input
+								class="h-8 min-w-0 flex-1 px-1.5 text-fc-xs"
+								value={short(asset)}
+								aria-label={t('media.rename', { name: short(asset) })}
+								data-testid="media-rename"
+								autofocus
+								onfocus={(event) => event.currentTarget.select()}
+								onkeydown={(event) => renameKey(event, asset)}
+								onblur={() => (editing = null)}
+							/>
+						{:else}
+							<span
+								class="min-w-0 flex-1 truncate px-1 text-fc-xs text-fc-fg"
+								title={asset.name}
+								data-testid="media-name"
+								role="presentation"
+								ondblclick={() => !readonly && (editing = asset.name)}>{short(asset)}</span
+							>
+						{/if}
 						{#if placeable(asset)}
 							<IconButton
 								variant="ghost"

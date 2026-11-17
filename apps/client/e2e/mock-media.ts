@@ -8,7 +8,8 @@ type Tell = (event: string, data: unknown) => void;
 /** The scratch folder uploaded files are written to. */
 export const scratch = mkdtempSync(join(tmpdir(), 'clap-mock-'));
 
-const assets = new Map<string, Asset[]>();
+/** The assets of each project, by project id. */
+export const assets = new Map<string, Asset[]>();
 const renders = new Map<string, Render & { project: string }>();
 const json = (body: unknown, status = 200) => Response.json(body, { status });
 

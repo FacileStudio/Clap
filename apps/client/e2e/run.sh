@@ -34,4 +34,4 @@ else
 fi
 
 [ -n "${E2E_SKIP_BUILD:-}" ] || bun run build
-bun test --timeout 180000 ./e2e/clap.e2e.ts ./e2e/stage.e2e.ts ./e2e/share.e2e.ts
+bun test --timeout 180000 ./e2e/clap.e2e.ts ./e2e/stage.e2e.ts ./e2e/share.e2e.ts ./e2e/edits.e2e.ts

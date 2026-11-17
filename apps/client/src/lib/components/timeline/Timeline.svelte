@@ -192,7 +192,19 @@
 					{/each}
 				</div>
 				<div bind:this={track} class="relative min-w-0 flex-1" style="min-height: {RULER + HEAD + rows.length * ROW}px">
-					<Ruler {zoom} from={(view.left - GUTTER) / zoom} to={(view.left + view.width) / zoom} onpointerdown={scrub} />
+					<Ruler
+						{zoom}
+						{length}
+						from={(view.left - GUTTER) / zoom}
+						to={(view.left + view.width) / zoom}
+						markers={actions.markers.list}
+						onpointerdown={scrub}
+						onseek={(time) => {
+							transport.pause();
+							transport.seek(time);
+						}}
+						onmove={(id, time) => void (!readonly && actions.markers.move(id, time))}
+					/>
 					<div class="relative" role="presentation" onpointerdown={() => engine.select(null)}>
 						{#each engine.timeline.scenes as scene (scene.index)}
 							<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {media} {readonly} {nodes} />

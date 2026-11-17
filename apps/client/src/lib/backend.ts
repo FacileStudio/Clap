@@ -2,6 +2,7 @@ import { API, request, send } from './http';
 import type {
 	Asset,
 	AssistantProfile,
+	Marker,
 	Op,
 	PendingAction,
 	PublicRender,
@@ -62,6 +63,14 @@ export const backend = {
 		uploadAsset(`${API}${project(id, '/assets')}`, file, onprogress),
 	removeAsset: (id: string, name: string) =>
 		request<void>(project(id, `/assets/${encodeURI(name)}`), send('DELETE')),
+	renameAsset: (id: string, name: string, next: string, rev: number) =>
+		request<{ asset: Asset; rev: number }>(project(id, `/assets/${encodeURI(name)}`), send('PATCH', { name: next, rev })),
+	markers: (id: string) => request<{ markers: Marker[] }>(project(id, '/markers')).then((found) => found.markers),
+	addMarker: (id: string, t: number) => request<Marker>(project(id, '/markers'), send('POST', { t })),
+	changeMarker: (id: string, marker: string, change: { t?: number; label?: string }) =>
+		request<Marker>(project(id, `/markers/${encodeURIComponent(marker)}`), send('PATCH', change)),
+	removeMarker: (id: string, marker: string) =>
+		request<void>(project(id, `/markers/${encodeURIComponent(marker)}`), send('DELETE')),
 	renders: (id: string) => request<{ renders: Render[] }>(project(id, '/renders')).then((found) => found.renders),
 	startRender: (id: string, body: RenderRequest) => request<Render>(project(id, '/renders'), send('POST', body)),
 	render: (id: string) => request<Render>(render(id)),

@@ -36,7 +36,15 @@ export function chain(timeline: Timeline, ids: Iterable<string>, make: (timeline
 	return ops;
 }
 
-/** Does what `command` asks on `bench`. `help` is the page's to answer. */
+/** Copies the first selected clip, then deletes the selection as one edit, so one undo puts it back. */
+function cut(bench: Bench): void {
+	const picked = [...bench.engine.selection];
+	if (picked.length === 0) return;
+	bench.copied = picked[0];
+	commit(bench.engine, picked.map((clip) => ({ op: 'delete_clip', clip })));
+}
+
+/** Does what `command` asks on `bench`. `help` and `marker` are the page's to answer. */
 export function runCommand(command: Command, bench: Bench): void {
 	const { engine, transport } = bench;
 	const picked = () => [...engine.selection];
@@ -54,11 +62,13 @@ export function runCommand(command: Command, bench: Bench): void {
 		split: () => commit(engine, splitOps(engine.timeline, engine.selection, transport.time)),
 		delete: () => commit(engine, picked().map((clip) => ({ op: 'delete_clip', clip }))),
 		ripple: () => commit(engine, chain(engine.timeline, picked(), rippleOps)),
+		cut: () => cut(bench),
 		copy: () => (bench.copied = picked()[0] ?? bench.copied),
 		paste: () => bench.copied && commit(engine, pasteOps(engine.timeline, bench.copied, transport.time)),
 		duplicate: () => commit(engine, chain(engine.timeline, picked(), duplicateOps)),
 		undo: () => engine.undo(),
 		redo: () => engine.redo(),
+		marker: () => undefined,
 		help: () => undefined
 	};
 	void actions[command]();

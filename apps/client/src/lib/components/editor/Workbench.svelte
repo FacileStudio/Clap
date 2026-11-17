@@ -22,6 +22,7 @@
 	import Timeline from '../timeline/Timeline.svelte';
 	import ClipInspector from './ClipInspector.svelte';
 	import EditorHeader from './EditorHeader.svelte';
+	import MarkerDialog from './MarkerDialog.svelte';
 	import MediaBin from './MediaBin.svelte';
 	import MediaPicker from './MediaPicker.svelte';
 	import PreviewPane from './PreviewPane.svelte';
@@ -32,7 +33,7 @@
 
 	let { project }: { project: Project } = $props();
 
-	const EDITS = new Set<Command>(['split', 'delete', 'ripple', 'paste', 'duplicate', 'undo', 'redo']);
+	const EDITS = new Set<Command>(['split', 'delete', 'ripple', 'cut', 'paste', 'duplicate', 'undo', 'redo', 'marker']);
 	const REVEAL_MS = 2500;
 	const failed = (error: unknown) => toast.danger(error instanceof Error ? error.message : t('error.generic'));
 	const desk = new Desk(
@@ -55,6 +56,7 @@
 	let assistant = $state(DEFAULT_ASSISTANT.name);
 	let bulleOpen = $state(sidebarOpen(owner));
 	let boxes = $state<StageBoxes>({ t: 0, clips: [] });
+	let naming = $state<string | null>(null);
 
 	const size = $derived(engine.spans);
 	const tabs = $derived([
@@ -80,13 +82,19 @@
 	});
 
 	const onStage = (at: Point) => ({ time: transport.time, track: 0, at });
-	const run = (command: Command) => (command === 'help' ? (helpOpen = true) : runCommand(command, desk));
+	const run = (command: Command) => {
+		if (command === 'help') helpOpen = true;
+		else if (command === 'marker') void desk.markers.add(transport.time);
+		else runCommand(command, desk);
+	};
 	const actions: MenuHost = {
 		bench: desk,
 		run,
 		reveal: (src) => void reveal(src),
 		has: (src) => desk.assets.some((asset) => asset.name === src),
-		addMedia: (target) => picker?.pick(target)
+		addMedia: (target) => picker?.pick(target),
+		markers: desk.markers,
+		renameMarker: (id) => (naming = id)
 	};
 
 	void askAssistant().then((found) => (assistant = found.name));
@@ -132,6 +140,7 @@
 				{revealed}
 				onadd={(asset) => desk.place(asset)}
 				onaddabove={(asset) => desk.placeAbove(asset)}
+				onrename={(asset, typed) => void desk.renameAsset(asset, typed).catch(failed)}
 				onremove={(asset) => void desk.removeAsset(asset).catch(failed)}
 			/>
 		</div>
@@ -213,6 +222,7 @@
 
 <MediaPicker bind:this={picker} onpick={(files, target) => desk.dropFiles(files, target)} />
 <ShortcutsDialog bind:open={helpOpen} />
+<MarkerDialog markers={desk.markers} bind:naming />
 <ShareDialog
 	bind:open={shareOpen}
 	id={desk.id}

@@ -15,11 +15,13 @@ export type Command =
 	| 'split'
 	| 'delete'
 	| 'ripple'
+	| 'cut'
 	| 'copy'
 	| 'paste'
 	| 'duplicate'
 	| 'undo'
 	| 'redo'
+	| 'marker'
 	| 'help';
 
 type Key = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'metaKey' | 'altKey'>;
@@ -40,12 +42,14 @@ const KEYS: Record<string, Command> = {
 	Delete: 'delete',
 	'Shift+Backspace': 'ripple',
 	'Shift+Delete': 'ripple',
+	'Mod+x': 'cut',
 	'Mod+c': 'copy',
 	'Mod+v': 'paste',
 	'Mod+d': 'duplicate',
 	'Mod+z': 'undo',
 	'Mod+Shift+z': 'redo',
 	'Mod+y': 'redo',
+	m: 'marker',
 	'?': 'help',
 	'Shift+?': 'help'
 };
@@ -65,11 +69,13 @@ export const SHORTCUTS: Record<Command, string> = {
 	split: 's',
 	delete: 'backspace',
 	ripple: 'shift+backspace',
+	cut: 'mod+x',
 	copy: 'mod+c',
 	paste: 'mod+v',
 	duplicate: 'mod+d',
 	undo: 'mod+z',
 	redo: 'mod+shift+z',
+	marker: 'm',
 	help: '?'
 };
 
@@ -81,7 +87,7 @@ export function keysOf(command: Command): string {
 	return keyCaps(SHORTCUTS[command], onApple()).join(onApple() ? '' : '+');
 }
 
-/** `label` followed by the shortcut of `command`, the way tooltips and menus show it. */
+/** `label` followed by the shortcut of `command`, the way tooltips show it. */
 export function withKeys(label: string, command: Command): string {
 	return `${label} (${keysOf(command)})`;
 }

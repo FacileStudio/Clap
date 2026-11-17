@@ -87,5 +87,8 @@ export const timeline = {
 	'starter.lower': ['Lower third', 'Bandeau de nom', 'Tercio inferior', 'Bauchbinde'],
 	'starter.caption': ['Captions', 'Sous-titres', 'Subtítulos', 'Untertitel'],
 	'starter.chart': ['Chart race', 'Course de barres', 'Carrera de barras', 'Balkenrennen'],
-	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung']
+	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung'],
+	'marker.pin': ['Marker {label} at {time}', 'Repère {label} à {time}', 'Marcador {label} en {time}', 'Marker {label} bei {time}'],
+	'marker.untitled': ['Marker', 'Repère', 'Marcador', 'Marker'],
+	'marker.name': ['Marker name', 'Nom du repère', 'Nombre del marcador', 'Name des Markers']
 } satisfies Record<string, Row>;

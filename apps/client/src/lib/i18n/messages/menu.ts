@@ -19,6 +19,7 @@ export const menu = {
 		'Recortar el final hasta el cabezal',
 		'Ende bis zum Abspielkopf kürzen'
 	],
+	'menu.cut': ['Cut', 'Couper', 'Cortar', 'Ausschneiden'],
 	'menu.copy': ['Copy', 'Copier', 'Copiar', 'Kopieren'],
 	'menu.paste': ['Paste at the playhead', 'Coller à la tête de lecture', 'Pegar en el cabezal', 'Am Abspielkopf einfügen'],
 	'menu.paste.here': ['Paste here', 'Coller ici', 'Pegar aquí', 'Hier einfügen'],
@@ -80,6 +81,10 @@ export const menu = {
 		'Auf neuer Spur einfügen'
 	],
 	'menu.preview': ['Preview', 'Aperçu', 'Vista previa', 'Vorschau'],
+	'menu.rename': ['Rename', 'Renommer', 'Cambiar el nombre', 'Umbenennen'],
+	'menu.marker.add': ['Add a marker here', 'Ajouter un repère ici', 'Añadir un marcador aquí', 'Hier einen Marker setzen'],
+	'menu.marker.rename': ['Rename the marker', 'Renommer le repère', 'Cambiar el nombre del marcador', 'Marker umbenennen'],
+	'menu.marker.delete': ['Delete the marker', 'Supprimer le repère', 'Eliminar el marcador', 'Marker löschen'],
 	'help.open': ['Keyboard shortcuts', 'Raccourcis clavier', 'Atajos de teclado', 'Tastenkürzel'],
 	'help.playback': ['Playback', 'Lecture', 'Reproducción', 'Wiedergabe'],
 	'help.editing': ['Editing', 'Édition', 'Edición', 'Bearbeiten'],
@@ -106,6 +111,13 @@ export const menu = {
 		'Supprimer et refermer le vide',
 		'Eliminar y cerrar el hueco',
 		'Löschen und Lücke schließen'
+	],
+	'command.cut': ['Cut the selected clip', 'Couper le clip sélectionné', 'Cortar el clip seleccionado', 'Ausgewählten Clip ausschneiden'],
+	'command.marker': [
+		'Add a marker at the playhead',
+		'Ajouter un repère à la tête de lecture',
+		'Añadir un marcador en el cabezal',
+		'Marker am Abspielkopf setzen'
 	],
 	'command.copy': ['Copy the selected clip', 'Copier le clip sélectionné', 'Copiar el clip seleccionado', 'Ausgewählten Clip kopieren'],
 	'command.paste': ['Paste at the playhead', 'Coller à la tête de lecture', 'Pegar en el cabezal', 'Am Abspielkopf einfügen'],

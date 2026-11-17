@@ -4,6 +4,25 @@ All notable changes to Clap. Versions follow SemVer.
 
 ## [Unreleased]
 
+### Added
+
+- Cut: Ctrl+X, or Cut in the clip menu, copies the selected clip and deletes the selection in
+  one step that one undo puts back.
+- Rename a media file: Rename in its menu, or a double-click on its name. Enter saves, Escape
+  cancels. The file and every reference to it in the project text change together, as one
+  revision (`PATCH /api/projects/{id}/assets/{name}`).
+- Ruler markers: right-click the ruler and pick Add a marker here, or press M at the playhead.
+  Click a marker to move the playhead to it, drag it to move it, right-click it to rename or
+  delete it. The API keeps markers beside the project (`/api/projects/{id}/markers`), so the
+  `clap.md` format does not change.
+- A timeline operation, `rename_media {from, to}`, for the API, the MCP tool and `clap edit`. It
+  rewrites references only; it does not rename the stored file.
+
+### Changed
+
+- Menus show their shortcut at the end of the row instead of in the label (muse v0.33.1).
+- The landing page's editor demo types the title in the clip settings instead of a Source tab.
+
 ## [0.3.0] - 2026-11-17
 
 ### Added
