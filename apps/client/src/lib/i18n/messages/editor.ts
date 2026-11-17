@@ -1,8 +1,7 @@
 import type { Row } from '../row';
 
-/** The editor: tabs, source, media bin, preview, save states and Bulle. */
+/** The editor: tabs, media bin, preview, save states, the project problem notice and Bulle. */
 export const editor = {
-	'editor.source': ['Source', 'Source', 'Fuente', 'Quelltext'],
 	'editor.media': ['Media', 'Média', 'Medios', 'Medien'],
 	'editor.panels': ['Editor panels', 'Panneaux de l’éditeur', 'Paneles del editor', 'Editorbereiche'],
 	'editor.resize': ['Resize the panels', 'Redimensionner les panneaux', 'Redimensionar los paneles', 'Bereiche anpassen'],
@@ -30,37 +29,21 @@ export const editor = {
 		'Vorschau. Maßgeblich ist das Rendering.'
 	],
 	'save.clean': ['Saved', 'Enregistré', 'Guardado', 'Gespeichert'],
-	'save.dirty': ['Unsaved changes', 'Modifications non enregistrées', 'Cambios sin guardar', 'Ungespeicherte Änderungen'],
 	'save.saving': ['Saving…', 'Enregistrement…', 'Guardando…', 'Speichern…'],
-	'save.invalid': [
-		'Not saved: fix the source',
-		'Non enregistré : corrigez la source',
-		'No guardado: corrija la fuente',
-		'Nicht gespeichert: Quelltext korrigieren'
+	'problem.title': [
+		'This project has a problem the editor cannot fix',
+		'Ce projet a un problème que l’éditeur ne peut pas corriger',
+		'Este proyecto tiene un problema que el editor no puede corregir',
+		'Dieses Projekt hat ein Problem, das der Editor nicht beheben kann'
 	],
-	'save.conflict': ['Conflict', 'Conflit', 'Conflicto', 'Konflikt'],
-	'save.failed': ['Save failed', 'Échec de l’enregistrement', 'Error al guardar', 'Speichern fehlgeschlagen'],
-	'conflict.title': [
-		'This project changed elsewhere',
-		'Ce projet a changé ailleurs',
-		'Este proyecto cambió en otro lugar',
-		'Dieses Projekt wurde anderswo geändert'
+	'problem.body': [
+		'Open it with the clap command line: clap pull, then clap check to see what to fix, then clap push. Until then the timeline shows what it can read.',
+		'Ouvrez-le avec la ligne de commande clap : clap pull, puis clap check pour voir quoi corriger, puis clap push. D’ici là, la timeline montre ce qu’elle peut lire.',
+		'Ábralo con la línea de comandos clap: clap pull, luego clap check para ver qué corregir y después clap push. Mientras tanto, la línea de tiempo muestra lo que puede leer.',
+		'Öffnen Sie es mit der clap-Kommandozeile: clap pull, dann clap check, um zu sehen, was zu beheben ist, dann clap push. Bis dahin zeigt die Timeline, was sie lesen kann.'
 	],
-	'conflict.body': [
-		'Someone else, an agent or another tab saved a newer version while you had unsaved text.',
-		'Une autre personne, un agent ou un autre onglet a enregistré une version plus récente alors que votre texte n’était pas enregistré.',
-		'Otra persona, un agente u otra pestaña guardó una versión más reciente mientras usted tenía texto sin guardar.',
-		'Eine andere Person, ein Agent oder ein anderer Tab hat eine neuere Version gespeichert, während Ihr Text ungespeichert war.'
-	],
-	'conflict.reload': ['Reload theirs', 'Recharger leur version', 'Cargar su versión', 'Deren Version laden'],
-	'conflict.overwrite': [
-		'Keep mine and overwrite',
-		'Garder la mienne et écraser',
-		'Conservar la mía y sobrescribir',
-		'Meine behalten und überschreiben'
-	],
-	'errors.title': ['Problems in the source', 'Problèmes dans la source', 'Problemas en la fuente', 'Probleme im Quelltext'],
-	'errors.line': ['Line {line}:', 'Ligne {line} :', 'Línea {line}:', 'Zeile {line}:'],
+	'problem.detail': ['What the server says', 'Ce que dit le serveur', 'Lo que dice el servidor', 'Was der Server meldet'],
+	'media.preview.close': ['Close the preview', 'Fermer l’aperçu', 'Cerrar la vista previa', 'Vorschau schließen'],
 	'insert.label': ['Insert', 'Insérer', 'Insertar', 'Einfügen'],
 	'bulle.ask': ['Ask {name}', 'Demander à {name}', 'Preguntar a {name}', '{name} fragen'],
 	'media.drop': [

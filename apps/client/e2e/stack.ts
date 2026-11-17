@@ -13,7 +13,8 @@ const seeder = resolve(target, 'debug/examples/e2e_seed');
 const worker = resolve(target, 'debug/worker');
 const clientDir = resolve(root, 'apps/client/build');
 const admin = process.env.E2E_ADMIN_URL ?? 'postgres://postgres:postgres@127.0.0.1:5672/postgres?sslmode=disable';
-const database = 'clap_e2e';
+const database = process.env.E2E_DATABASE ?? 'clap_e2e';
+if (!/^[a-z_][a-z0-9_]*$/.test(database)) throw new Error(`E2E_DATABASE must be a plain Postgres name, not ${database}`);
 
 function freePort(): number {
 	const probe = Bun.serve({ port: 0, fetch: () => new Response() });

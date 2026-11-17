@@ -7,15 +7,15 @@ import { carry } from './link';
 import { outline, type Outline } from './outline';
 
 /** Why a timeline edit did not land. */
-export type Refusal = 'blocked' | 'stale' | 'failed';
+export type Refusal = 'stale' | 'failed';
 
 /** A write the server took. */
 export type Written = { source: string; rev: number; timeline?: Timeline };
 
-/** What the engine needs from the page: the API calls and the source editor's state. */
+/** What the engine needs from the page: the API calls and the revision it holds. */
 export interface EngineIo {
-	/** Saves pending text, then answers the revision to edit at; null when the source cannot be saved now. */
-	settle(): Promise<number | null>;
+	/** The revision to edit at. */
+	rev(): number;
 	/** Answers the new source and revision, and the timeline read from it when the server sends one. */
 	edit(rev: number, ops: Op[]): Promise<Written>;
 	put(source: string, rev: number): Promise<{ rev: number }>;
@@ -26,8 +26,6 @@ export interface EngineIo {
 	reload(): Promise<void>;
 	refused(why: Refusal, error: unknown): void;
 }
-
-class Blocked extends Error {}
 
 const EMPTY: Outline = { width: 1920, height: 1080, scenes: [] };
 
@@ -43,6 +41,8 @@ export class Engine {
 	busy = $state(false);
 	canUndo = $state(false);
 	canRedo = $state(false);
+	/** Why the server cannot read the stored project, in its words; null when it can. */
+	problem = $state<string | null>(null);
 	private source: string | null = null;
 	private served = true;
 	private readonly history = new History();
@@ -114,7 +114,7 @@ export class Engine {
 		const kept = this.timeline;
 		this.timeline = applyOps(kept, ops);
 		try {
-			await this.took(await this.io.edit(await this.rev(), ops));
+			await this.took(await this.io.edit(this.io.rev(), ops));
 			return true;
 		} catch (error) {
 			this.timeline = kept;
@@ -125,7 +125,7 @@ export class Engine {
 
 	private async restore(source: string): Promise<boolean> {
 		try {
-			await this.took({ source, rev: (await this.io.put(source, await this.rev())).rev });
+			await this.took({ source, rev: (await this.io.put(source, this.io.rev())).rev });
 			return true;
 		} catch (error) {
 			await this.refuse(error);
@@ -139,14 +139,7 @@ export class Engine {
 		await this.read(answer.source, answer.timeline, shown);
 	}
 
-	private async rev(): Promise<number> {
-		const rev = await this.io.settle();
-		if (rev === null) throw new Blocked();
-		return rev;
-	}
-
 	private async refuse(error: unknown): Promise<void> {
-		if (error instanceof Blocked) return this.io.refused('blocked', error);
 		if (!(error instanceof ApiError) || error.status !== 409) return this.io.refused('failed', error);
 		this.io.refused('stale', error);
 		await this.io.reload().catch(() => undefined);
@@ -155,12 +148,25 @@ export class Engine {
 	private async read(source: string, sent?: Timeline, shown: Timeline = this.timeline): Promise<void> {
 		this.source = source;
 		const spans = outline(source);
-		const served = sent ?? (this.served ? await this.io.timeline().catch(() => null) : null);
+		const served = sent ?? (this.served ? await this.serve() : null);
 		if (this.source !== source) return;
-		this.served = served !== null;
+		if (sent) this.problem = null;
 		this.spans = spans;
 		this.timeline = served ?? spans;
 		this.selection = carry(this.selection, shown, this.timeline);
+	}
+
+	private async serve(): Promise<Timeline | null> {
+		try {
+			const found = await this.io.timeline();
+			this.problem = null;
+			return found;
+		} catch (error) {
+			const broken = error instanceof ApiError && error.reason === 'parse';
+			this.problem = broken ? error.message : null;
+			this.served = broken;
+			return null;
+		}
 	}
 
 	private mark(): void {

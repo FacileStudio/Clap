@@ -14,16 +14,16 @@ duration: 6
 
 const moved = (start: number) => SOURCE.replace('data-start="1"', `data-start="${start}"`);
 
-function setup(edit: EngineIo['edit']) {
+function setup(edit: EngineIo['edit'], timeline: EngineIo['timeline'] = async () => {
+	throw new ApiError(404, 'not_found', 'none');
+}) {
 	const io = {
-		rev: 1,
-		settle: vi.fn(async () => io.rev as number | null),
+		current: 1,
+		rev: () => io.current,
 		edit: vi.fn(edit),
-		put: vi.fn(async () => ({ rev: (io.rev += 1) })),
-		timeline: vi.fn(async () => {
-			throw new ApiError(404, 'not_found', 'none');
-		}),
-		adopt: vi.fn((_: string, rev: number) => void (io.rev = rev)),
+		put: vi.fn(async () => ({ rev: (io.current += 1) })),
+		timeline: vi.fn(timeline),
+		adopt: vi.fn((_: string, rev: number) => void (io.current = rev)),
 		reload: vi.fn(async () => undefined),
 		refused: vi.fn()
 	};
@@ -64,16 +64,25 @@ describe('Engine', () => {
 		expect([start(engine), engine.canUndo, io.refused.mock.calls[0][0]]).toEqual([1, false, 'failed']);
 	});
 
-	it('reloads on a stale revision and refuses while the source cannot be saved', async () => {
+	it('reloads on a stale revision', async () => {
 		const { io, engine } = setup(async () => {
 			throw new ApiError(409, 'already_exists', 'moved');
 		});
 		await engine.sync(SOURCE);
 		await engine.commit(move(3));
-		expect([io.refused.mock.calls[0][0], io.reload.mock.calls.length]).toEqual(['stale', 1]);
-		io.settle.mockResolvedValueOnce(null);
-		await engine.commit(move(3));
-		expect([io.refused.mock.calls[1][0], io.edit.mock.calls.length, start(engine)]).toEqual(['blocked', 1, 1]);
+		expect([io.refused.mock.calls[0][0], io.reload.mock.calls.length, start(engine)]).toEqual(['stale', 1, 1]);
+	});
+
+	it('reports a project the server cannot read, keeps asking, and clears it once it reads again', async () => {
+		const broken = new ApiError(422, 'invalid_argument', 'line 2: unknown key `colour`', [], 'parse');
+		const { io, engine } = setup(async () => ({ source: SOURCE, rev: 2 }), async () => {
+			throw broken;
+		});
+		await engine.sync(SOURCE);
+		expect([engine.problem, start(engine)]).toEqual(['line 2: unknown key `colour`', 1]);
+		io.timeline.mockResolvedValueOnce(outline(moved(2)));
+		await engine.sync(moved(2));
+		expect([engine.problem, start(engine), io.timeline.mock.calls.length]).toEqual([null, 2, 2]);
 	});
 
 	it('undoes with inverse ops and redoes the same edit', async () => {

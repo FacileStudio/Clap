@@ -78,18 +78,12 @@ fn content_end(sketch: &Sketch, stage: &Stage) -> Option<usize> {
     Some(last.0 + crate::lines::text(last.1).len())
 }
 
-/// `add_clip`. The element goes after the last clip of the scene, else after the last line of
-/// the body that is not the presenter note, else at the top of the body.
-pub(crate) fn add(source: &str, sketch: &Sketch, op: &Op) -> Result<Vec<Patch>, Error> {
-    let Op::AddClip { scene, kind, start, duration, track, .. } = op else { return Ok(Vec::new()) };
-    let stage = sketch.stage(*scene)?;
-    let id = name(sketch, *kind);
-    check(stage, &id, &Place { start: *start, duration: *duration, track: Some(*track) })?;
-    let size = sketch.project.config().size;
-    let element = markup(&id, op, (size.width, size.height))?;
+/// The patch that writes `element` as a new line of `stage`: after its last clip, else after the
+/// last line of the body that is not the presenter note, else at the top of the body.
+pub(crate) fn append(source: &str, sketch: &Sketch, stage: &Stage, element: &str) -> Patch {
     let eol = sketch.doc.eol;
     let after = stage.items.last().map(|item| (item.element.end, indent(source, item.element.tag.span.start)));
-    let patch = match after.or_else(|| content_end(sketch, stage).map(|at| (at, ""))) {
+    match after.or_else(|| content_end(sketch, stage).map(|at| (at, ""))) {
         Some((at, indent)) => {
             Patch { at: at.min(source.len())..at.min(source.len()), text: format!("{eol}{indent}{element}") }
         }
@@ -97,6 +91,16 @@ pub(crate) fn add(source: &str, sketch: &Sketch, op: &Op) -> Result<Vec<Patch>, 
             let top = sketch.doc.units[stage.scene.index].at.min(source.len());
             Patch { at: top..top, text: format!("{element}{eol}") }
         }
-    };
-    Ok(vec![patch])
+    }
+}
+
+/// `add_clip`. The element goes where [`append`] puts it.
+pub(crate) fn add(source: &str, sketch: &Sketch, op: &Op) -> Result<Vec<Patch>, Error> {
+    let Op::AddClip { scene, kind, start, duration, track, .. } = op else { return Ok(Vec::new()) };
+    let stage = sketch.stage(*scene)?;
+    let id = name(sketch, *kind);
+    check(stage, &id, &Place { start: *start, duration: *duration, track: Some(*track) })?;
+    let size = sketch.project.config().size;
+    let element = markup(&id, op, (size.width, size.height))?;
+    Ok(vec![append(source, sketch, stage, &element)])
 }

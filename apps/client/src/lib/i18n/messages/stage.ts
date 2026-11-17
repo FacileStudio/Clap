@@ -17,6 +17,7 @@ export const stage = {
 		'Seleccione un clip en el escenario o en la línea de tiempo para ajustar su posición, aspecto y animación.',
 		'Wählen Sie einen Clip auf der Bühne oder in der Timeline, um Position, Aussehen und Animation einzustellen.'
 	],
+	'inspector.none.title': ['No clip selected', 'Aucun clip sélectionné', 'Ningún clip seleccionado', 'Kein Clip ausgewählt'],
 	'inspector.width': ['Width', 'Largeur', 'Ancho', 'Breite'],
 	'inspector.height': ['Height', 'Hauteur', 'Alto', 'Höhe'],
 	'inspector.rotation': ['Rotation', 'Rotation', 'Rotación', 'Drehung'],

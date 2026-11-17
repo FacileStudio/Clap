@@ -1,30 +1,10 @@
-import { outline, type ClipSpan } from '../src/lib/timeline/outline';
+import { copyName } from '../src/lib/timeline/copies';
+import { outline } from '../src/lib/timeline/outline';
 import type { Op } from '../src/lib/types';
 import { restage } from './mock-scenes';
+import { clipOf, retag } from './mock-tags';
 
 type Of<K extends Op['op']> = Extract<Op, { op: K }>;
-
-type Value = number | string | null | undefined;
-
-function setAttr(tag: string, name: string, value: Value): string {
-	if (value === undefined) return tag;
-	if (value === null) return tag.replace(new RegExp(`\\s${name}\\s*=\\s*"[^"]*"`), '');
-	const pattern = new RegExp(`(\\s${name}\\s*=\\s*")[^"]*(")`);
-	if (pattern.test(tag)) return tag.replace(pattern, `$1${value}$2`);
-	return tag.replace(/(\s*\/?>)$/, ` ${name}="${value}"$1`);
-}
-
-function clipOf(source: string, id: string): ClipSpan {
-	const found = outline(source).scenes.flatMap((scene) => scene.clips).find((clip) => clip.id === id);
-	if (!found) throw new Error(`no clip ${id}`);
-	return found;
-}
-
-function retag(source: string, clip: ClipSpan, attrs: Record<string, Value>): string {
-	let tag = source.slice(clip.open[0], clip.open[1]);
-	for (const [name, value] of Object.entries(attrs)) tag = setAttr(tag, name, value);
-	return source.slice(0, clip.open[0]) + tag + source.slice(clip.open[1]);
-}
 
 function split(source: string, op: Of<'split_clip'>): string {
 	const clip = clipOf(source, op.clip);
@@ -56,11 +36,38 @@ function element(source: string, op: Of<'add_clip'>): string {
 	return `<p class="clap-title" ${time}>${op.text ?? ''}</p>`;
 }
 
+const taken = (source: string) => new Set(outline(source).scenes.flatMap((scene) => scene.clips.map((clip) => clip.id)));
+
+const duplicateClip = (source: string, op: Of<'duplicate_clip'>): string => {
+	const clip = clipOf(source, op.clip);
+	const scene = op.scene ?? outline(source).scenes.findIndex((one) => one.clips.some((known) => known.id === op.clip));
+	const tag = { ...clip, open: [0, clip.open[1] - clip.open[0]] as [number, number] };
+	const attrs = { 'data-clip': copyName(taken(source), op.clip), 'data-start': op.start, 'data-track-index': op.track };
+	const copy = retag(source.slice(clip.open[0], clip.end), tag, attrs);
+	return restage(source, (scenes) => void scenes[scene].body.push(copy, ''));
+};
+
+const duplicateScene = (source: string, op: Of<'duplicate_scene'>): string => {
+	const names = taken(source);
+	const renamed = outline(source).scenes[op.scene].clips.map((clip) => {
+		const name = copyName(names, clip.id);
+		names.add(name);
+		const tag = source.slice(clip.open[0], clip.open[1]);
+		return [tag, retag(tag, { ...clip, open: [0, tag.length] }, { 'data-clip': name })];
+	});
+	return restage(source, (scenes) => {
+		const body = renamed.reduce((text, [tag, next]) => text.replace(tag, next), scenes[op.scene].body.join('\n'));
+		scenes.splice(op.scene + 1, 0, { meta: { ...scenes[op.scene].meta }, body: body.split('\n') });
+	});
+};
+
 const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
 	move_clip: (source, op) => retag(source, clipOf(source, op.clip), { 'data-start': op.start, 'data-track-index': op.track }),
 	trim_clip: (source, op) =>
 		retag(source, clipOf(source, op.clip), { 'data-start': op.start, 'data-duration': op.duration, 'data-in': op.media_in }),
 	split_clip: split,
+	duplicate_clip: duplicateClip,
+	duplicate_scene: duplicateScene,
 	delete_clip: (source, op) => {
 		const clip = clipOf(source, op.clip);
 		return source.slice(0, clip.open[0]) + source.slice(clip.end).replace(/^\n/, '');

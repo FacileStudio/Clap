@@ -3,13 +3,11 @@
 	import { Button, Icon, Menu, icons, type MenuEntry } from '@facile/muse';
 	import { logoIcon } from '$lib/brand';
 	import { icons as clapIcons } from '$lib/icons';
-	import type { SaveStatus } from '$lib/project/saver.svelte';
 	import { t } from '$lib/i18n';
-	import type { AppKey } from '$lib/i18n/messages';
 
 	let {
 		title,
-		status,
+		saving,
 		inserts,
 		assistant,
 		bulleOpen,
@@ -19,7 +17,8 @@
 		ontogglebulle
 	}: {
 		title: string;
-		status: SaveStatus;
+		/** Whether an edit is on its way to the server. */
+		saving: boolean;
 		/** The ready-made scenes of the insert menu. */
 		inserts: MenuEntry[];
 		/** The name of the person's Bulle assistant. */
@@ -30,24 +29,6 @@
 		onshare: () => void;
 		ontogglebulle: () => void;
 	} = $props();
-
-	const STATUS: Record<SaveStatus, AppKey> = {
-		clean: 'save.clean',
-		dirty: 'save.dirty',
-		saving: 'save.saving',
-		invalid: 'save.invalid',
-		conflict: 'save.conflict',
-		failed: 'save.failed'
-	};
-
-	const DOT: Record<SaveStatus, string> = {
-		clean: 'bg-fc-success',
-		dirty: 'bg-fc-fg-muted',
-		saving: 'bg-fc-fg-muted motion-safe:animate-pulse',
-		invalid: 'bg-fc-danger',
-		conflict: 'bg-fc-warning',
-		failed: 'bg-fc-danger'
-	};
 
 	let draft = $state('');
 
@@ -85,10 +66,13 @@
 		class="relative flex items-center gap-2 px-2 text-fc-xs whitespace-nowrap text-fc-fg-muted"
 		role="status"
 		data-testid="save-status"
-		data-status={status}
+		data-status={saving ? 'saving' : 'clean'}
 	>
-		<span class="size-2 shrink-0 rounded-fc-full {DOT[status]}" aria-hidden="true"></span>
-		<span class="max-sm:sr-only">{t(STATUS[status])}</span>
+		<span
+			class="size-2 shrink-0 rounded-fc-full {saving ? 'bg-fc-fg-muted motion-safe:animate-pulse' : 'bg-fc-success'}"
+			aria-hidden="true"
+		></span>
+		<span class="max-sm:sr-only">{t(saving ? 'save.saving' : 'save.clean')}</span>
 	</span>
 	<div class="ml-auto flex shrink-0 items-center gap-1">
 		<Menu label={t('insert.label')} items={inserts} align="end">

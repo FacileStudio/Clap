@@ -3,37 +3,30 @@ import { t } from '$lib/i18n';
 import type { AppKey } from '$lib/i18n/messages';
 import { Engine, type Refusal } from '$lib/timeline/engine.svelte';
 import type { DropTarget, Ghost } from '$lib/timeline/ghost';
-import { clipAtLine, spanOf } from '$lib/timeline/link';
-import { locate } from '$lib/timeline/model';
+import { locate, trackRows } from '$lib/timeline/model';
 import type { Asset, Project } from '$lib/types';
 import { Drops } from './drops.svelte';
 import { watchProject } from './events';
-import { Saver } from './saver.svelte';
+import { Revision } from './revision.svelte';
 import type { Starter } from './starters';
 import { Transport } from './transport.svelte';
 import { Uploads, type Stored } from './uploads.svelte';
 
-/** What the desk asks of the mounted source editor. */
-export interface SourceView {
-	replace(source: string): void;
-	mark(span: { from: number; to: number } | null): void;
-}
-
 /**
- * One open project: its saved text, its timeline, its clock and its media, kept in step. The source editor and
- * the timeline both write the same file, each with the revision it read.
+ * One open project: its revision, its timeline, its clock and its media, kept in step. Every edit goes through the
+ * timeline engine as ops; the text itself stays with the CLI and the agents.
  */
 export class Desk {
 	readonly id: string;
 	readonly transport = new Transport();
-	readonly saver: Saver;
+	readonly revision: Revision;
 	readonly engine: Engine;
 	readonly uploads: Uploads;
 	readonly drops: Drops;
 	title = $state('');
-	text = $state('');
 	assets = $state<Asset[]>([]);
-	view = $state<SourceView>();
+	/** The clip the person copied last, pasted by id while it exists. */
+	copied = $state<string | null>(null);
 	private late = 0;
 
 	constructor(
@@ -42,45 +35,24 @@ export class Desk {
 	) {
 		this.id = project.id;
 		this.title = project.title;
-		this.text = project.source;
 		this.uploads = new Uploads(this.id, (stored) => this.stored(stored));
-		this.saver = new Saver({
-			put: (source, rev) => backend.save(this.id, source, rev),
+		this.revision = new Revision({
 			get: () => backend.project(this.id),
-			onreplace: (source) => this.show(source)
+			onreplace: (source) => void this.engine.sync(source)
 		});
-		this.saver.open(project);
+		this.revision.open(project.rev);
 		this.engine = new Engine({
-			settle: () => this.settle(),
+			rev: () => this.revision.rev,
 			edit: (rev, ops) => backend.edit(this.id, rev, ops),
 			put: (source, rev) => backend.save(this.id, source, rev),
 			timeline: () => backend.timeline(this.id),
-			adopt: (source, rev) => (this.saver.open({ source, rev }), this.show(source)),
-			reload: () => this.saver.reload(),
+			adopt: (_, rev) => this.revision.open(rev),
+			reload: () => this.revision.reload(),
 			refused: (why, error) => this.fail(refusal(why, error))
 		});
 		this.drops = new Drops(this.engine);
 		void this.engine.sync(project.source);
 		void this.loadAssets();
-	}
-
-	/** The person typed in the source editor. */
-	typed(source: string): void {
-		this.text = source;
-		this.saver.edit(source);
-	}
-
-	/** The caret moved to `line`: the clip written there becomes the selection. */
-	caret(line: number): void {
-		const id = clipAtLine(this.engine.timeline, this.engine.spans, line);
-		if (id && !this.engine.selection.has(id)) this.engine.select(id);
-	}
-
-	/** The source lines of the one selected clip, or null. */
-	get marked(): { from: number; to: number } | null {
-		const [only, more] = [...this.engine.selection];
-		const span = only && !more ? spanOf(this.engine.timeline, this.engine.spans, only) : null;
-		return span ? { from: span.from, to: span.to } : null;
 	}
 
 	/** Follows the project's events until the answered function is called. */
@@ -117,6 +89,11 @@ export class Desk {
 		this.drop(asset, { time: this.transport.time, track: 0 });
 	}
 
+	/** Places `asset` at the playhead, on a new track above every other. */
+	placeAbove(asset: Asset): void {
+		this.drop(asset, { time: this.transport.time, track: trackRows(this.engine.timeline)[0] ?? 0 });
+	}
+
 	/** Places `asset` at `target`, with the length the browser read when the server has not probed it yet. */
 	drop(asset: Asset, target: DropTarget): void {
 		this.drops.place(asset, target, this.uploads.measured[asset.name] ?? null);
@@ -144,19 +121,8 @@ export class Desk {
 		void this.loadAssets();
 	}
 
-	private show(source: string): void {
-		this.text = source;
-		this.view?.replace(source);
-		void this.engine.sync(source);
-	}
-
-	private async settle(): Promise<number | null> {
-		await this.saver.flush();
-		return this.saver.status === 'clean' ? this.saver.rev : null;
-	}
-
 	private heard(rev: number): void {
-		void this.saver.remote(rev).catch((error: unknown) => this.fail(error instanceof Error ? error.message : t('error.generic')));
+		void this.revision.remote(rev).catch((error: unknown) => this.fail(error instanceof Error ? error.message : t('error.generic')));
 	}
 }
 

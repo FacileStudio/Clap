@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { ContextMenu } from '@facile/muse';
 	import { t } from '$lib/i18n';
+	import { timecode } from '$lib/project/timecode';
 	import type { Transport } from '$lib/project/transport.svelte';
-	import { runCommand } from '$lib/timeline/commands';
+	import type { MenuHost } from '$lib/timeline/clip-menu';
 	import { drag } from '$lib/timeline/drag';
 	import { textOps } from '$lib/timeline/adds';
 	import { bringsFiles, broughtKind, carriedAsset, placeableFiles, trackAt } from '$lib/timeline/drop';
@@ -11,6 +13,7 @@
 	import type { GestureHost } from '$lib/timeline/host';
 	import { ASSET_MIME, GUTTER, HEAD, ROW, RULER, TAIL } from '$lib/timeline/layout';
 	import { clamp, sceneStarts, total, trackRows } from '$lib/timeline/model';
+	import { timelineMenu } from '$lib/timeline/menus';
 	import { fitZoom, scrollFor, zoomBy } from '$lib/timeline/scale';
 	import { SNAP_PX, snap, snapTargets } from '$lib/timeline/snap';
 	import { watchViewport } from '$lib/timeline/viewport';
@@ -28,11 +31,14 @@
 		readonly = false,
 		ghosts = [],
 		measured = {},
+		actions,
 		ondropasset,
 		ondropfiles
 	}: {
 		engine: Engine;
 		transport: Transport;
+		/** What the toolbar and the right-click menus act through. */
+		actions: MenuHost;
 		assets: Asset[];
 		readonly?: boolean;
 		/** Dropped files still uploading or waiting for their probe, drawn where they will land. */
@@ -51,6 +57,7 @@
 	let viewport = $state<HTMLDivElement>();
 	let track = $state<HTMLDivElement>();
 	let fitted = false;
+	let pointed: MouseEvent | null = null;
 	const nodes = { clips: new Map<string, HTMLElement>(), lanes: new Map<number, HTMLElement>() };
 
 	const rows = $derived(trackRows(engine.timeline));
@@ -107,6 +114,13 @@
 		if (viewport) viewport.scrollLeft = left;
 	}
 
+	function menuAt(target: Element) {
+		const event = pointed && (pointed.clientX !== 0 || pointed.clientY !== 0) ? pointed : null;
+		pointed = null;
+		const at = event ? { time: timeAt(event), track: trackAt(event.clientY, track, rows) } : { time: transport.time, track: 0 };
+		return readonly ? [] : timelineMenu(actions, target, at, () => void rezoom(fit(), 0));
+	}
+
 	const watch = (node: HTMLElement) =>
 		watchViewport(node, {
 			onzoom: (factor, x) => void rezoom(zoomBy(zoom, factor), x - GUTTER),
@@ -147,59 +161,66 @@
 		<TimelineToolbar
 			{engine}
 			bind:snapping
-			oncommand={(command) => runCommand(command, engine, transport)}
+			oncommand={(command) => actions.run(command)}
 			ontext={() => host.commit(textOps(engine.timeline, transport.time, t('timeline.text.default')))}
 			onzoom={(factor) => void rezoom(factor ? zoomBy(zoom, factor) : fit(), factor ? (view.width - GUTTER) / 2 : 0)}
 		/>
 	{/if}
-	<div
-		bind:this={viewport}
-		use:watch
-		class="relative min-h-0 flex-1 overflow-auto overscroll-contain"
-		role="application"
-		aria-label={t('timeline.title')}
-		{ondragover}
-		ondragleave={(event) => void (!viewport?.contains(event.relatedTarget as Node | null) && (aimed = null))}
-		{ondrop}
-	>
-		<div class="flex min-h-full" style="width: {GUTTER + length * zoom + TAIL}px">
-			<div class="sticky left-0 z-20 shrink-0 bg-fc-component" style="width: {GUTTER}px">
-				<div style="height: {RULER + HEAD}px"></div>
-				{#each rows as row (row)}
-					<div
-						class="flex items-center justify-center text-[11px] text-fc-fg-muted tabular-nums"
-						style="height: {ROW}px"
-						title={t('timeline.track', { track: row })}
-					>
-						{row}
-					</div>
-				{/each}
-			</div>
-			<div bind:this={track} class="relative min-w-0 flex-1" style="min-height: {RULER + HEAD + rows.length * ROW}px">
-				<Ruler {zoom} from={(view.left - GUTTER) / zoom} to={(view.left + view.width) / zoom} onpointerdown={scrub} />
-				<div class="relative" role="presentation" onpointerdown={() => engine.select(null)}>
-					{#each engine.timeline.scenes as scene (scene.index)}
-						<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {media} {readonly} {nodes} />
+	<ContextMenu items={menuAt} label={t('menu.timeline')} disabled={readonly} class="flex min-h-0 flex-1 flex-col">
+		<div
+			bind:this={viewport}
+			use:watch
+			class="relative min-h-0 flex-1 overflow-auto overscroll-contain"
+			role="application"
+			aria-label={t('timeline.title')}
+			{ondragover}
+			ondragleave={(event) => void (!viewport?.contains(event.relatedTarget as Node | null) && (aimed = null))}
+			{ondrop}
+			oncontextmenu={(event) => (pointed = event)}
+		>
+			<div class="flex min-h-full" style="width: {GUTTER + length * zoom + TAIL}px">
+				<div class="sticky left-0 z-20 shrink-0 bg-fc-component" style="width: {GUTTER}px">
+					<div style="height: {RULER + HEAD}px"></div>
+					{#each rows as row (row)}
+						<div
+							class="flex items-center justify-center text-[11px] text-fc-fg-muted tabular-nums"
+							style="height: {ROW}px"
+							title={t('timeline.track', { track: row })}
+						>
+							{row}
+						</div>
 					{/each}
 				</div>
-				{#if clipCount === 0 && !readonly}
-					<p class="pointer-events-none absolute top-24 left-4 text-fc-sm text-fc-fg-muted">{t('timeline.empty')}</p>
-				{/if}
-				{#each aimed ? [...ghosts, aimed] : ghosts as ghost (ghost.id)}
-					<DropGhost {ghost} timeline={engine.timeline} {rows} {zoom} />
-				{/each}
-				{#if guide !== null}
-					<div class="pointer-events-none absolute inset-y-0 z-10 w-px bg-fc-warning" style="left: {guide * zoom}px"></div>
-				{/if}
-				<div
-					class="pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5 bg-fc-danger will-change-transform"
-					style="transform: translateX({transport.time * zoom - 1}px)"
-					data-testid="playhead"
-					data-time={transport.time.toFixed(3)}
-				>
-					<span class="absolute -top-0 -left-[5px] size-3 rounded-fc-sm bg-fc-danger"></span>
+				<div bind:this={track} class="relative min-w-0 flex-1" style="min-height: {RULER + HEAD + rows.length * ROW}px">
+					<Ruler {zoom} from={(view.left - GUTTER) / zoom} to={(view.left + view.width) / zoom} onpointerdown={scrub} />
+					<div class="relative" role="presentation" onpointerdown={() => engine.select(null)}>
+						{#each engine.timeline.scenes as scene (scene.index)}
+							<SceneLane {scene} start={starts[scene.index] ?? 0} {zoom} {rows} {engine} {host} {media} {readonly} {nodes} />
+						{/each}
+					</div>
+					{#if clipCount === 0 && !readonly}
+						<p class="pointer-events-none absolute top-24 left-4 text-fc-sm text-fc-fg-muted">{t('timeline.empty')}</p>
+					{/if}
+					{#each aimed ? [...ghosts, aimed] : ghosts as ghost (ghost.id)}
+						<DropGhost {ghost} timeline={engine.timeline} {rows} {zoom} />
+					{/each}
+					{#if guide !== null}
+						<div class="pointer-events-none absolute inset-y-0 z-10 w-px bg-fc-warning" style="left: {guide * zoom}px"></div>
+					{/if}
+					<div
+						class="pointer-events-none absolute inset-y-0 left-0 z-10 w-0.5 bg-fc-danger will-change-transform"
+						style="transform: translateX({transport.time * zoom - 1}px)"
+						data-testid="playhead"
+						data-time={transport.time.toFixed(3)}
+					>
+						<span
+							class="absolute top-1 left-px -translate-x-1/2 rounded-fc-pill bg-fc-danger px-1.5 py-0.5 text-[10px] leading-none
+								font-medium text-fc-danger-fg tabular-nums shadow-sm"
+							data-testid="playhead-time">{timecode(transport.time).slice(3)}</span
+						>
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
+	</ContextMenu>
 </section>

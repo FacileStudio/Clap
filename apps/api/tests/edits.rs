@@ -53,3 +53,18 @@ async fn an_edit_of_more_than_five_hundred_ops_is_refused_before_it_runs() {
     assert_eq!(refused.status, 400, "{}", refused.text());
     assert!(refused.json()["error"]["message"].as_str().unwrap().contains("at most 500"));
 }
+
+#[tokio::test]
+async fn a_copied_clip_and_scene_are_reported_by_their_new_ids() {
+    let Some(pool) = common::pool("clap_projects_edit_copies").await else { return };
+    let app = common::app(pool).await;
+    let ada = app.person("ada").await;
+    let id = fixture::id(&fixture::project(&app, &ada, None, CLIPS).await);
+    let ops = json!([{"op": "duplicate_clip", "clip": "title", "start": 2, "track": 2}, {"op": "duplicate_scene", "scene": 0}]);
+    let copied =
+        app.call("POST", &format!("/api/projects/{id}/edits"), Some(&ada), Some(json!({"rev": 1, "ops": ops}))).await;
+    assert_eq!(copied.status, 200, "{}", copied.text());
+    let body = copied.json();
+    assert_eq!(body["clips"], json!(["title-copy", "title-copy-2", "sub-copy", "title-copy-copy"]));
+    assert_eq!(body["timeline"]["scenes"].as_array().map(Vec::len), Some(2));
+}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Field, Icon, Input, Select } from '@facile/muse';
+	import { Button, EmptyState, Field, Icon, Input, Select } from '@facile/muse';
 	import { KIND_ICON, icons } from '$lib/icons';
 	import { t } from '$lib/i18n';
 	import type { StageBox } from '$lib/project/stage';
@@ -81,7 +81,9 @@
 
 <section class="flex size-full min-h-0 flex-col gap-4 overflow-auto p-3" aria-label={t('inspector.title')} data-testid="inspector">
 	{#if !clip}
-		<p class="text-fc-sm text-fc-fg-muted" data-testid="inspector-empty">{t('inspector.empty')}</p>
+		<div data-testid="inspector-empty">
+			<EmptyState icon={icons.settings} title={t('inspector.none.title')} description={t('inspector.empty')} />
+		</div>
 	{:else}
 		<header class="flex items-center gap-2 text-fc-sm font-semibold text-fc-fg">
 			<Icon icon={KIND_ICON[clip.kind]} size={16} />

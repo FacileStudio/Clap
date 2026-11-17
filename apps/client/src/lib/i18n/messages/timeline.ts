@@ -37,10 +37,10 @@ export const timeline = {
 		'{kind} {label}, Spur {track}, von {from} bis {to}'
 	],
 	'timeline.empty': [
-		'Drag a media file here, or add a text.',
-		'Glissez un média ici, ou ajoutez un texte.',
-		'Arrastre un medio aquí, o añada un texto.',
-		'Ziehen Sie eine Mediendatei hierher oder fügen Sie einen Text hinzu.'
+		'Drag a media file here, add a text, or right-click for more.',
+		'Glissez un média ici, ajoutez un texte, ou faites un clic droit pour plus d’actions.',
+		'Arrastre un medio aquí, añada un texto o haga clic derecho para más acciones.',
+		'Ziehen Sie eine Mediendatei hierher, fügen Sie einen Text hinzu oder klicken Sie rechts für mehr.'
 	],
 	'timeline.ghost.uploading': [
 		'{name}, uploading, {percent}%',
@@ -77,12 +77,6 @@ export const timeline = {
 		'Le projet a changé ailleurs. Il a été rechargé.',
 		'El proyecto cambió en otro lugar. Se ha recargado.',
 		'Das Projekt wurde anderswo geändert. Es wurde neu geladen.'
-	],
-	'timeline.blocked': [
-		'Fix or save the source before editing the timeline',
-		'Corrigez ou enregistrez la source avant de modifier la timeline',
-		'Corrija o guarde la fuente antes de editar la línea de tiempo',
-		'Korrigieren oder speichern Sie den Quelltext, bevor Sie die Timeline bearbeiten'
 	],
 	'kind.video': ['Video', 'Vidéo', 'Vídeo', 'Video'],
 	'kind.audio': ['Audio', 'Audio', 'Audio', 'Audio'],

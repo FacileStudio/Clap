@@ -37,18 +37,3 @@ export function spanOf(timeline: Timeline, spans: Outline, id: string): ClipSpan
 	if (!found || !aligned(timeline, spans, found[0])) return null;
 	return spans.scenes[found[0]].clips[found[1]] ?? null;
 }
-
-/** The id of the innermost clip whose lines hold `line` (from 1), or null. */
-export function clipAtLine(timeline: Timeline, spans: Outline, line: number): string | null {
-	let best: { id: string; size: number } | null = null;
-	spans.scenes.forEach((scene, index) => {
-		if (!aligned(timeline, spans, index)) return;
-		scene.clips.forEach((clip, order) => {
-			const size = clip.to - clip.from;
-			if (line >= clip.from && line <= clip.to && (!best || size < best.size)) {
-				best = { id: timeline.scenes[index].clips[order].id, size };
-			}
-		});
-	});
-	return (best as { id: string } | null)?.id ?? null;
-}

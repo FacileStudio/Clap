@@ -54,14 +54,6 @@ export async function dragBy(page: Page, target: Locator, dx: number, dy = 0): P
 	await page.mouse.up();
 }
 
-/** Types `text` at the end of the source editor, as one input, so no editor keymap rewrites it. */
-export async function appendSource(page: Page, text: string): Promise<void> {
-	await page.getByRole('tab', { name: 'Source' }).click();
-	await page.locator('[data-testid="source-editor"] .cm-content').click();
-	await page.keyboard.press('Control+End');
-	await page.keyboard.insertText(text);
-}
-
 /** The `data-start` the stored source gives the first element that loads `src`. */
 export function startOf(source: string, src: string): number {
 	return attributeOf(source, src, 'data-start');

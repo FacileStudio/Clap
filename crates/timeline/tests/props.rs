@@ -23,7 +23,10 @@ fn any_op() -> impl Strategy<Value = Op> {
             media_in: None
         }),
         (clip.clone(), time.clone()).prop_map(|(clip, at)| Op::SplitClip { clip, at }),
-        clip.prop_map(|clip| Op::DeleteClip { clip }),
+        clip.clone().prop_map(|clip| Op::DeleteClip { clip }),
+        (clip.clone(), prop::option::of(0usize..4), time.clone(), prop::option::of(0i64..6))
+            .prop_map(|(clip, scene, start, track)| Op::DuplicateClip { clip, scene, start, track }),
+        (0usize..4).prop_map(|scene| Op::DuplicateScene { scene }),
         (0usize..4, time.clone()).prop_map(|(scene, duration)| Op::SetSceneDuration { scene, duration }),
         (0usize..4, 0usize..4).prop_map(|(scene, to)| Op::ReorderScene { scene, to }),
         (0usize..4).prop_map(|scene| Op::DeleteScene { scene }),
@@ -46,7 +49,7 @@ proptest! {
             let Ok(edited) = apply(&original, std::slice::from_ref(&op)) else { continue };
             let timeline = read(&edited);
             prop_assert!(timeline.is_ok(), "{op:?} left a source that does not parse: {edited}");
-            let grown = matches!(op, Op::AddScene { .. }) as usize;
+            let grown = matches!(op, Op::AddScene { .. } | Op::DuplicateScene { .. }) as usize;
             let shrunk = matches!(op, Op::DeleteScene { .. }) as usize;
             prop_assert_eq!(timeline.unwrap().scenes.len() + shrunk, scenes + grown);
         }

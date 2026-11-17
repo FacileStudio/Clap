@@ -18,6 +18,7 @@
 
 mod check;
 mod clips;
+mod copy;
 mod cut;
 mod doc;
 mod error;
@@ -47,6 +48,7 @@ pub use starter::{starter, starter_language};
 pub use transition::parse;
 
 use clips::Trim;
+use copy::Target;
 use scan::{Sketch, sketch};
 
 /// Reads a source into its scenes and clips.
@@ -75,10 +77,14 @@ fn edit(source: &str, sketch: &Sketch, op: &Op) -> Result<String, Error> {
         Op::SplitClip { clip, at } => clips::split(source, sketch, clip, *at)?,
         Op::DeleteClip { clip } => place::delete(source, sketch, clip)?,
         Op::AddClip { .. } => place::add(source, sketch, op)?,
+        Op::DuplicateClip { clip, scene, start, track } => {
+            copy::duplicate(source, sketch, clip, Target { scene: *scene, start: *start, track: *track })?
+        }
         Op::SetSceneDuration { scene, duration } => return scenes::set_duration(sketch, *scene, *duration),
         Op::ReorderScene { scene, to } => return scenes::reorder(sketch, *scene, *to),
         Op::DeleteScene { scene } => return scenes::delete(sketch, *scene),
         Op::AddScene { at, duration, body } => return scenes::add(sketch, *at, *duration, body),
+        Op::DuplicateScene { scene } => return copy::duplicate_scene(sketch, *scene),
         Op::UpdateClip { clip, update } => update::update(source, sketch, clip, update)?,
         Op::SetSceneTransition { scene, transition, duration } => {
             return transition::set(sketch, *scene, transition.as_deref(), *duration);
@@ -94,7 +100,7 @@ pub fn apply(source: &str, ops: &[Op]) -> Result<String, Error> {
     for op in ops {
         let before = sketch(&text)?;
         let after = edit(&text, &before, op)?;
-        let grown = usize::from(matches!(op, Op::AddScene { .. }));
+        let grown = usize::from(matches!(op, Op::AddScene { .. } | Op::DuplicateScene { .. }));
         let shrunk = usize::from(matches!(op, Op::DeleteScene { .. }));
         let scenes = parse(&after).map_err(|errors| Error::InvalidResult(errors.to_string()))?.scenes().len();
         if scenes + shrunk != before.stages.len() + grown {
