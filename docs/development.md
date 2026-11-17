@@ -65,6 +65,8 @@ cache (`~/.cache/ms-playwright`). To install that build:
 `bunx playwright-core install chromium-headless-shell`.
 
 The client's unit tests run with `cd apps/client && bun run test` (vitest, jsdom).
+The browser tests (`apps/client/e2e/run.sh`) drop and recreate the database `clap_e2e`, or
+`E2E_DATABASE` when set: give each worktree its own so two gates do not end each other's run.
 
 ## The gate
 
