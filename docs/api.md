@@ -121,10 +121,10 @@ scene's transition (`docs/timeline.md`).
 
 `POST /projects/{id}/edits` takes `{rev, ops}`. Each op is an object tagged by `op`:
 `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
-`split_clip {clip, at}`, `delete_clip {clip}`,
+`split_clip {clip, at}`, `delete_clip {clip}`, `duplicate_clip {clip, scene?, start, track?}`,
 `add_clip {scene, kind, src?, start, duration, track, text?}`,
 `set_scene_duration {scene, duration}`, `reorder_scene {scene, to}`, `delete_scene {scene}`,
-`add_scene {at, duration, body}`,
+`add_scene {at, duration, body}`, `duplicate_scene {scene}`,
 `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?,
 exit_duration?}` (a `null` removes the attribute), `set_scene_transition {scene, transition,
 duration?}` (a `null` transition removes it). The ops apply in order to the source read at `rev`; the result

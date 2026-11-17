@@ -155,15 +155,17 @@ captures, so the frame at time `t` must depend on `t` alone.
    style. `clap_write_project` replaces the whole file.
 3. `clap_timeline_edit` applies timeline operations by clip id or scene index (scenes count
    from 0): `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
-   `split_clip {clip, at}`, `delete_clip {clip}`,
+   `split_clip {clip, at}`, `delete_clip {clip}`, `duplicate_clip {clip, scene?, start, track?}`,
    `add_clip {scene, kind, src?, start, duration, track, text?}` with `kind` one of `video`,
    `audio`, `image`, `text`, `html`, `set_scene_duration {scene, duration}`,
    `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`,
+   `duplicate_scene {scene}`,
    `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?,
    enter_duration?, exit_duration?}`, where a `null` removes the attribute, and
    `set_scene_transition {scene, transition, duration?}`, where a `null` transition is a cut.
    It changes only the attribute values and the lines an operation concerns, and answers the
-   new `rev` and the ids of the clips it changed. `split_clip` names the second half `<id>-b`.
+   new `rev` and the ids of the clips it changed. `split_clip` names the second half `<id>-b`;
+   a copy is named `<id>-copy`, else `<id>-copy-<n>`.
 4. `clap_render` queues an MP4 of the saved project and `clap_render_status` follows it. A
    render is at most 1920x1080, 30 frames a second and 10 minutes unless the instance says
    otherwise.

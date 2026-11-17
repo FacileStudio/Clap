@@ -65,6 +65,21 @@ pub enum Op {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
     },
+    /// Copies a clip into scene `scene`, its own when left out, at `start`, on `track`, its own
+    /// when left out. The copy is the element as written, named by `data-clip` as `<id>-copy`,
+    /// else `<id>-copy-<n>` from 2, and goes after the last clip of that scene.
+    DuplicateClip {
+        /// The clip id.
+        clip: String,
+        /// The scene index of the copy.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scene: Option<usize>,
+        /// The start of the copy.
+        start: f64,
+        /// The track of the copy.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        track: Option<i64>,
+    },
     /// Sets the `duration` key of a scene's frontmatter.
     SetSceneDuration {
         /// The scene index.
@@ -92,6 +107,12 @@ pub enum Op {
         duration: f64,
         /// The scene body, without frontmatter.
         body: String,
+    },
+    /// Inserts a copy of a scene right after it. Every clip of the copy is renamed the way
+    /// `duplicate_clip` names a copy; the project keys of the first scene are not copied.
+    DuplicateScene {
+        /// The scene index.
+        scene: usize,
     },
     /// Sets or removes the stage attributes of a clip. A field left out keeps its attribute; a
     /// JSON `null` removes it.

@@ -109,10 +109,12 @@ JSON, tagged by `op`. Times are seconds.
 | `split_clip` | `clip`, `at` | Shortens the clip to `at` and adds a copy of the element after it, from `at`, with id `<id>-b`. For a video or an audio the copy's `data-in` moves forward by the same amount. |
 | `delete_clip` | `clip` | Removes the element, and its lines when it is alone on them. |
 | `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, which also get the full-frame box (`data-x="0" data-y="0"`, the stage size, `data-rot="0"`) and `data-fit="cover"`, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
+| `duplicate_clip` | `clip`, `scene?`, `start`, `track?` | Copies the element as written into scene `scene` (its own without), at `start`, on `track` (its own without), as one line after the last clip of that scene. The copy is named by `data-clip`: `<id>-copy`, else `<id>-copy-<n>` from 2. |
 | `set_scene_duration` | `scene`, `duration` | Sets the `duration` key, adding the key or the frontmatter block when missing. |
 | `reorder_scene` | `scene`, `to` | Moves the scene's lines so that it sits at index `to`. |
 | `delete_scene` | `scene` | Removes the scene's lines. The last scene cannot be removed. |
 | `add_scene` | `at`, `duration`, `body` | Inserts a scene at index `at`. A body that starts with `<` gets `layout: raw`. |
+| `duplicate_scene` | `scene` | Inserts a copy of the scene's lines right after it. Every clip of the copy gets a `data-clip` named as `duplicate_clip` names a copy; the project keys of the first scene stay where they are. |
 | `update_clip` | `clip`, `x?`, `y?`, `w?`, `h?`, `rot?`, `fit?`, `opacity?`, `volume?`, `enter?`, `exit?`, `enter_duration?`, `exit_duration?` | Sets each attribute given (`data-x`, ..., `data-enter-duration`); a JSON `null` removes it with the spaces before it. `w`, `h` and the durations are above 0, `opacity` and `volume` from 0 to 1, `fit` one of `FITS`, `enter` and `exit` one of `CLIP_TRANSITIONS`. |
 | `set_scene_transition` | `scene`, `transition`, `duration?` | Sets the `transition` key, and `transition_duration` when `duration` is a number. A `null` transition removes both keys, a `null` duration that one; a frontmatter block left empty goes too. `transition` is one of `SCENE_TRANSITIONS`. |
 
