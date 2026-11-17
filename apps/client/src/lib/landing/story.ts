@@ -1,6 +1,6 @@
 import { tick } from 'svelte';
 import type { Act, CursorState } from '@facile/mise-en-scene';
-import { FRAMES, SCENE, titleLines, type EditorScene } from './scene.svelte';
+import { FRAMES, SCENE, type EditorScene } from './scene.svelte';
 
 /** Everything the hero story moves: the scene's state, the cursor, and the parts the cursor touches. */
 export interface Cast {
@@ -10,7 +10,8 @@ export interface Cast {
 	readonly media?: HTMLElement;
 	readonly rows?: HTMLElement;
 	readonly clip?: HTMLElement;
-	readonly sourceTab?: HTMLElement;
+	readonly clipTab?: HTMLElement;
+	readonly textField?: HTMLElement;
 	readonly renderButton?: HTMLElement;
 }
 
@@ -47,12 +48,14 @@ async function trim(act: Act, { scene, cursor, rows, clip }: Cast): Promise<void
 	await act.wait(350);
 }
 
-async function write(act: Act, { scene, cursor, sourceTab, headline }: Cast): Promise<void> {
-	await act.move(cursor, act.point(sourceTab, 0.6, 0.6));
-	await act.click(cursor, () => (scene.tab = 'source'));
+async function write(act: Act, { scene, cursor, clipTab, textField, headline }: Cast): Promise<void> {
+	await act.move(cursor, act.point(clipTab, 0.6, 0.6));
+	await act.click(cursor, () => (scene.tab = 'clip'));
 	await act.wait(450);
+	await act.move(cursor, act.point(textField, 0.3, 0.6), 700);
+	await act.click(cursor);
 	cursor.visible = false;
-	await act.type(titleLines(headline), (value) => (scene.typed = value), 30);
+	await act.type(headline, (value) => (scene.typed = value), 70);
 	scene.titled = true;
 	await act.wait(1300);
 }
@@ -70,7 +73,7 @@ async function render(act: Act, { scene, cursor, renderButton }: Cast): Promise<
 	await act.wait(2400);
 }
 
-/** The hero story: drop a clip, trim it, write a title in the source, render to an MP4. */
+/** The hero story: drop a clip, trim it, type a title in the clip settings, render to an MP4. */
 export async function play(act: Act, cast: Cast): Promise<void> {
 	await act.wait(700);
 	await drop(act, cast);

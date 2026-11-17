@@ -2,7 +2,6 @@
 	import type { Snippet } from 'svelte';
 	import { Icon } from '@facile/muse';
 	import { icons } from '$lib/landing/icons';
-	import { t } from '$lib/landing/i18n';
 	import type { EditorScene } from '$lib/landing/scene.svelte';
 	import Footage from '../Footage.svelte';
 
@@ -22,9 +21,9 @@
 	<div class="screen">
 		<div class="picture">
 			<span class="shot" class:shown={scene.placed}><Footage /></span>
-			<span class="veil" class:shown={scene.titled}></span>
-			<span class="title" class:shown={scene.titled}>
-				<span class="words">{t('demo.headline')}</span>
+			<span class="veil" class:shown={scene.typed !== ''}></span>
+			<span class="title" class:shown={scene.typed !== ''}>
+				<span class="words">{scene.typed}</span>
 				<span class="rule"></span>
 			</span>
 		</div>

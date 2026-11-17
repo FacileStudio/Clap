@@ -17,7 +17,8 @@
 	let media = $state<HTMLElement>();
 	let rows = $state<HTMLElement>();
 	let clip = $state<HTMLElement>();
-	let sourceTab = $state<HTMLElement>();
+	let clipTab = $state<HTMLElement>();
+	let textField = $state<HTMLElement>();
 	let renderButton = $state<HTMLElement>();
 
 	const cast: Cast = {
@@ -37,8 +38,11 @@
 		get clip() {
 			return clip;
 		},
-		get sourceTab() {
-			return sourceTab;
+		get clipTab() {
+			return clipTab;
+		},
+		get textField() {
+			return textField;
 		},
 		get renderButton() {
 			return renderButton;
@@ -81,7 +85,7 @@
 				</span>
 			</div>
 			<div class="top">
-				<div class="side"><EditorPanel {scene} {compact} bind:media bind:sourceTab /></div>
+				<div class="side"><EditorPanel {scene} {compact} bind:media bind:clipTab bind:textField /></div>
 				<div class="main">
 					<EditorPreview {scene} {compact}><EditorRender {scene} {compact} /></EditorPreview>
 				</div>
