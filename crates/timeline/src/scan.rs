@@ -9,6 +9,7 @@ use crate::cut::cut;
 use crate::doc::Doc;
 use crate::geometry::look;
 use crate::model::{Clip, Kind, Scene, Span};
+use crate::text::text_of;
 use crate::tree::{Element, elements};
 
 /// A clip and the element it was read from.
@@ -91,9 +92,11 @@ impl Reading<'_> {
     fn clip(&mut self, element: Element, scene: &Scene, nth: usize) -> Located {
         let number = |name: &str| element.number(self.source, name);
         let start = number("data-start").unwrap_or(0.0);
+        let kind = kind(&element, self.source);
         let clip = Clip {
             id: self.id(&element, scene.index, nth),
-            kind: kind(&element, self.source),
+            kind,
+            text: (kind == Kind::Text).then(|| text_of(&element, self.source)),
             src: element.value(self.source, "src").map(str::to_owned),
             start,
             duration: number("data-duration").unwrap_or((scene.duration - start).max(0.0)),

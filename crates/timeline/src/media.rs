@@ -30,6 +30,16 @@ pub fn asset_reference(path: &str) -> (&str, &str) {
     (rest.split('?').next().unwrap_or(rest), fragment)
 }
 
+/// The project files an HTML fragment loads, by asset name, in order: what each resource
+/// attribute, CSS `url()` and `@import` names once `asset_reference` reads it, fragments and
+/// inline `data:` URIs left out. A name that breaks [`valid_asset_name`] is listed as written.
+pub fn asset_names(html: &str) -> Vec<String> {
+    let inline = |url: &str| url.get(..5).is_some_and(|head| head.eq_ignore_ascii_case("data:"));
+    let urls =
+        references(html, false).into_iter().map(|span| &html[span]).filter(|url| !url.starts_with('#') && !inline(url));
+    urls.map(|url| asset_reference(url).0.to_owned()).collect()
+}
+
 fn found(text: &str, at: usize, raw: bool, (from, to): (&str, &str)) -> Result<Vec<Patch>, Error> {
     let mut patches = Vec::new();
     for span in references(text, !raw) {

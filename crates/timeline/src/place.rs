@@ -7,6 +7,7 @@ use crate::model::Kind;
 use crate::op::Op;
 use crate::patch::{Patch, quoted, seconds};
 use crate::scan::{Sketch, Stage};
+use crate::text::escaped;
 
 /// `delete_clip`. An element alone on its lines takes the lines with it.
 pub(crate) fn delete(source: &str, sketch: &Sketch, id: &str) -> Result<Vec<Patch>, Error> {
@@ -50,7 +51,7 @@ fn markup(id: &str, op: &Op, (width, height): (u32, u32)) -> Result<String, Erro
         None => Err(Error::Invalid(format!("a {id} clip needs `src`"))),
     };
     let text = text.as_deref().unwrap_or_default();
-    let escaped = text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+    let escaped = escaped(text);
     Ok(match kind {
         Kind::Video => {
             format!("<video class=\"clap-fill\" data-clip=\"{id}\" src=\"{}\" {timing} {frame}></video>", file()?)

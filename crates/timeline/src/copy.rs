@@ -17,12 +17,13 @@ pub(crate) struct Target {
     pub track: Option<i64>,
 }
 
-fn taken(sketch: &Sketch) -> HashSet<String> {
+/// Every clip id of `sketch`.
+pub(crate) fn taken(sketch: &Sketch) -> HashSet<String> {
     sketch.stages.iter().flat_map(|stage| stage.items.iter().map(|item| item.clip.id.clone())).collect()
 }
 
 /// The name of a copy of `id`: `<id>-copy`, else `<id>-copy-<n>` from 2, the first one not in `taken`.
-fn copy_name(taken: &HashSet<String>, id: &str) -> String {
+pub(crate) fn copy_name(taken: &HashSet<String>, id: &str) -> String {
     let numbered = (2..).map(|n| format!("{id}-copy-{n}"));
     std::iter::once(format!("{id}-copy")).chain(numbered).find(|name| !taken.contains(name)).unwrap_or_default()
 }

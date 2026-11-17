@@ -7,7 +7,7 @@ use clap_timeline::{Kind, Op, Update, apply, read};
 use proptest::prelude::*;
 use support::{quarter, scenes, source};
 
-fn any_op() -> impl Strategy<Value = Op> {
+fn clip_op() -> impl Strategy<Value = Op> {
     let clip = (0usize..3, 0usize..4).prop_map(|(scene, nth)| format!("c{scene}x{nth}"));
     let time = (0u32..40).prop_map(quarter);
     prop_oneof![
@@ -24,9 +24,23 @@ fn any_op() -> impl Strategy<Value = Op> {
         }),
         (clip.clone(), time.clone()).prop_map(|(clip, at)| Op::SplitClip { clip, at }),
         clip.clone().prop_map(|clip| Op::DeleteClip { clip }),
-        (clip.clone(), prop::option::of(0usize..4), time.clone(), prop::option::of(0i64..6))
+        (clip.clone(), prop::option::of(0usize..4), time, prop::option::of(0i64..6))
             .prop_map(|(clip, scene, start, track)| Op::DuplicateClip { clip, scene, start, track }),
+        (clip, 0u8..3).prop_map(|(clip, n)| Op::SetClipText { clip, text: format!("Words & <{n}>") }),
+    ]
+}
+
+fn scene_op() -> impl Strategy<Value = Op> {
+    let time = (0u32..40).prop_map(quarter);
+    let element = "<video src=\"assets/v1.mp4\" data-start=\"0\" data-duration=\"1\"></video>";
+    prop_oneof![
         (0usize..4).prop_map(|scene| Op::DuplicateScene { scene }),
+        (0usize..4, time.clone(), prop::option::of(0i64..6)).prop_map(move |(scene, start, track)| Op::PasteClip {
+            scene,
+            start,
+            track,
+            element: element.into()
+        }),
         (0usize..4, 0usize..4)
             .prop_map(|(a, b)| Op::RenameMedia { from: format!("assets/v{a}.mp4"), to: format!("assets/w{b}.mp4") }),
         (0usize..4, time.clone()).prop_map(|(scene, duration)| Op::SetSceneDuration { scene, duration }),
@@ -38,6 +52,10 @@ fn any_op() -> impl Strategy<Value = Op> {
             body: "<p data-start=\"0\">New</p>".into()
         }),
     ]
+}
+
+fn any_op() -> impl Strategy<Value = Op> {
+    prop_oneof![clip_op(), scene_op()]
 }
 
 proptest! {

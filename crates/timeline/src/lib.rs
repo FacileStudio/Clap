@@ -30,6 +30,7 @@ mod lines;
 mod media;
 mod model;
 mod op;
+mod paste;
 mod patch;
 mod place;
 mod references;
@@ -37,6 +38,7 @@ mod runtime;
 mod scan;
 mod scenes;
 mod starter;
+mod text;
 mod transition;
 mod tree;
 mod update;
@@ -44,7 +46,7 @@ mod update;
 pub use error::Error;
 pub use geometry::{CLIP_TRANSITIONS, FITS, SCENE_TRANSITIONS};
 pub use guide::{CLAP_GUIDE, format_guide};
-pub use media::{MAX_ASSET_NAME, asset_reference, valid_asset_name};
+pub use media::{MAX_ASSET_NAME, asset_names, asset_reference, valid_asset_name};
 pub use model::{Clip, Geometry, Kind, Look, Scene, Span, Timeline};
 pub use op::{Op, Update};
 pub use runtime::{RUNTIME_JS, STAGE_CSS, with_runtime};
@@ -53,6 +55,7 @@ pub use transition::parse;
 
 use clips::Trim;
 use copy::Target;
+use paste::Paste;
 use scan::{Sketch, sketch};
 
 /// Reads a source into its scenes and clips.
@@ -91,6 +94,10 @@ fn edit(source: &str, sketch: &Sketch, op: &Op) -> Result<String, Error> {
         Op::DuplicateScene { scene } => return copy::duplicate_scene(sketch, *scene),
         Op::UpdateClip { clip, update } => update::update(source, sketch, clip, update)?,
         Op::RenameMedia { from, to } => media::rename(source, sketch, from, to)?,
+        Op::PasteClip { scene, start, track, element } => {
+            paste::paste(source, sketch, Paste { scene: *scene, start: *start, track: *track, element })?
+        }
+        Op::SetClipText { clip, text } => text::set(source, sketch, clip, text)?,
         Op::SetSceneTransition { scene, transition, duration } => {
             return transition::set(sketch, *scene, transition.as_deref(), *duration);
         }

@@ -31,7 +31,7 @@ pub struct Scene { pub index: usize, pub start: f64, pub duration: f64, pub fixe
                    pub transition_duration: Option<f64>, pub clips: Vec<Clip> }
 pub struct Clip { pub id: String, pub kind: Kind, pub src: Option<String>, pub start: f64,
                   pub duration: f64, pub track: i64, pub media_in: f64, pub scene: usize,
-                  pub lines: Span, pub look: Look }
+                  pub lines: Span, pub text: Option<String>, pub look: Look }
 pub struct Look { pub frame: Option<Geometry>, pub fit: Option<String>, pub opacity: Option<f64>,
                   pub volume: Option<f64>, pub enter: Option<String>, pub exit: Option<String>,
                   pub enter_duration: Option<f64>, pub exit_duration: Option<f64> }
@@ -51,6 +51,7 @@ impl Error { pub fn code(&self) -> &'static str }
 pub const MAX_ASSET_NAME: usize;
 pub fn valid_asset_name(name: &str) -> bool;
 pub fn asset_reference(path: &str) -> (&str, &str);
+pub fn asset_names(html: &str) -> Vec<String>;
 
 pub const RUNTIME_JS: &str;
 pub const STAGE_CSS: &str;
@@ -73,7 +74,7 @@ is, the API serves the JSON.
   {"index": 0, "start": 0.0, "duration": 6.0, "fixed_duration": true, "layout": "raw",
    "lines": {"first": 7, "last": 22}, "clips": [
     {"id": "shot", "kind": "video", "src": "assets/shot.mp4", "start": 0.0, "duration": 4.0,
-     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12},
+     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12}, "text": null,
      "frame": {"x": 0.0, "y": 0.0, "w": 1280.0, "h": 720.0, "rot": 0.0}, "fit": "cover",
      "opacity": null, "volume": null, "enter": "fade", "exit": null, "enter_duration": null,
      "exit_duration": null}], "transition": null, "transition_duration": null}]}
@@ -87,6 +88,8 @@ is, the API serves the JSON.
 - `kind` is `video`, `audio` or `image` by tag; `text` for an element that holds text and no
   other element; `html` for everything else.
 - `lines` are 1-based source lines, both ends included.
+- `text` is what a `text` clip shows: its content, trimmed, with `&amp;`, `&lt;`, `&gt;`,
+  `&quot;` and `&#39;` read back. `null` for any other kind.
 - `frame` is the box of `data-x`, `data-y`, `data-w`, `data-h` and `data-rot` in frame pixels,
   `null` without any of them; one that is missing reads as the full frame's. `fit`, `opacity`,
   `volume`, `enter`, `exit`, `enter_duration` and `exit_duration` are the attribute, `null`
@@ -114,6 +117,8 @@ JSON, tagged by `op`. Times are seconds.
 | `delete_clip` | `clip` | Removes the element, and its lines when it is alone on them. |
 | `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, which also get the full-frame box (`data-x="0" data-y="0"`, the stage size, `data-rot="0"`) and `data-fit="cover"`, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
 | `duplicate_clip` | `clip`, `scene?`, `start`, `track?` | Copies the element as written into scene `scene` (its own without), at `start`, on `track` (its own without), as one line after the last clip of that scene. The copy is named by `data-clip`: `<id>-copy`, else `<id>-copy-<n>` from 2. |
+| `paste_clip` | `scene`, `start`, `track?`, `element` | Writes `element`, one element as copied from a source, start tag to end tag, as one line after the last clip of scene `scene`, at `start`, on `track` (its own `data-track-index` without). It is named by `data-clip` as `duplicate_clip` names a copy of its `data-clip` or `id` (`clip-copy` without either). Placed and checked like `add_clip`; every file it loads must have an asset name (`invalid_op` otherwise), and the API also refuses a file the project does not hold. |
+| `set_clip_text` | `clip`, `text` | Replaces the trimmed content of a `text` clip with `text`, trimmed and escaped (`&`, `<`, `>`); the spaces and lines around it stay. Refused for any other kind and for an empty text. |
 | `set_scene_duration` | `scene`, `duration` | Sets the `duration` key, adding the key or the frontmatter block when missing. |
 | `reorder_scene` | `scene`, `to` | Moves the scene's lines so that it sits at index `to`. |
 | `delete_scene` | `scene` | Removes the scene's lines. The last scene cannot be removed. |
@@ -143,7 +148,8 @@ written.
 An op followed by its inverse returns the original text when the original wrote its numbers
 that way. The property tests check this for move, trim, reorder, set duration, add then delete
 a clip, add then delete a scene, an `update_clip` then the one that removes what it wrote, a
-transition set then cut, and a `rename_media` then the rename back. The inverse of `update_clip` names the previous value of each field, or
+transition set then cut, a `rename_media` then the rename back, a `paste_clip` then the delete
+of the copy, and a `set_clip_text` then the previous text. The inverse of `update_clip` names the previous value of each field, or
 `null`; the inverse of `set_scene_transition` names the previous transition and duration. `split_clip` and `delete_clip` have no inverse op: undo
 them by restoring the previous source.
 
