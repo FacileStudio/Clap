@@ -1,20 +1,7 @@
-/// The longest asset name, in bytes.
-pub const MAX_NAME: usize = 200;
+pub use clap_timeline::{MAX_ASSET_NAME as MAX_NAME, asset_reference as referenced, valid_asset_name as valid};
 
 /// The folder an upload lands in when it names none, as the format's examples write it.
 pub const FOLDER: &str = "assets";
-
-fn segment(part: &str) -> bool {
-    !part.is_empty() && !part.starts_with('.') && part.bytes().all(|b| b.is_ascii_alphanumeric() || b"._-".contains(&b))
-}
-
-/// Whether `name` is an asset name: a relative path of at most [`MAX_NAME`] bytes whose
-/// segments hold ASCII letters, digits, `.`, `_` and `-` and never start with a dot. So no
-/// `..`, no absolute path, no backslash, no scheme, nothing a URL or a header must escape.
-/// Every such name is a path the scene format accepts.
-pub fn valid(name: &str) -> bool {
-    name.len() <= MAX_NAME && name.split('/').all(segment)
-}
 
 /// The asset name for an upload that gives only its file name: [`FOLDER`], then the base name
 /// with every other character turned into `-`.
@@ -40,54 +27,12 @@ pub fn chosen(asked: Option<&str>, file_name: &str) -> tronc::Result<String> {
     }
 }
 
-/// The asset name a source reference means, and the `#fragment` it carries: a leading `./` and
-/// any `?query` are dropped.
-pub fn referenced(path: &str) -> (&str, &str) {
-    let path = path.strip_prefix("./").unwrap_or(path);
-    let (rest, fragment) = path.find('#').map_or((path, ""), |at| path.split_at(at));
-    (rest.split('?').next().unwrap_or(rest), fragment)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const REFUSED: [&str; 12] = [
-        "",
-        "../secret.png",
-        "assets/../../etc/passwd",
-        "/etc/passwd",
-        "assets//a.png",
-        "assets/.env",
-        "C:\\a.png",
-        "assets\\a.png",
-        "https://x.test/a.png",
-        "a b.png",
-        "a%2e%2e/b.png",
-        "assets/a.png?x=1",
-    ];
-
     #[test]
-    fn names_are_plain_relative_paths() {
-        for name in ["assets/chart.png", "logo.svg", "fonts/Inter-Bold_2.woff2"] {
-            assert!(valid(name), "{name}");
-        }
-        for name in REFUSED {
-            assert!(!valid(name), "{name}");
-        }
-        assert!(!valid(&format!("assets/{}.png", "a".repeat(MAX_NAME))));
-    }
-
-    #[test]
-    fn every_valid_name_is_a_path_the_scene_format_accepts() {
-        for name in ["assets/chart.png", "logo.svg", "a/b/c/d.mp4", &from_file("Capture d'écran.png")] {
-            assert!(valid(name), "{name}");
-            assert!(scene::parse(&format!("<img src=\"{name}\">\n")).is_ok(), "{name}");
-        }
-    }
-
-    #[test]
-    fn a_file_name_becomes_a_safe_name_and_a_reference_names_its_asset() {
+    fn a_file_name_becomes_a_safe_name_and_a_bad_one_is_refused() {
         assert_eq!(from_file("chart.png"), "assets/chart.png");
         assert_eq!(from_file("../../etc/passwd"), "assets/passwd");
         assert_eq!(from_file("C:\\Users\\me\\Capture d'écran.png"), "assets/Capture-d--cran.png");
@@ -97,8 +42,5 @@ mod tests {
         assert_eq!(chosen(Some(" a/b.mp4 "), "x").unwrap(), "a/b.mp4");
         assert_eq!(chosen(None, "x.mp4").unwrap(), "assets/x.mp4");
         assert!(chosen(Some("../x"), "x").is_err());
-        assert_eq!(referenced("./assets/a.svg#icon"), ("assets/a.svg", "#icon"));
-        assert_eq!(referenced("assets/a.png?v=2"), ("assets/a.png", ""));
-        assert_eq!(referenced("a.svg?v=2#x"), ("a.svg", "#x"));
     }
 }

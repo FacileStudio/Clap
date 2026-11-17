@@ -4,10 +4,10 @@ use std::collections::HashSet;
 use std::ops::Range;
 
 use crate::Error;
+use crate::body::readable;
 use crate::cut::cut;
 use crate::doc::Doc;
 use crate::geometry::look;
-use crate::lines::fenced;
 use crate::model::{Clip, Kind, Scene, Span};
 use crate::tree::{Element, elements};
 
@@ -60,20 +60,6 @@ fn kind(element: &Element, source: &str) -> Kind {
         _ if !inner.trim().is_empty() && !inner.contains('<') => Kind::Text,
         _ => Kind::Html,
     }
-}
-
-fn masked(lines: &[String]) -> String {
-    let mut fence = None;
-    let mut out = String::new();
-    for line in lines {
-        let inside = fence.is_some();
-        fence = fenced(fence, line);
-        match inside || fence.is_some() {
-            true => out.extend(line.bytes().map(|byte| if byte == b'\n' { '\n' } else { ' ' })),
-            false => out.push_str(line),
-        }
-    }
-    out
 }
 
 struct Reading<'a> {
@@ -136,9 +122,8 @@ pub(crate) fn sketch(source: &str) -> Result<Sketch, Error> {
     let mut start = 0.0;
     for (index, (unit, parsed)) in doc.units.iter().zip(project.scenes()).enumerate() {
         let scene = unit.scene(index, start, parsed);
-        let text = if parsed.layout == scene::Layout::Raw { unit.body.concat() } else { masked(&unit.body) };
-        let text = &text[..text.len().min(source.len() - unit.at)];
-        let timed = elements(text, unit.at).into_iter().filter(|element| element.attr("data-start").is_some());
+        let text = readable(source, unit, parsed.layout == scene::Layout::Raw);
+        let timed = elements(&text, unit.at).into_iter().filter(|element| element.attr("data-start").is_some());
         let items = timed.enumerate().map(|(nth, element)| reading.clip(element, &scene, nth)).collect();
         start += parsed.duration;
         stages.push(Stage { scene, items, noted: parsed.note.is_some() });

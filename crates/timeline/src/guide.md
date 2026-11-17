@@ -161,8 +161,10 @@ captures, so the frame at time `t` must depend on `t` alone.
    `reorder_scene {scene, to}`, `delete_scene {scene}`, `add_scene {at, duration, body}`,
    `duplicate_scene {scene}`,
    `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?,
-   enter_duration?, exit_duration?}`, where a `null` removes the attribute, and
-   `set_scene_transition {scene, transition, duration?}`, where a `null` transition is a cut.
+   enter_duration?, exit_duration?}`, where a `null` removes the attribute,
+   `set_scene_transition {scene, transition, duration?}`, where a `null` transition is a cut,
+   and `rename_media {from, to}`, which writes the file name `to` wherever the source loads
+   `from`. It renames references only: the web editor's media rename moves the file too.
    It changes only the attribute values and the lines an operation concerns, and answers the
    new `rev` and the ids of the clips it changed. `split_clip` names the second half `<id>-b`;
    a copy is named `<id>-copy`, else `<id>-copy-<n>`.

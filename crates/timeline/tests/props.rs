@@ -27,6 +27,8 @@ fn any_op() -> impl Strategy<Value = Op> {
         (clip.clone(), prop::option::of(0usize..4), time.clone(), prop::option::of(0i64..6))
             .prop_map(|(clip, scene, start, track)| Op::DuplicateClip { clip, scene, start, track }),
         (0usize..4).prop_map(|scene| Op::DuplicateScene { scene }),
+        (0usize..4, 0usize..4)
+            .prop_map(|(a, b)| Op::RenameMedia { from: format!("assets/v{a}.mp4"), to: format!("assets/w{b}.mp4") }),
         (0usize..4, time.clone()).prop_map(|(scene, duration)| Op::SetSceneDuration { scene, duration }),
         (0usize..4, 0usize..4).prop_map(|(scene, to)| Op::ReorderScene { scene, to }),
         (0usize..4).prop_map(|scene| Op::DeleteScene { scene }),

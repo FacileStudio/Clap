@@ -23,7 +23,8 @@ split_clip {clip, at}, delete_clip {clip}, duplicate_clip {clip, scene?, start, 
 reorder_scene {scene, to}, delete_scene {scene}, add_scene {at, duration, body}, duplicate_scene {scene}, \
 update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?, \
 exit_duration?} (box in frame pixels, null removes an attribute), set_scene_transition {scene, transition, \
-duration?} (null transition is a cut). Times are seconds. A clip id is the element's data-clip, else its id, \
+duration?} (null transition is a cut), rename_media {from, to} (points every reference to the file from \
+at the name to; it does not rename the uploaded file). Times are seconds. A clip id is the element's data-clip, else its id, \
 else clip-<scene>-<n>: such a derived id shifts when a clip before it is added or deleted, so read the project \
 again before the next call. It needs the rev clap_get_project answered; nothing is saved unless every op \
 applies. It answers the new rev and the ids of the clips it changed.";

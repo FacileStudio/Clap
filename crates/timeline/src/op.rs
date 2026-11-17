@@ -135,6 +135,14 @@ pub enum Op {
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         duration: Option<Option<f64>>,
     },
+    /// Points every reference to the project file `from` at `to`: `src`, `poster`, `srcset`, a
+    /// linking `href`, CSS `url()` and `@import`, and a markdown image. Only the names change.
+    RenameMedia {
+        /// The asset name the source references now.
+        from: String,
+        /// The new asset name, which the source must not reference yet.
+        to: String,
+    },
 }
 
 /// What `update_clip` changes. `None` keeps an attribute, `Some(None)` removes it and
