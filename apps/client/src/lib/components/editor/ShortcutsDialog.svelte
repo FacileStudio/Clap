@@ -11,7 +11,10 @@
 			title: 'help.playback',
 			commands: ['toggle', 'back', 'pause', 'forward', 'prevFrame', 'nextFrame', 'prevSecond', 'nextSecond', 'home', 'end']
 		},
-		{ title: 'help.editing', commands: ['split', 'copy', 'paste', 'duplicate', 'delete', 'ripple', 'undo', 'redo', 'help'] }
+		{
+			title: 'help.editing',
+			commands: ['split', 'cut', 'copy', 'paste', 'duplicate', 'delete', 'ripple', 'undo', 'redo', 'marker', 'help']
+		}
 	];
 </script>
 

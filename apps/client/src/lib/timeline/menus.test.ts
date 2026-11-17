@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MenuAction, MenuEntry } from '@facile/muse';
 import { ApiError } from '$lib/http';
+import { Markers } from '$lib/project/markers.svelte';
 import { Transport } from '$lib/project/transport.svelte';
 import { stageMenu } from '$lib/stage/menu';
 import type { MenuHost } from './clip-menu';
@@ -35,9 +36,11 @@ async function setup() {
 	transport.duration = 6;
 	transport.seek(2);
 	const bench: Bench = { engine, transport, copied: null };
-	const host: MenuHost = { bench, run: vi.fn(), reveal: vi.fn(), has: () => true, addMedia: vi.fn() };
+	const markers = new Markers('p', vi.fn());
+	markers.list = [{ id: 'm1', t: 3, label: 'Drop' }];
+	const host: MenuHost = { bench, run: vi.fn(), reveal: vi.fn(), has: () => true, addMedia: vi.fn(), markers, renameMarker: vi.fn() };
 	const commit = vi.spyOn(engine, 'commit').mockResolvedValue(true);
-	return { engine, transport, bench, host, commit };
+	return { engine, transport, bench, host, commit, markers };
 }
 
 function node(html: string): Element {
@@ -55,7 +58,7 @@ describe('timeline menus', () => {
 		const { engine, host } = await setup();
 		const menu = timelineMenu(host, node('<div data-testid="clip" data-clip="clip-0-0"><span data-pick></span></div>'), AT, vi.fn());
 		expect([...engine.selection]).toEqual(['clip-0-0']);
-		expect(pick(menu, 'Couper')?.label).toBe('Couper à la tête de lecture (S)');
+		expect([pick(menu, 'Scinder')?.label, pick(menu, 'Scinder')?.shortcut]).toEqual(['Scinder à la tête de lecture', 's']);
 		expect([pick(menu, 'Coller')?.disabled, pick(menu, 'Rogner le début')?.disabled]).toEqual([true, false]);
 		pick(menu, 'Dupliquer')?.onselect?.();
 		expect(host.run).toHaveBeenCalledWith('duplicate');
@@ -95,6 +98,23 @@ describe('timeline menus', () => {
 		expect(host.addMedia).toHaveBeenCalledWith(AT);
 	});
 
+	it('adds a marker where the ruler was clicked and renames, deletes or jumps to one', async () => {
+		const { host, markers, transport } = await setup();
+		const add = vi.spyOn(markers, 'add').mockResolvedValue();
+		const remove = vi.spyOn(markers, 'remove').mockResolvedValue();
+		const ruler = timelineMenu(host, node('<div data-testid="ruler" data-pick></div>'), { time: 4.5, track: 0 }, vi.fn());
+		expect(pick(ruler, 'Ajouter un repère ici')?.shortcut).toBe('m');
+		pick(ruler, 'Ajouter un repère ici')?.onselect?.();
+		expect(add).toHaveBeenCalledWith(4.5);
+		const pin = '<div data-testid="ruler"><button data-testid="marker" data-marker="m1" data-pick></button></div>';
+		const menu = timelineMenu(host, node(pin), AT, vi.fn());
+		pick(menu, 'Renommer le repère')?.onselect?.();
+		pick(menu, 'Supprimer le repère')?.onselect?.();
+		pick(menu, 'Placer la tête de lecture')?.onselect?.();
+		expect([host.renameMarker, remove].map((spy) => vi.mocked(spy).mock.calls)).toEqual([[['m1']], [['m1']]]);
+		expect(transport.time).toBe(3);
+	});
+
 	it('acts on the stage selection: stacking, frame, reset', async () => {
 		const { host, commit } = await setup();
 		const box = { id: 'clip-0-0', kind: 'video' as const, x: 10, y: 10, w: 100, h: 50, rot: 0 };
@@ -116,11 +136,33 @@ describe('clip commands', () => {
 		runCommand('copy', bench);
 		runCommand('paste', bench);
 		runCommand('duplicate', bench);
-		expect(bench.copied).toBe('clip-0-0');
+		expect(bench.copied?.id).toBe('clip-0-0');
 		expect(commit.mock.calls).toEqual([
 			[[{ op: 'duplicate_clip', clip: 'clip-0-0', scene: 0, start: 2, track: 2 }]],
 			[[{ op: 'duplicate_clip', clip: 'clip-0-0', scene: 0, start: 3, track: 0 }]]
 		]);
+	});
+
+	it('cuts the selection: copied, then deleted in one undoable edit', async () => {
+		const { engine, bench, commit, host } = await setup();
+		engine.select('clip-0-0');
+		engine.select('clip-0-1', true);
+		runCommand('cut', bench);
+		expect([bench.copied?.id, bench.copied?.element]).toEqual([
+			'clip-0-0',
+			'<video src="assets/a.mp4" data-start="1" data-duration="2" data-track-index="0"></video>'
+		]);
+		expect(commit.mock.calls).toEqual([
+			[
+				[
+					{ op: 'delete_clip', clip: 'clip-0-0' },
+					{ op: 'delete_clip', clip: 'clip-0-1' }
+				]
+			]
+		]);
+		const menu = timelineMenu(host, node('<div data-testid="clip" data-clip="clip-0-0" data-pick></div>'), AT, vi.fn());
+		expect(pick(menu, 'Scinder')?.label).toBe('Scinder à la tête de lecture');
+		expect(actions(menu).find((entry) => entry.label === 'Couper')?.shortcut).toBe('mod+x');
 	});
 
 	it('maps the new shortcuts and spells them for menus', () => {
@@ -130,6 +172,12 @@ describe('clip commands', () => {
 			'duplicate',
 			'ripple',
 			'help'
+		]);
+		expect([key('x', { ctrlKey: true }), key('x', { metaKey: true }), key('m'), key('M', { shiftKey: true })]).toEqual([
+			'cut',
+			'cut',
+			'marker',
+			null
 		]);
 		expect(withKeys('Annuler', 'undo')).toBe('Annuler (Ctrl+Z)');
 	});

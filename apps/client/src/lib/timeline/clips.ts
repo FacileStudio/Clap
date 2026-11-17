@@ -12,6 +12,8 @@ export interface FoundClip {
 	/** The id the source gives it with `data-clip` or `id`, or null. */
 	named: string | null;
 	label: string;
+	/** What a text clip shows, its HTML escapes read back; null for any other kind. */
+	text: string | null;
 	/** Where the opening tag starts and ends. */
 	open: [number, number];
 	/** Where the whole element ends. */
@@ -52,6 +54,10 @@ function labelOf(src: string | null, inner: string): string {
 
 const seconds = (raw: string | null): number => Math.max(0, Number(raw) || 0);
 
+/** `inner` as the words it shows: trimmed, the five escapes HTML writes read back. */
+export const unescaped = (inner: string): string =>
+	inner.trim().replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+
 function describe(text: string, found: RegExpExecArray): FoundClip {
 	const tag = found[1].toLowerCase();
 	const openEnd = found.index + found[0].length;
@@ -59,8 +65,10 @@ function describe(text: string, found: RegExpExecArray): FoundClip {
 	const inner = text.slice(openEnd, end);
 	const src = attribute(found[2], 'src');
 	const duration = attribute(found[2], 'data-duration');
+	const kind = kindOf(tag, inner);
 	return {
-		kind: kindOf(tag, inner),
+		kind,
+		text: kind === 'text' ? unescaped(inner) : null,
 		src,
 		start: seconds(attribute(found[2], 'data-start')),
 		duration: duration === null ? null : seconds(duration),

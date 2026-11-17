@@ -26,13 +26,14 @@ pub async fn revision(conn: &mut PgConnection, row: &ProjectRow, author: &Author
     .map(|_| ())
 }
 
-async fn store(
-    state: &AppState,
+/// Stores `request.source` as the next revision of project `id`, only while it is at
+/// `request.rev` and not in the trash. `None` when it is not: [`refusal`] says why.
+pub async fn advance(
+    conn: &mut PgConnection,
     author: &Author,
     id: Uuid,
     request: &SourceRequest,
-) -> Result<ProjectRow, ProjectError> {
-    let mut tx = state.pool.begin().await.map_err(db)?;
+) -> Result<Option<ProjectRow>, sqlx::Error> {
     let row = sqlx::query_as::<_, ProjectRow>(concat!(
         "UPDATE projects SET source = $2, rev = rev + 1, updated_at = now(), updated_by = $4 \
          WHERE id = $1 AND rev = $3 AND trashed_at IS NULL RETURNING ",
@@ -42,16 +43,30 @@ async fn store(
     .bind(&request.source)
     .bind(request.rev)
     .bind(author.user_id)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(db)?;
-    let Some(row) = row else { return Err(refusal(state, id, request.rev).await) };
-    revision(&mut tx, &row, author).await.map_err(db)?;
+    .fetch_optional(&mut *conn)
+    .await?;
+    if let Some(row) = &row {
+        revision(conn, row, author).await?;
+    }
+    Ok(row)
+}
+
+async fn store(
+    state: &AppState,
+    author: &Author,
+    id: Uuid,
+    request: &SourceRequest,
+) -> Result<ProjectRow, ProjectError> {
+    let mut tx = state.pool.begin().await.map_err(db)?;
+    let Some(row) = advance(&mut tx, author, id, request).await.map_err(db)? else {
+        return Err(refusal(state, id, request.rev).await);
+    };
     tx.commit().await.map_err(db)?;
     Ok(row)
 }
 
-async fn refusal(state: &AppState, id: Uuid, sent: i64) -> ProjectError {
+/// Why a write at `sent` was not stored: the project is in the trash, has moved on, or is gone.
+pub async fn refusal(state: &AppState, id: Uuid, sent: i64) -> ProjectError {
     match fetch(state, id).await {
         Ok(row) if row.trashed_at.is_some() => Error::failed("the project is in the trash").into(),
         Ok(row) => ProjectError::Stale { rev: row.rev, sent },

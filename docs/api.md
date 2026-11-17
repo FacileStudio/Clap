@@ -51,7 +51,12 @@ A project with no space is personal: only its owner reaches it. An instance admi
 | `GET /projects/{id}/assets` | viewer | `{assets: [...]}`, by name. See "Assets" |
 | `POST /projects/{id}/assets` | editor | Multipart: a `file` part, and an optional `name` part. `201` with the asset in state `probing`. The same name replaces the asset |
 | `GET /projects/{id}/assets/{name}` | viewer, or a frame link | The bytes, with `Range` (`206`). `?variant=poster`, `proxy`, `strip` or `peaks` reads the derived file |
+| `PATCH /projects/{id}/assets/{name}` | editor | Body `{name, rev}`. Renames the asset and every reference to it in the source, as one revision. Answers `{asset, rev}`. See "Renaming an asset" |
 | `DELETE /projects/{id}/assets/{name}` | editor | `204` |
+| `GET /projects/{id}/markers` | viewer | `{markers: [{id, t, label, created_at}]}`, by time. See "Markers" |
+| `POST /projects/{id}/markers` | editor | Body `{t, label?}`. `201` with the marker |
+| `PATCH /projects/{id}/markers/{marker}` | editor | Body `{t?, label?}`. Answers the marker |
+| `DELETE /projects/{id}/markers/{marker}` | editor | `204` |
 | `GET /projects/{id}/renders` | viewer | `{renders: [...]}`, newest first |
 | `POST /projects/{id}/renders` | editor | Body `{width?, height?, fps?, range?}`. `202` with the queued render. See "Renders" |
 | `POST /renders` | a Registre bearer with `clap.write` | A render of a posted bundle. See "Posted bundles" |
@@ -123,20 +128,25 @@ scene's transition (`docs/timeline.md`).
 `move_clip {clip, start, track?}`, `trim_clip {clip, start?, duration?, media_in?}`,
 `split_clip {clip, at}`, `delete_clip {clip}`, `duplicate_clip {clip, scene?, start, track?}`,
 `add_clip {scene, kind, src?, start, duration, track, text?}`,
+`paste_clip {scene, start, track?, element}`, `set_clip_text {clip, text}`,
 `set_scene_duration {scene, duration}`, `reorder_scene {scene, to}`, `delete_scene {scene}`,
 `add_scene {at, duration, body}`, `duplicate_scene {scene}`,
 `update_clip {clip, x?, y?, w?, h?, rot?, fit?, opacity?, volume?, enter?, exit?, enter_duration?,
 exit_duration?}` (a `null` removes the attribute), `set_scene_transition {scene, transition,
-duration?}` (a `null` transition removes it). The ops apply in order to the source read at `rev`; the result
+duration?}` (a `null` transition removes it), `rename_media {from, to}` (every reference to the
+file `from` names `to`; the stored file keeps its name, see "Renaming an asset"). The ops apply in order to the source read at `rev`; the result
 is saved under the rev rule, as one revision, and the route answers
 `{source, rev, timeline, clips}`: the new source, its `rev`, its timeline, and the ids, as they
 are now, of the clips the ops named or added.
 
+- A `paste_clip` whose element loads a file the project does not hold is `422` with
+  `timeline_error: invalid_op`, and nothing is saved.
 - A stale `rev` is `409`, as for a save. An `ops` entry that is not an operation is `400`, and
   so are more than 500 operations in one edit. The engine runs on a blocking thread.
 - An op that does not apply is `422` and nothing is saved. The body is tronc's
   `invalid_argument` envelope plus `timeline_error`, the engine's code: `unknown_clip`,
-  `unknown_scene`, `overlap`, `out_of_bounds`, `invalid_op`, `invalid_result` or `parse`.
+  `unknown_scene`, `overlap`, `out_of_bounds`, `invalid_op`, `name_taken`, `invalid_result` or
+  `parse`.
 
   ```json
   {"error": {"code": "invalid_argument", "message": "clip `title` would overlap clip `sub` on track 1"}, "timeline_error": "overlap"}
@@ -243,9 +253,49 @@ An asset is a file of one project, named by the relative path the source writes:
   files (`-protocol_whitelist file`). A proxy has a minute plus four times the video's length,
   at most 15 minutes. The one decode left in `clap-api` is the poster of a finished render,
   cut from the worker's `out.mp4` with the same arguments.
+- **Rename.** See "Renaming an asset".
 - **Serving.** `ServeFile` answers `Range` with `206`. Every asset response carries
   `Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'` and
   `X-Content-Type-Options: nosniff`: an SVG opened on its own runs no script.
+
+## Renaming an asset
+
+`PATCH /projects/{id}/assets/{name}` takes `{name, rev}`: the new name, and the `rev` the caller
+read. In one transaction the asset row takes the new name and the source gets the timeline
+operation `rename_media {from, to}`, which writes the new name wherever the source loads the
+file (`src`, `poster`, `srcset`, a linking `href`, CSS `url()` and `@import`, a markdown image).
+The source is saved at `rev + 1` as one revision, so a rename is undone like any other write.
+The bytes, the poster, the proxy, the filmstrip and the waveform are stored by digest and stay
+where they are. The answer is `{asset, rev}`: the asset under its new name, and the new `rev`.
+
+- A stale `rev` is `409` with the `rev` the project is at, as for a save.
+- An unknown asset is `404`. A trashed project is `412`.
+- A new name that another asset holds, or that the source already references, is `409`
+  `already_exists`, and nothing changes.
+- A new name that breaks the name rule is `422` with `timeline_error: invalid_op`.
+- Open editors hear `changed` with the new `rev`, then `asset` with the old name `deleted` and the
+  new name in its state. A media job still running on the old name starts again on the new one.
+
+One function holds the calls: `modules::assets::rename::rename`.
+
+## Markers
+
+A marker is a named time on a project's ruler. The `clap.md` format has no place for one, so the
+API keeps markers in their own table, `markers`, beside the source: they never change `rev`, are
+not in the revisions, and the CLI and the agents do not see them. Deleting a project deletes its
+markers.
+
+```json
+{"id": "…", "t": 12.5, "label": "Chorus", "created_at": "…"}
+```
+
+- `t` is project time in seconds, finite and 0 or more; anything else is `400`.
+- `label` is at most 200 characters, trimmed, empty when the marker has no name.
+- A project holds at most 500 markers; the next `POST` is `412`. A trashed project takes no
+  write (`412`).
+- A marker of another project is `404`, as is any id that is not a UUID.
+
+The calls live in `modules::markers::service`.
 
 The worker finds `CLAP_FFMPEG` and `CLAP_FFPROBE`, or `ffmpeg` and `ffprobe` on `PATH`; the API
 reads only `CLAP_FFMPEG`, for render posters.

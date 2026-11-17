@@ -1,5 +1,6 @@
+import { findClips } from '../src/lib/timeline/clips';
 import { copyName } from '../src/lib/timeline/copies';
-import { outline } from '../src/lib/timeline/outline';
+import { outline, type ClipSpan } from '../src/lib/timeline/outline';
 import type { Op } from '../src/lib/types';
 import { restage } from './mock-scenes';
 import { clipOf, retag } from './mock-tags';
@@ -61,6 +62,20 @@ const duplicateScene = (source: string, op: Of<'duplicate_scene'>): string => {
 	});
 };
 
+const pasteClip = (source: string, op: Of<'paste_clip'>): string => {
+	const element = op.element.trim();
+	const [clip] = findClips(element);
+	const attrs = { 'data-clip': copyName(taken(source), clip.named ?? 'clip'), 'data-start': op.start, 'data-track-index': op.track };
+	return restage(source, (scenes) => void scenes[op.scene].body.push(retag(element, { open: clip.open } as ClipSpan, attrs), ''));
+};
+
+const setText = (source: string, op: Of<'set_clip_text'>): string => {
+	const clip = clipOf(source, op.clip);
+	const close = source.lastIndexOf('</', clip.end);
+	const words = op.text.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	return `${source.slice(0, clip.open[1])}${words}${source.slice(close)}`;
+};
+
 const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
 	move_clip: (source, op) => retag(source, clipOf(source, op.clip), { 'data-start': op.start, 'data-track-index': op.track }),
 	trim_clip: (source, op) =>
@@ -68,6 +83,8 @@ const HANDLERS: { [K in Op['op']]: (source: string, op: Of<K>) => string } = {
 	split_clip: split,
 	duplicate_clip: duplicateClip,
 	duplicate_scene: duplicateScene,
+	paste_clip: pasteClip,
+	set_clip_text: setText,
 	delete_clip: (source, op) => {
 		const clip = clipOf(source, op.clip);
 		return source.slice(0, clip.open[0]) + source.slice(clip.end).replace(/^\n/, '');

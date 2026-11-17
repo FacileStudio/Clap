@@ -4,7 +4,8 @@ import { outline } from '../src/lib/timeline/outline';
 import { servedTimeline } from './mock-look';
 import { events, tell } from './mock-events';
 import { frameResponse } from './mock-frame';
-import { edit, json, refuse, save, type Project } from './mock-writes';
+import { edit, json, refuse, renamed, save, type Project } from './mock-writes';
+import { markerRoute } from './mock-markers';
 import { assetRoute, projectRenders, renderRoute, scratch } from './mock-media';
 
 
@@ -31,7 +32,10 @@ async function one(request: Request, project: Project, rest: string[], url: URL)
 	if (part === 'timeline') return json({ rev: project.rev, timeline: servedTimeline(project.source) });
 	if (part === 'events') return events(project.id, project.rev);
 	if (part === 'frame') return frameResponse(project, url.searchParams.get('scene'));
-	if (part === 'assets') return assetRoute(request, project.id, name && decodeURIComponent(rest.slice(1).join('/')), tell(project.id));
+	const file = decodeURIComponent(rest.slice(1).join('/'));
+	if (part === 'assets' && request.method === 'PATCH') return renamed(project, file, await request.json());
+	if (part === 'markers') return markerRoute(request, project.id, name);
+	if (part === 'assets') return assetRoute(request, project.id, name && file, tell(project.id));
 	if (part === 'renders') return projectRenders(request, project.id, seconds, tell(`render:${project.id}`));
 	if (request.method === 'DELETE') projects.delete(project.id);
 	if (request.method === 'PATCH') Object.assign(project, await request.json());

@@ -72,6 +72,8 @@ pub struct Clip {
     pub scene: usize,
     /// The source lines of the element, start tag to end tag.
     pub lines: Span,
+    /// What a `text` clip shows, trimmed, its HTML escapes read back; `None` for any other kind.
+    pub text: Option<String>,
     /// Where the clip sits on the stage and how it comes and goes. In JSON its fields sit on the
     /// clip itself.
     #[serde(flatten)]

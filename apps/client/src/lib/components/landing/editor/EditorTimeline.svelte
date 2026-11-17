@@ -46,14 +46,14 @@
 			<div class="rows" bind:this={rows}>
 				<span class="stripe"></span>
 				<span
-					class="clap-clip clip"
-					class:shown={scene.titled}
+					class="clap-clip clip shown"
+					class:picked={scene.tab === 'clip'}
 					data-kind="text"
 					style:top={top(0)}
 					style:left={share(SCENE.titleStart)}
 					style:width={share(SCENE.title)}
 				>
-					<Icon icon={icons.text} size={13} /><span>{t('demo.clip.title')}</span>
+					<Icon icon={icons.text} size={13} /><span>{scene.typed || t('demo.clip.title')}</span>
 				</span>
 				<span
 					bind:this={clip}
@@ -204,6 +204,10 @@
 	.clip.shown {
 		opacity: 1;
 		transform: none;
+	}
+	.clip.picked {
+		outline: 2px solid var(--color-fc-info);
+		outline-offset: -2px;
 	}
 	.guide {
 		position: absolute;

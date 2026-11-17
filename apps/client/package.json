@@ -1,7 +1,7 @@
 {
 	"name": "clap-client",
 	"private": true,
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"license": "AGPL-3.0-only",
 	"type": "module",
 	"scripts": {
@@ -30,6 +30,6 @@
 	"dependencies": {
 		"@facile/blob": "github:FacileStudio/blob#v0.2.2",
 		"@facile/mise-en-scene": "github:FacileStudio/mise-en-scene#v0.2.2",
-		"@facile/muse": "github:FacileStudio/muse#v0.32.0"
+		"@facile/muse": "github:FacileStudio/muse#v0.33.1"
 	}
 }

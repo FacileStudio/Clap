@@ -165,7 +165,9 @@ withClip('the clip menu duplicates a clip, and the keyboard opens and closes it'
 	await editor.keyboard.press('Shift+F10');
 	const menu = editor.getByRole('menu', { name: 'Actions de la timeline' });
 	await menu.waitFor({ timeout: 5_000 });
-	expect(await menu.getByRole('menuitem').first().textContent()).toContain('(S)');
+	const first = menu.getByRole('menuitem').first();
+	expect(await first.getAttribute('aria-keyshortcuts')).toBe('S');
+	expect(await first.textContent()).not.toContain('(S)');
 	await editor.keyboard.press('Escape');
 	await menu.waitFor({ state: 'detached', timeout: 5_000 });
 });

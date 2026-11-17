@@ -72,3 +72,18 @@ test('the downloads page offers the install commands and the release files', asy
 	expect(await page.locator('main').innerText()).toContain('kit add clap');
 	await page.context().close();
 });
+
+test('the hero editor shows the clip settings, never a Source tab, in every locale', async () => {
+	const words: Record<string, string> = { fr: 'Texte', en: 'Text', es: 'Texto', de: 'Text' };
+	for (const locale of ['fr', 'en', 'es', 'de']) {
+		const page = await visit('/', locale, 1440);
+		const demo = page.locator('[role="img"]:has(.clap-clip)').first();
+		await demo.waitFor();
+		const label = (await demo.getAttribute('aria-label')) ?? '';
+		const text = (await demo.textContent()) ?? '';
+		expect(label, locale).not.toMatch(/source|fuente|quelltext/i);
+		expect(text, locale).not.toMatch(/Source|Fuente|Quelltext/);
+		expect(text, locale).toContain(words[locale]);
+		await page.context().close();
+	}
+});

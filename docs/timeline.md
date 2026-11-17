@@ -31,7 +31,7 @@ pub struct Scene { pub index: usize, pub start: f64, pub duration: f64, pub fixe
                    pub transition_duration: Option<f64>, pub clips: Vec<Clip> }
 pub struct Clip { pub id: String, pub kind: Kind, pub src: Option<String>, pub start: f64,
                   pub duration: f64, pub track: i64, pub media_in: f64, pub scene: usize,
-                  pub lines: Span, pub look: Look }
+                  pub lines: Span, pub text: Option<String>, pub look: Look }
 pub struct Look { pub frame: Option<Geometry>, pub fit: Option<String>, pub opacity: Option<f64>,
                   pub volume: Option<f64>, pub enter: Option<String>, pub exit: Option<String>,
                   pub enter_duration: Option<f64>, pub exit_duration: Option<f64> }
@@ -45,8 +45,13 @@ pub struct Span { pub first: usize, pub last: usize }
 pub enum Kind { Video, Audio, Image, Text, Html }
 pub enum Error { Parse(String), UnknownClip(String), UnknownScene(usize),
                  Overlap { clip, with, track }, OutOfBounds(String), Invalid(String),
-                 InvalidResult(String) }
+                 NameTaken(String), InvalidResult(String) }
 impl Error { pub fn code(&self) -> &'static str }
+
+pub const MAX_ASSET_NAME: usize;
+pub fn valid_asset_name(name: &str) -> bool;
+pub fn asset_reference(path: &str) -> (&str, &str);
+pub fn asset_names(html: &str) -> Vec<String>;
 
 pub const RUNTIME_JS: &str;
 pub const STAGE_CSS: &str;
@@ -69,7 +74,7 @@ is, the API serves the JSON.
   {"index": 0, "start": 0.0, "duration": 6.0, "fixed_duration": true, "layout": "raw",
    "lines": {"first": 7, "last": 22}, "clips": [
     {"id": "shot", "kind": "video", "src": "assets/shot.mp4", "start": 0.0, "duration": 4.0,
-     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12},
+     "track": 0, "media_in": 1.0, "scene": 0, "lines": {"first": 12, "last": 12}, "text": null,
      "frame": {"x": 0.0, "y": 0.0, "w": 1280.0, "h": 720.0, "rot": 0.0}, "fit": "cover",
      "opacity": null, "volume": null, "enter": "fade", "exit": null, "enter_duration": null,
      "exit_duration": null}], "transition": null, "transition_duration": null}]}
@@ -83,6 +88,8 @@ is, the API serves the JSON.
 - `kind` is `video`, `audio` or `image` by tag; `text` for an element that holds text and no
   other element; `html` for everything else.
 - `lines` are 1-based source lines, both ends included.
+- `text` is what a `text` clip shows: its content, trimmed, with `&amp;`, `&lt;`, `&gt;`,
+  `&quot;` and `&#39;` read back. `null` for any other kind.
 - `frame` is the box of `data-x`, `data-y`, `data-w`, `data-h` and `data-rot` in frame pixels,
   `null` without any of them; one that is missing reads as the full frame's. `fit`, `opacity`,
   `volume`, `enter`, `exit`, `enter_duration` and `exit_duration` are the attribute, `null`
@@ -110,12 +117,15 @@ JSON, tagged by `op`. Times are seconds.
 | `delete_clip` | `clip` | Removes the element, and its lines when it is alone on them. |
 | `add_clip` | `scene`, `kind`, `src?`, `start`, `duration`, `track`, `text?` | Adds one line after the last clip of the scene, with id `<kind>-<n>` and a stage class: `clap-fill` on a video or an image, which also get the full-frame box (`data-x="0" data-y="0"`, the stage size, `data-rot="0"`) and `data-fit="cover"`, `clap-title` on a text, `clap-layer` on an HTML clip, none on an audio. `src` is required for `video`, `audio` and `image`. `text` is escaped for a `text` clip and written as HTML for an `html` clip. |
 | `duplicate_clip` | `clip`, `scene?`, `start`, `track?` | Copies the element as written into scene `scene` (its own without), at `start`, on `track` (its own without), as one line after the last clip of that scene. The copy is named by `data-clip`: `<id>-copy`, else `<id>-copy-<n>` from 2. |
+| `paste_clip` | `scene`, `start`, `track?`, `element` | Writes `element`, one element as copied from a source, start tag to end tag, as one line after the last clip of scene `scene`, at `start`, on `track` (its own `data-track-index` without). It is named by `data-clip` as `duplicate_clip` names a copy of its `data-clip` or `id` (`clip-copy` without either). Placed and checked like `add_clip`; every file it loads must have an asset name (`invalid_op` otherwise), and the API also refuses a file the project does not hold. |
+| `set_clip_text` | `clip`, `text` | Replaces the trimmed content of a `text` clip with `text`, trimmed and escaped (`&`, `<`, `>`); the spaces and lines around it stay. Refused for any other kind and for an empty text. |
 | `set_scene_duration` | `scene`, `duration` | Sets the `duration` key, adding the key or the frontmatter block when missing. |
 | `reorder_scene` | `scene`, `to` | Moves the scene's lines so that it sits at index `to`. |
 | `delete_scene` | `scene` | Removes the scene's lines. The last scene cannot be removed. |
 | `add_scene` | `at`, `duration`, `body` | Inserts a scene at index `at`. A body that starts with `<` gets `layout: raw`. |
 | `duplicate_scene` | `scene` | Inserts a copy of the scene's lines right after it. Every clip of the copy gets a `data-clip` named as `duplicate_clip` names a copy; the project keys of the first scene stay where they are. |
 | `update_clip` | `clip`, `x?`, `y?`, `w?`, `h?`, `rot?`, `fit?`, `opacity?`, `volume?`, `enter?`, `exit?`, `enter_duration?`, `exit_duration?` | Sets each attribute given (`data-x`, ..., `data-enter-duration`); a JSON `null` removes it with the spaces before it. `w`, `h` and the durations are above 0, `opacity` and `volume` from 0 to 1, `fit` one of `FITS`, `enter` and `exit` one of `CLIP_TRANSITIONS`. |
+| `rename_media` | `from`, `to` | Writes `to` in place of the file name `from` everywhere the compiled scene loads a file: `src`, `poster`, each `srcset` candidate, `href` on `link`, `image`, `use` and `script`, `data` on `object`, CSS `url()` and `@import`, and a markdown image. A leading `./`, a `?query` and a `#fragment` stay. Comments, fenced code and plain links are left alone. Both names follow `valid_asset_name`; `to` may not be referenced yet. A source that never names `from` stays as it is. |
 | `set_scene_transition` | `scene`, `transition`, `duration?` | Sets the `transition` key, and `transition_duration` when `duration` is a number. A `null` transition removes both keys, a `null` duration that one; a frontmatter block left empty goes too. `transition` is one of `SCENE_TRANSITIONS`. |
 
 ```json
@@ -137,8 +147,9 @@ written.
 
 An op followed by its inverse returns the original text when the original wrote its numbers
 that way. The property tests check this for move, trim, reorder, set duration, add then delete
-a clip, add then delete a scene, an `update_clip` then the one that removes what it wrote, and a
-transition set then cut. The inverse of `update_clip` names the previous value of each field, or
+a clip, add then delete a scene, an `update_clip` then the one that removes what it wrote, a
+transition set then cut, a `rename_media` then the rename back, a `paste_clip` then the delete
+of the copy, and a `set_clip_text` then the previous text. The inverse of `update_clip` names the previous value of each field, or
 `null`; the inverse of `set_scene_transition` names the previous transition and duration. `split_clip` and `delete_clip` have no inverse op: undo
 them by restoring the previous source.
 
@@ -159,7 +170,8 @@ whose body opens with a line that looks like `key: value` gets an empty frontmat
 | `unknown_scene` | `UnknownScene` | No scene has that index. |
 | `overlap` | `Overlap` | The overlap policy, below. |
 | `out_of_bounds` | `OutOfBounds` | A negative start, a duration of 0 or less, a split outside the clip, a clip that would end after a scene with a fixed duration, or a scene made shorter than one of its clips. |
-| `invalid_op` | `Invalid` | The op contradicts itself: a video without `src`, a number that is not finite, deleting the only scene. |
+| `invalid_op` | `Invalid` | The op contradicts itself: a video without `src`, a number that is not finite, deleting the only scene, a file name that is not an asset name. |
+| `name_taken` | `NameTaken` | `rename_media` was given a `to` the source already references. |
 | `invalid_result` | `InvalidResult` | The edit applied and the result does not parse, for example a remote `src` or a scene body that holds a `---` line. |
 
 **The overlap policy.** Two clips of one scene that both carry `data-track-index` may not share
@@ -237,6 +249,14 @@ positioned, so the track the scene runtime writes as `z-index` stacks the clips.
 classes `add_clip` writes, documented in the guide's "The stage": `clap-fill`, `clap-layer`,
 `clap-title`, `clap-caption`, `clap-lower`. Stage rules sit in `:where()` and each class is one
 class selector, so the theme's element rules lose to them and any author rule wins.
+
+## Asset names
+
+`valid_asset_name(name)` is the one rule for a project file's name, which the API applies to
+uploads and renames: a relative path of at most `MAX_ASSET_NAME` (200) bytes whose segments hold
+ASCII letters, digits, `.`, `_` and `-` and never start with a dot. `asset_reference(path)`
+answers the asset a reference in the source means, and its `#fragment`: a leading `./` and any
+`?query` are dropped.
 
 ## The starter
 

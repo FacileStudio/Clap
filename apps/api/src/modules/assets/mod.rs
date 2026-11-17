@@ -5,6 +5,7 @@
 pub mod derive;
 mod facts;
 pub mod files;
+pub mod held;
 pub mod inflight;
 pub mod intake;
 pub mod leftovers;
@@ -12,6 +13,7 @@ pub mod media;
 pub mod name;
 mod previews;
 pub mod quota;
+pub mod rename;
 mod router;
 pub mod seal;
 mod serve;

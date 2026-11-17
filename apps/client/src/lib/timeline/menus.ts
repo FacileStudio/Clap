@@ -50,6 +50,7 @@ export function sceneMenu(host: MenuHost, index: number): MenuEntry[] {
 /** The menu of the ruler at project time `time`; `fit` zooms out to the whole project. */
 export function rulerMenu(host: MenuHost, time: number, fit: () => void): MenuEntry[] {
 	return [
+		commandEntry(host, t('menu.marker.add'), 'marker', { onselect: () => void host.markers.add(time) }),
 		{ label: t('menu.playhead.here'), onselect: () => seek(host, time) },
 		commandEntry(host, t('menu.start'), 'home'),
 		commandEntry(host, t('menu.end'), 'end'),
@@ -58,10 +59,24 @@ export function rulerMenu(host: MenuHost, time: number, fit: () => void): MenuEn
 	];
 }
 
+/** The menu of the marker `id` on the ruler: move the playhead to it, rename it, delete it. */
+export function markerMenu(host: MenuHost, id: string): MenuEntry[] {
+	const marker = host.markers.list.find((known) => known.id === id);
+	if (!marker) return [];
+	return [
+		{ label: t('menu.playhead.here'), onselect: () => seek(host, marker.t) },
+		{ label: t('menu.marker.rename'), icon: icons.edit, onselect: () => host.renameMarker(id) },
+		GAP,
+		{ label: t('menu.marker.delete'), icon: icons.remove, tone: 'danger', onselect: () => void host.markers.remove(id) }
+	];
+}
+
 /** The menu for a right-click on `target` in the timeline, `at` being the time and track under the pointer. */
 export function timelineMenu(host: MenuHost, target: Element, at: DropTarget, fit: () => void): MenuEntry[] {
 	const clip = target.closest<HTMLElement>('[data-testid="clip"]')?.dataset.clip;
 	if (clip) return clipMenu(host, clip);
+	const marker = target.closest<HTMLElement>('[data-testid="marker"]')?.dataset.marker;
+	if (marker) return markerMenu(host, marker);
 	if (target.closest('[data-testid="ruler"]')) return rulerMenu(host, at.time, fit);
 	const scene = target.closest('[data-testid="scene-head"]')?.closest<HTMLElement>('[data-testid="scene"]');
 	if (scene) return sceneMenu(host, Number(scene.dataset.scene));

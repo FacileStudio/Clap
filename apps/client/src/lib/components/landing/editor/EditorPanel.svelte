@@ -9,25 +9,24 @@
 		scene,
 		compact = false,
 		media = $bindable(),
-		sourceTab = $bindable()
+		clipTab = $bindable(),
+		textField = $bindable()
 	}: {
 		scene: EditorScene;
 		compact?: boolean;
 		/** The video item of the media bin, which the cursor picks up. */
 		media?: HTMLElement;
-		/** The Source tab, which the cursor clicks. */
-		sourceTab?: HTMLElement;
+		/** The Clip tab, which the cursor clicks. */
+		clipTab?: HTMLElement;
+		/** The text field of the clip settings, which the cursor types the title into. */
+		textField?: HTMLElement;
 	} = $props();
-
-	const head = $derived(['---', `title: ${t('demo.project')}`, `duration: ${SCENE.duration}`, '---']);
-	const audio = $derived([`<audio src="assets/${t('demo.audio')}"`, `  data-start="0" data-duration="${SCENE.audio}">`]);
-	const video = $derived(`<video src="assets/${t('demo.video')}"`);
 </script>
 
 <div class="panel" class:compact>
 	<div class="tabs">
-		<span class="tab" class:on={scene.tab === 'media'}>{t('demo.media')}</span>
-		<span class="tab" class:on={scene.tab === 'source'} bind:this={sourceTab}>{t('demo.source')}</span>
+		<span class="tab" class:on={scene.tab === 'media'}><Icon icon={icons.folder} size={13} />{t('demo.media')}</span>
+		<span class="tab" class:on={scene.tab === 'clip'} bind:this={clipTab}><Icon icon={icons.settings} size={13} />{t('demo.clip')}</span>
 	</div>
 	<div class="body">
 		<ul class="bin" class:shown={scene.tab === 'media'}>
@@ -44,13 +43,19 @@
 				<span class="name">logo.png</span>
 			</li>
 		</ul>
-		<pre class="code clap-mono" class:shown={scene.tab === 'source'}>{#if !compact}{#each [...head, ...audio] as line, i (i)}<span
-						class="dim">{line}</span
-					>{'\n'}{/each}{/if}{#if scene.placed}<span class="dim">{video}</span>{'\n'}<span class="dim"
-					>{'  '}data-start="{SCENE.videoStart}" data-duration="</span
-				><span class="num" class:cut={scene.length !== SCENE.videoLong}>{scene.length}</span><span class="dim">"&gt;</span
-				>{'\n'}{/if}<span class="typed">{scene.typed}</span>{#if scene.tab === 'source' && !scene.titled}<span class="caret"
-				></span>{/if}</pre>
+		<div class="inspector" class:shown={scene.tab === 'clip'}>
+			<p class="head"><Icon icon={icons.text} size={13} /><span>{t('demo.text')}</span><span class="id clap-mono">text-1</span></p>
+			<span class="label">{t('demo.text')}</span>
+			<span class="field" class:on={scene.tab === 'clip' && !scene.titled} bind:this={textField}
+				>{scene.typed}{#if scene.tab === 'clip' && !scene.titled}<span class="caret"></span>{/if}</span
+			>
+			{#if !compact}
+				<div class="pair">
+					<span class="label">{t('demo.start')}</span><span class="label">{t('demo.length')}</span>
+					<span class="field">{SCENE.titleStart} s</span><span class="field">{SCENE.title} s</span>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -70,6 +75,9 @@
 		padding: 8px 8px 6px;
 	}
 	.tab {
+		display: flex;
+		align-items: center;
+		gap: 5px;
 		padding: 4px 10px;
 		border-radius: var(--radius-fc-md);
 		color: var(--ce-muted);
@@ -89,7 +97,7 @@
 		min-height: 0;
 	}
 	.bin,
-	.code {
+	.inspector {
 		position: absolute;
 		inset: 0;
 		margin: 0;
@@ -161,30 +169,55 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.code {
-		overflow: hidden;
+	.inspector {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
 		padding: 2px 12px 10px;
-		font-size: 10.5px;
-		line-height: 17px;
-		white-space: pre;
 	}
-	.compact .code {
+	.compact .inspector {
+		gap: 4px;
 		padding: 0 10px 8px;
+	}
+	.head {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0 0 4px;
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.id {
+		margin-left: auto;
+		color: var(--ce-muted);
 		font-size: 10px;
-		line-height: 14px;
+		font-weight: 400;
 	}
-	.dim {
+	.label {
 		color: var(--ce-muted);
+		font-size: 10.5px;
 	}
-	.num {
-		color: var(--ce-muted);
-		transition: color 0.4s ease;
+	.field {
+		display: flex;
+		align-items: center;
+		min-height: 26px;
+		padding: 0 8px;
+		overflow: hidden;
+		border-radius: var(--radius-fc-md);
+		background: var(--ce-field);
+		font-size: 11.5px;
+		white-space: nowrap;
+		transition: background 0.25s ease;
 	}
-	.num.cut {
-		color: var(--color-fc-warning);
+	.field.on {
+		background: var(--ce-raise);
 	}
-	.typed {
-		color: var(--ce-fg);
+	.pair {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px 8px;
+		margin-top: 4px;
+		font-variant-numeric: tabular-nums;
 	}
 	.caret {
 		display: inline-block;

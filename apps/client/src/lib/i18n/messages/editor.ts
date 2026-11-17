@@ -74,5 +74,6 @@ export const editor = {
 		'{name} am Abspielkopf einfügen'
 	],
 	'media.delete': ['Delete {name}', 'Supprimer {name}', 'Eliminar {name}', '{name} löschen'],
+	'media.rename': ['Rename {name}', 'Renommer {name}', 'Cambiar el nombre de {name}', '{name} umbenennen'],
 	'media.uploads': ['Uploads', 'Envois', 'Subidas', 'Uploads']
 } satisfies Record<string, Row>;

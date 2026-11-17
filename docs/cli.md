@@ -57,7 +57,7 @@ With `--json`, a failed command prints `{"error":{"code","message"}}` on stdout.
 script can match: `conflict`, `local_changes`, `not_linked`, `not_logged_in`, `unauthorized`,
 `unreachable`, `invalid`, `asset_refused`, `asset_too_large`, `no_project`, `unknown_starter`,
 `bad_ops`, `unknown_clip`, `unknown_scene`, `overlap`, `out_of_bounds`, `invalid_op`,
-`invalid_result`, `missing_tool`, `bad_range`, `render_failed`, `render_refused`,
+`name_taken`, `invalid_result`, `missing_tool`, `bad_range`, `render_failed`, `render_refused`,
 `missing_assets`, `queue_full`, `interrupted`, and any `error.code` the server sends.
 
 ## A local project

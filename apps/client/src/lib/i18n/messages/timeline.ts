@@ -4,7 +4,7 @@ import type { Row } from '../row';
 export const timeline = {
 	'timeline.title': ['Timeline', 'Timeline', 'Línea de tiempo', 'Timeline'],
 	'timeline.tools': ['Timeline tools', 'Outils de la timeline', 'Herramientas de la línea de tiempo', 'Timeline-Werkzeuge'],
-	'timeline.split': ['Split at the playhead', 'Couper à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
+	'timeline.split': ['Split at the playhead', 'Scinder à la tête de lecture', 'Dividir en el cabezal', 'Am Abspielkopf teilen'],
 	'timeline.delete': ['Delete the selection', 'Supprimer la sélection', 'Eliminar la selección', 'Auswahl löschen'],
 	'timeline.text': ['Add a text', 'Ajouter un texte', 'Añadir un texto', 'Text hinzufügen'],
 	'timeline.text.default': ['Your text', 'Votre texte', 'Su texto', 'Ihr Text'],
@@ -87,5 +87,8 @@ export const timeline = {
 	'starter.lower': ['Lower third', 'Bandeau de nom', 'Tercio inferior', 'Bauchbinde'],
 	'starter.caption': ['Captions', 'Sous-titres', 'Subtítulos', 'Untertitel'],
 	'starter.chart': ['Chart race', 'Course de barres', 'Carrera de barras', 'Balkenrennen'],
-	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung']
+	'starter.logo': ['Logo reveal', 'Révélation de logo', 'Revelación de logo', 'Logo-Enthüllung'],
+	'marker.pin': ['Marker {label} at {time}', 'Repère {label} à {time}', 'Marcador {label} en {time}', 'Marker {label} bei {time}'],
+	'marker.untitled': ['Marker', 'Repère', 'Marcador', 'Marker'],
+	'marker.name': ['Marker name', 'Nom du repère', 'Nombre del marcador', 'Name des Markers']
 } satisfies Record<string, Row>;

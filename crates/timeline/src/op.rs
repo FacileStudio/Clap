@@ -135,6 +135,35 @@ pub enum Op {
         #[serde(default, deserialize_with = "present", skip_serializing_if = "Option::is_none")]
         duration: Option<Option<f64>>,
     },
+    /// Writes `element`, an element copied as text, into scene `scene` as a new clip at `start`,
+    /// on `track` (the element's own when left out). It is named by `data-clip` the way
+    /// `duplicate_clip` names a copy of its `data-clip` or `id`.
+    PasteClip {
+        /// The scene index.
+        scene: usize,
+        /// The start of the clip.
+        start: f64,
+        /// The track of the clip.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        track: Option<i64>,
+        /// The element, start tag to end tag.
+        element: String,
+    },
+    /// Replaces what a `text` clip shows with `text`, escaped.
+    SetClipText {
+        /// The clip id.
+        clip: String,
+        /// The new text, not empty.
+        text: String,
+    },
+    /// Points every reference to the project file `from` at `to`: `src`, `poster`, `srcset`, a
+    /// linking `href`, CSS `url()` and `@import`, and a markdown image. Only the names change.
+    RenameMedia {
+        /// The asset name the source references now.
+        from: String,
+        /// The new asset name, which the source must not reference yet.
+        to: String,
+    },
 }
 
 /// What `update_clip` changes. `None` keeps an attribute, `Some(None)` removes it and

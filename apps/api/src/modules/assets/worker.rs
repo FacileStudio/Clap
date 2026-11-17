@@ -129,6 +129,16 @@ pub fn spawn(state: AppState, job: Job) {
     tokio::spawn(run(state, job));
 }
 
+/// The `WHERE` clause of an asset the media worker has not finished: `probing`, or `ready`
+/// without the proxy, the filmstrip or the waveform it can have. A literal for `concat!`.
+macro_rules! unfinished {
+    () => {
+        "(state = 'probing' OR (state = 'ready' AND kind = 'video' AND (proxy IS NULL OR strip IS NULL)) \
+         OR (state = 'ready' AND peaks IS NULL AND (kind = 'audio' OR (kind = 'video' AND has_audio))))"
+    };
+}
+pub(crate) use unfinished;
+
 /// Starts again, at boot, every asset a previous process left `probing`, or `ready` without its
 /// proxy, its filmstrip or its waveform.
 pub async fn resume(state: &AppState) {
@@ -140,12 +150,11 @@ pub async fn resume(state: &AppState) {
         Ok(Err(error)) => tracing::error!(%error, "assets: could not make stored files read-only"),
         Err(error) => tracing::error!(%error, "assets: the read-only pass did not finish"),
     }
-    let left = sqlx::query_as::<_, Job>(
-        "SELECT project_id, name, sha256 FROM assets \
-         WHERE state = 'probing' OR (state = 'ready' AND kind = 'video' AND (proxy IS NULL OR strip IS NULL)) \
-         OR (state = 'ready' AND peaks IS NULL AND (kind = 'audio' OR (kind = 'video' AND has_audio))) \
-         ORDER BY created_at",
-    )
+    let left = sqlx::query_as::<_, Job>(concat!(
+        "SELECT project_id, name, sha256 FROM assets WHERE ",
+        unfinished!(),
+        " ORDER BY created_at"
+    ))
     .fetch_all(&state.pool)
     .await;
     match left {

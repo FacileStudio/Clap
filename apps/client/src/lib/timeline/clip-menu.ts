@@ -1,11 +1,12 @@
 import type { MenuAction, MenuEntry } from '@facile/muse';
 import { icons } from '$lib/icons';
 import { t } from '$lib/i18n';
+import type { Markers } from '$lib/project/markers.svelte';
 import type { Op } from '$lib/types';
 import { fadeOps, laneOps, trimToOps } from './clip-ops';
 import type { Bench } from './commands';
 import type { DropTarget } from './ghost';
-import { withKeys, type Command } from './keys';
+import { SHORTCUTS, type Command } from './keys';
 import { findClip } from './model';
 
 /** What the timeline's menus act through: the bench, its commands, and the page around the timeline. */
@@ -18,6 +19,10 @@ export interface MenuHost {
 	has(src: string): boolean;
 	/** Asks for files to place at `target`. */
 	addMedia(target: DropTarget): void;
+	/** The ruler markers. */
+	readonly markers: Markers;
+	/** Asks for a new name for marker `id`. */
+	renameMarker(id: string): void;
 }
 
 /** A separator between groups of menu entries. */
@@ -30,9 +35,9 @@ export function editEntry(host: MenuHost, label: string, ops: Op[] | null, icon?
 	return { label, icon, disabled, onselect: () => void (ops && engine.commit(ops)) };
 }
 
-/** The entry that runs `command`, its shortcut in the label. */
+/** The entry that runs `command`, its shortcut shown at the end of the row. */
 export function commandEntry(host: MenuHost, label: string, command: Command, extra: Partial<MenuAction> = {}): MenuAction {
-	return { label: withKeys(label, command), onselect: () => host.run(command), ...extra };
+	return { label, shortcut: SHORTCUTS[command], onselect: () => host.run(command), ...extra };
 }
 
 /** The menu of clip `id`, which becomes the selection unless it already is part of it. */
@@ -51,6 +56,7 @@ export function clipMenu(host: MenuHost, id: string): MenuEntry[] {
 		editEntry(host, t('menu.trim.start'), start),
 		editEntry(host, t('menu.trim.end'), trimToOps(timeline, id, transport.time, 'end')),
 		GAP,
+		commandEntry(host, t('menu.cut'), 'cut', { disabled: busy }),
 		commandEntry(host, t('menu.copy'), 'copy', { icon: icons.copy }),
 		commandEntry(host, t('menu.paste'), 'paste', { disabled: !copied || busy }),
 		commandEntry(host, t('menu.duplicate'), 'duplicate', { icon: icons.layers, disabled: busy }),

@@ -68,3 +68,26 @@ async fn a_copied_clip_and_scene_are_reported_by_their_new_ids() {
     assert_eq!(body["clips"], json!(["title-copy", "title-copy-2", "sub-copy", "title-copy-copy"]));
     assert_eq!(body["timeline"]["scenes"].as_array().map(Vec::len), Some(2));
 }
+
+#[tokio::test]
+async fn a_pasted_clip_must_load_files_the_project_holds_and_text_is_set_in_place() {
+    let Some(pool) = common::pool("clap_projects_edit_paste").await else { return };
+    let app = common::app(pool).await;
+    let ada = app.person("ada").await;
+    let id = fixture::id(&fixture::project(&app, &ada, None, CLIPS).await);
+    let path = format!("/api/projects/{id}/edits");
+    let image = "<img src=\"assets/dot.png\" data-start=\"0\" data-duration=\"1\" data-track-index=\"2\">";
+    let paste = json!([{"op": "paste_clip", "scene": 0, "start": 1, "element": image}]);
+    let missing = app.call("POST", &path, Some(&ada), Some(json!({"rev": 1, "ops": paste}))).await;
+    assert_eq!((missing.status.as_u16(), missing.json()["timeline_error"].clone()), (422, json!("invalid_op")));
+    assert_eq!(common::upload::png(&app, &ada, &id, "assets/dot.png").await.status, 201);
+    let pasted = app.call("POST", &path, Some(&ada), Some(json!({"rev": 1, "ops": paste}))).await;
+    assert_eq!((pasted.status.as_u16(), pasted.json()["clips"].clone()), (200, json!(["clip-copy"])));
+    let words = json!([{"op": "set_clip_text", "clip": "sub", "text": "Bye & co"}]);
+    let set = app.call("POST", &path, Some(&ada), Some(json!({"rev": 2, "ops": words}))).await.json();
+    assert!(set["source"].as_str().unwrap().contains(">Bye &amp; co</p>"), "{set}");
+    assert_eq!(set["clips"], json!(["sub"]));
+    let video = json!([{"op": "set_clip_text", "clip": "clip-copy", "text": "x"}]);
+    let refused = app.call("POST", &path, Some(&ada), Some(json!({"rev": 3, "ops": video}))).await;
+    assert_eq!(refused.status, 422);
+}

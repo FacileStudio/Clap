@@ -4,11 +4,12 @@ use std::collections::HashSet;
 use std::ops::Range;
 
 use crate::Error;
+use crate::body::readable;
 use crate::cut::cut;
 use crate::doc::Doc;
 use crate::geometry::look;
-use crate::lines::fenced;
 use crate::model::{Clip, Kind, Scene, Span};
+use crate::text::text_of;
 use crate::tree::{Element, elements};
 
 /// A clip and the element it was read from.
@@ -62,20 +63,6 @@ fn kind(element: &Element, source: &str) -> Kind {
     }
 }
 
-fn masked(lines: &[String]) -> String {
-    let mut fence = None;
-    let mut out = String::new();
-    for line in lines {
-        let inside = fence.is_some();
-        fence = fenced(fence, line);
-        match inside || fence.is_some() {
-            true => out.extend(line.bytes().map(|byte| if byte == b'\n' { '\n' } else { ' ' })),
-            false => out.push_str(line),
-        }
-    }
-    out
-}
-
 struct Reading<'a> {
     source: &'a str,
     size: (u32, u32),
@@ -105,9 +92,11 @@ impl Reading<'_> {
     fn clip(&mut self, element: Element, scene: &Scene, nth: usize) -> Located {
         let number = |name: &str| element.number(self.source, name);
         let start = number("data-start").unwrap_or(0.0);
+        let kind = kind(&element, self.source);
         let clip = Clip {
             id: self.id(&element, scene.index, nth),
-            kind: kind(&element, self.source),
+            kind,
+            text: (kind == Kind::Text).then(|| text_of(&element, self.source)),
             src: element.value(self.source, "src").map(str::to_owned),
             start,
             duration: number("data-duration").unwrap_or((scene.duration - start).max(0.0)),
@@ -136,9 +125,8 @@ pub(crate) fn sketch(source: &str) -> Result<Sketch, Error> {
     let mut start = 0.0;
     for (index, (unit, parsed)) in doc.units.iter().zip(project.scenes()).enumerate() {
         let scene = unit.scene(index, start, parsed);
-        let text = if parsed.layout == scene::Layout::Raw { unit.body.concat() } else { masked(&unit.body) };
-        let text = &text[..text.len().min(source.len() - unit.at)];
-        let timed = elements(text, unit.at).into_iter().filter(|element| element.attr("data-start").is_some());
+        let text = readable(source, unit, parsed.layout == scene::Layout::Raw);
+        let timed = elements(&text, unit.at).into_iter().filter(|element| element.attr("data-start").is_some());
         let items = timed.enumerate().map(|(nth, element)| reading.clip(element, &scene, nth)).collect();
         start += parsed.duration;
         stages.push(Stage { scene, items, noted: parsed.note.is_some() });

@@ -6,6 +6,7 @@
 		open,
 		heading,
 		value = '',
+		label = t('project.title'),
 		confirm,
 		onsubmit,
 		onclose
@@ -14,6 +15,8 @@
 		heading: string;
 		/** The title the field opens with. */
 		value?: string;
+		/** The label of the field. */
+		label?: string;
 		/** The label of the submit button. */
 		confirm: string;
 		onsubmit: (title: string) => void | Promise<void>;
@@ -44,7 +47,7 @@
 
 <Modal {open} title={heading} size="sm" onClose={onclose}>
 	<form id={form} class="flex flex-col gap-4" onsubmit={submit}>
-		<Field label={t('project.title')}>
+		<Field {label}>
 			{#snippet children({ id })}
 				<Input {id} bind:value={draft} maxlength={200} required autofocus placeholder={t('project.untitled')} />
 			{/snippet}

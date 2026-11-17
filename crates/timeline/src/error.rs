@@ -27,6 +27,9 @@ pub enum Error {
     /// An op whose own values make no sense, whatever the source.
     #[error("invalid op: {0}")]
     Invalid(String),
+    /// `rename_media` was asked for a name the source already references.
+    #[error("the source already references `{0}`: pick another name")]
+    NameTaken(String),
     /// The edit was applied and the result is no longer a valid project. Nothing was returned.
     #[error("the edit produced a source that does not parse:\n{0}")]
     InvalidResult(String),
@@ -42,6 +45,7 @@ impl Error {
             Error::Overlap { .. } => "overlap",
             Error::OutOfBounds(_) => "out_of_bounds",
             Error::Invalid(_) => "invalid_op",
+            Error::NameTaken(_) => "name_taken",
             Error::InvalidResult(_) => "invalid_result",
         }
     }
